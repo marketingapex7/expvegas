@@ -21,7 +21,7 @@ export function EventCard({ event, badge }: { event: VegasEvent; badge?: string 
         <p className="text-sm leading-6 text-white/72">{event.quickVerdict}</p>
         <div>
           <p className="text-xs font-bold uppercase tracking-[0.2em] text-fuchsia-200">Best for</p>
-          <p className="mt-1 text-sm text-white/70">{event.bestFor.slice(0, 3).join(" · ")}</p>
+          <p className="mt-1 text-sm text-white/70">{event.bestFor.slice(0, 3).join(" / ")}</p>
         </div>
         <div className="flex gap-3 pt-2">
           <Link href={`/${event.category}/${event.slug}`} className="rounded-full border border-white/15 px-4 py-2 text-sm font-bold text-white transition hover:bg-white/10">
