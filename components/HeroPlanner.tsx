@@ -107,10 +107,19 @@ export function HeroPlanner() {
               </label>
 
               <div className="mt-4 grid gap-4 sm:grid-cols-2">
-                <label className="grid gap-2 text-sm font-bold text-white/75">
-                  Dates
-                  <input className="min-h-12 rounded-2xl border border-white/10 bg-black/35 px-4 py-3 text-white outline-none transition placeholder:text-white/35 focus:border-fuchsia-200/60" placeholder="Tonight, weekend, or dates" />
-                </label>
+                <div className="grid gap-2 text-sm font-bold text-white/75">
+                  <span>Trip dates</span>
+                  <div className="grid gap-2 sm:grid-cols-2">
+                    <label className="grid gap-1 text-xs font-bold uppercase tracking-[0.12em] text-white/45">
+                      Arrive
+                      <input type="date" className="min-h-12 rounded-2xl border border-white/10 bg-black/35 px-4 py-3 text-white [color-scheme:dark] outline-none transition focus:border-fuchsia-200/60" />
+                    </label>
+                    <label className="grid gap-1 text-xs font-bold uppercase tracking-[0.12em] text-white/45">
+                      Leave
+                      <input type="date" className="min-h-12 rounded-2xl border border-white/10 bg-black/35 px-4 py-3 text-white [color-scheme:dark] outline-none transition focus:border-fuchsia-200/60" />
+                    </label>
+                  </div>
+                </div>
                 <label className="grid gap-2 text-sm font-bold text-white/75">
                   Staying near
                   <input className="min-h-12 rounded-2xl border border-white/10 bg-black/35 px-4 py-3 text-white outline-none transition placeholder:text-white/35 focus:border-fuchsia-200/60" placeholder="Sphere, Bellagio, MGM..." />
@@ -122,10 +131,11 @@ export function HeroPlanner() {
                   </select>
                 </label>
                 <label className="grid gap-2 text-sm font-bold text-white/75">
-                  Budget
+                  Budget per person for the night
                   <select className="min-h-12 rounded-2xl border border-white/10 bg-black/35 px-4 py-3 text-white outline-none transition focus:border-fuchsia-200/60">
-                    <option>$50-$100 each</option><option>Under $50 each</option><option>$100-$200 each</option><option>Premium</option>
+                    <option>$75-$150 per person</option><option>Under $75 per person</option><option>$150-$250 per person</option><option>Premium / flexible</option>
                   </select>
+                  <span className="text-xs font-semibold leading-5 text-white/45">Used for tickets and night-out plans, not hotel or flight budget.</span>
                 </label>
               </div>
 
