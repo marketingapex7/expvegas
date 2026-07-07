@@ -1,8 +1,9 @@
 export type PlannerInput = {
   travelDates?: string;
-  groupType: string;
-  budget: string;
-  vibe: string;
+  prompt?: string;
+  groupType?: string;
+  budget?: string;
+  vibe?: string;
   stayingNear?: string;
   dealbreakers?: string;
 };
@@ -16,4 +17,10 @@ export type PlannerOutput = {
   cheaperVersion?: string;
   premiumVersion?: string;
   avoid?: string[];
+};
+
+export type PlannerResponse = PlannerOutput & {
+  bestPickName: string;
+  backupPickNames: string[];
+  sourceSummary?: string;
 };

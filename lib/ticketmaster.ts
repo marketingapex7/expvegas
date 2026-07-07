@@ -33,6 +33,13 @@ type TicketmasterEvent = {
   url?: string;
   info?: string;
   pleaseNote?: string;
+  dates?: {
+    start?: {
+      localDate?: string;
+      localTime?: string;
+      dateTime?: string;
+    };
+  };
   images?: TicketmasterImage[];
   priceRanges?: TicketmasterPriceRange[];
   classifications?: TicketmasterClassification[];
@@ -90,12 +97,32 @@ function bestImage(images?: TicketmasterImage[]) {
     .sort((a, b) => (b.width || 0) * (b.height || 0) - (a.width || 0) * (a.height || 0))[0]?.url;
 }
 
+function formatEventDate(localDate?: string, localTime?: string) {
+  if (!localDate) return "";
+
+  const formattedDate = new Intl.DateTimeFormat("en-US", {
+    weekday: "short",
+    month: "short",
+    day: "numeric",
+  }).format(new Date(`${localDate}T00:00:00`));
+
+  if (!localTime) return formattedDate;
+
+  const formattedTime = new Intl.DateTimeFormat("en-US", {
+    hour: "numeric",
+    minute: "2-digit",
+  }).format(new Date(`${localDate}T${localTime}`));
+
+  return `${formattedDate} at ${formattedTime}`;
+}
+
 function normalizeTicketmasterEvent(event: TicketmasterEvent): VegasEvent {
   const classification = event.classifications?.[0];
   const venue = event._embedded?.venues?.[0];
   const category = classificationToCategory(classification);
   const priceRange = event.priceRanges?.[0];
   const subcategory = classification?.genre?.name || classification?.subGenre?.name || classification?.segment?.name;
+  const eventDate = formatEventDate(event.dates?.start?.localDate, event.dates?.start?.localTime);
 
   return {
     id: `ticketmaster-${event.id}`,
@@ -107,11 +134,14 @@ function normalizeTicketmasterEvent(event: TicketmasterEvent): VegasEvent {
     area: venue?.city?.name === "Las Vegas" ? "Las Vegas" : venue?.city?.name || "Las Vegas",
     priceMin: priceRange?.min,
     priceMax: priceRange?.max,
+    startDateTime: event.dates?.start?.dateTime,
+    localDate: event.dates?.start?.localDate,
+    localTime: event.dates?.start?.localTime,
     tags: [category, subcategory, venue?.name].filter(Boolean).map((tag) => String(tag).toLowerCase()),
     bestFor: ["Date-specific plans", "Visitors comparing live events"],
     skipIf: ["You only want curated editorial picks"],
     shortDescription: event.info || `${event.name} in Las Vegas.`,
-    quickVerdict: `${event.name} is a live Vegas event from Ticketmaster${venue?.name ? ` at ${venue.name}` : ""}.`,
+    quickVerdict: `${event.name} is a live Vegas event from Ticketmaster${venue?.name ? ` at ${venue.name}` : ""}${eventDate ? ` on ${eventDate}` : ""}.`,
     affiliateUrl: event.url || "#",
     imageUrl: bestImage(event.images),
     editorialScore: 78,

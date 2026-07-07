@@ -2,17 +2,7 @@
 
 import { useState } from "react";
 import { CalendarDays } from "lucide-react";
-
-type PlannerResponse = {
-  headline: string;
-  bestPickName: string;
-  whyItFits: string;
-  timeline: { time: string; title: string; description?: string }[];
-  backupPickNames: string[];
-  cheaperVersion?: string;
-  premiumVersion?: string;
-  avoid?: string[];
-};
+import { PlannerResponse } from "@/types/planner";
 
 export function PlannerForm() {
   const [result, setResult] = useState<PlannerResponse | null>(null);
@@ -93,6 +83,7 @@ export function PlannerForm() {
               <p className="text-sm font-black uppercase tracking-[0.25em] text-fuchsia-200">{result.headline}</p>
               <h3 className="mt-3 text-4xl font-black text-white">{result.bestPickName}</h3>
               <p className="mt-4 leading-7 text-white/70">{result.whyItFits}</p>
+              {result.sourceSummary ? <p className="mt-3 text-sm font-bold text-white/45">{result.sourceSummary}</p> : null}
             </div>
             <div>
               <p className="font-black text-white">Suggested night</p>

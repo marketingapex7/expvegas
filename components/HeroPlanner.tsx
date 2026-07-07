@@ -2,6 +2,7 @@
 
 import { FormEvent, useMemo, useState } from "react";
 import { ArrowRight, CalendarDays, Loader2, MapPin, Sparkles, Users, WalletCards } from "lucide-react";
+import { PlannerResponse } from "@/types/planner";
 
 const helperGroups = [
   {
@@ -60,7 +61,8 @@ export function HeroPlanner() {
   const [selectedHelpers, setSelectedHelpers] = useState<string[]>([]);
   const [arrivalDate, setArrivalDate] = useState("");
   const [departureDate, setDepartureDate] = useState("");
-  const [hasGenerated, setHasGenerated] = useState(false);
+  const [result, setResult] = useState<PlannerResponse | null>(null);
+  const [loading, setLoading] = useState(false);
 
   const helperSummary = useMemo(() => {
     if (selectedHelpers.length === 0) return "Add dates, budget, group, area, and vibe when you know them.";
@@ -96,9 +98,33 @@ export function HeroPlanner() {
     setPrompt((current) => upsertPromptSentence(current, "Dates", `Dates: ${dateText}.`));
   }
 
-  function handleSubmit(event: FormEvent<HTMLFormElement>) {
+  function selectedValue(label: string) {
+    return selectedHelpers.find((helper) => helper.startsWith(`${label}:`))?.split(":").slice(1).join(":");
+  }
+
+  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    setHasGenerated(true);
+    setLoading(true);
+    setResult(null);
+
+    const travelDates =
+      arrivalDate && departureDate ? `${arrivalDate} to ${departureDate}` : arrivalDate || departureDate;
+
+    const response = await fetch("/api/planner", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        prompt,
+        travelDates,
+        budget: selectedValue("Budget"),
+        groupType: selectedValue("Group"),
+        stayingNear: selectedValue("Area"),
+        vibe: selectedValue("Vibe") || prompt,
+      }),
+    });
+
+    setResult(await response.json());
+    setLoading(false);
   }
 
   return (
@@ -192,14 +218,14 @@ export function HeroPlanner() {
 
             <div className="mt-4 flex flex-col gap-3 border-t border-white/10 pt-4 sm:flex-row sm:items-center sm:justify-between">
               <p className="text-sm font-bold text-white/45">{helperSummary}</p>
-              <button className="inline-flex min-h-12 items-center justify-center gap-2 rounded-lg bg-white px-5 py-3 font-black text-black transition hover:bg-amber-100 sm:min-w-56">
-                Build My Experience <ArrowRight className="h-4 w-4" />
+              <button disabled={loading} className="inline-flex min-h-12 items-center justify-center gap-2 rounded-lg bg-white px-5 py-3 font-black text-black transition hover:bg-amber-100 disabled:cursor-wait disabled:opacity-70 sm:min-w-56">
+                {loading ? "Building..." : "Build My Experience"} {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <ArrowRight className="h-4 w-4" />}
               </button>
             </div>
           </div>
         </form>
 
-        {hasGenerated ? (
+        {loading ? (
           <div className="mx-auto mt-5 rounded-lg border border-amber-100/20 bg-amber-100/[0.08] p-5">
             <p className="inline-flex items-center gap-2 text-sm font-black text-amber-100">
               <Loader2 className="h-4 w-4 animate-spin" /> Planning your experience
@@ -209,6 +235,29 @@ export function HeroPlanner() {
               <p className="rounded-lg bg-black/25 p-4">Scoring shows, comedy, sports, concerts, and attractions for fit.</p>
               <p className="rounded-lg bg-black/25 p-4">Building a short, bookable plan with strong nearby options.</p>
             </div>
+          </div>
+        ) : null}
+
+        {result ? (
+          <div className="mx-auto mt-5 rounded-lg border border-amber-100/20 bg-white/[0.07] p-5">
+            <p className="text-xs font-black uppercase tracking-[0.22em] text-amber-100">{result.headline}</p>
+            <h2 className="mt-3 text-3xl font-black leading-tight text-white">{result.bestPickName}</h2>
+            <p className="mt-3 leading-7 text-white/70">{result.whyItFits}</p>
+            {result.sourceSummary ? <p className="mt-3 text-sm font-bold text-white/45">{result.sourceSummary}</p> : null}
+            <div className="mt-5 grid gap-3 md:grid-cols-3">
+              {result.timeline.map((item) => (
+                <div key={`${item.time}-${item.title}`} className="rounded-lg bg-black/25 p-4">
+                  <p className="text-sm font-black text-amber-100">{item.time}</p>
+                  <p className="mt-1 font-bold text-white">{item.title}</p>
+                  {item.description ? <p className="mt-2 text-sm leading-6 text-white/60">{item.description}</p> : null}
+                </div>
+              ))}
+            </div>
+            {result.backupPickNames.length > 0 ? (
+              <p className="mt-4 text-sm text-white/55">
+                Backup picks: <span className="font-bold text-white/72">{result.backupPickNames.join(" / ")}</span>
+              </p>
+            ) : null}
           </div>
         ) : null}
       </div>

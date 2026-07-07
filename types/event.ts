@@ -12,6 +12,9 @@ export type VegasEvent = {
   priceMax?: number;
   ageRestriction?: string;
   runtimeMinutes?: number;
+  startDateTime?: string;
+  localDate?: string;
+  localTime?: string;
   tags: string[];
   bestFor: string[];
   skipIf: string[];
