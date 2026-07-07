@@ -28,7 +28,7 @@ export type PlannerOutput = {
 export type ItineraryBlock = {
   time: string;
   title: string;
-  category: "meal" | "event" | "attraction" | "casino" | "transit" | "free";
+  category: "meal" | "event" | "attraction" | "casino" | "shopping" | "transit" | "free";
   location?: string;
   description?: string;
   bookingUrl?: string;

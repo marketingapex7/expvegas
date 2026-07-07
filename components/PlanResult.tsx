@@ -28,6 +28,8 @@ function actionForCategory(category: string, bookingUrl?: string) {
   if (category === "meal") return "Reserve Table";
   if (category === "attraction") return "View Nearby";
   if (category === "casino") return "Map It";
+  if (category === "shopping") return "Window Shop";
+  if (category === "free") return "Explore";
   return "Swap Pick";
 }
 

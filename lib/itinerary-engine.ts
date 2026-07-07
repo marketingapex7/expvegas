@@ -1,4 +1,4 @@
-import { attractionStops, casinoStops, PlanningStop } from "@/data/planning-stops";
+import { attractionStops, casinoStops, freeExperienceStops, PlanningStop } from "@/data/planning-stops";
 import { restaurants, VegasRestaurant } from "@/data/restaurants";
 import { VegasEvent } from "@/types/event";
 import { ItineraryBlock, ItineraryDay, PlannerInput } from "@/types/planner";
@@ -126,6 +126,8 @@ function priceHint(event: VegasEvent) {
 
 function buildBlocks(date: string, dayIndex: number, input: PlannerInput, events: VegasEvent[]): ItineraryBlock[] {
   const attraction = pickStop(attractionStops, input, dayIndex);
+  const freeExperience = pickStop(freeExperienceStops, input, dayIndex);
+  const secondFreeExperience = pickStop(freeExperienceStops, input, dayIndex + 3);
   const dinner = pickRestaurant(input, dayIndex + 2);
   const lunchRestaurant = pickRestaurant(input, dayIndex + 6);
   const casino = pickStop(casinoStops, input, dayIndex);
@@ -135,6 +137,8 @@ function buildBlocks(date: string, dayIndex: number, input: PlannerInput, events
   const slowMorning = text.includes("slow morning");
   const packed = text.includes("packed");
   const noGambling = text.includes("no gambling");
+  const shoppingFocused = text.includes("shopping") || text.includes("shop");
+  const freeFocused = text.includes("free") || text.includes("cheap") || text.includes("budget") || text.includes("under");
 
   const blocks: ItineraryBlock[] = [
     {
@@ -147,18 +151,18 @@ function buildBlocks(date: string, dayIndex: number, input: PlannerInput, events
     },
     {
       time: slowMorning ? "2:00 PM" : "1:00 PM",
-      title: attraction.name,
-      category: "attraction",
-      location: attraction.area,
-      description: attraction.description,
+      title: shoppingFocused || freeFocused ? freeExperience.name : attraction.name,
+      category: shoppingFocused ? "shopping" : shoppingFocused || freeFocused ? "free" : "attraction",
+      location: shoppingFocused || freeFocused ? freeExperience.area : attraction.area,
+      description: shoppingFocused || freeFocused ? freeExperience.description : attraction.description,
     },
     noGambling
       ? {
           time: "4:00 PM",
-          title: "Hotel reset, lounge, or extra Strip walk",
-          category: "free",
-          location: attraction.area,
-          description: "Keeps the plan Vegas-feeling without forcing casino time.",
+          title: secondFreeExperience.name,
+          category: secondFreeExperience.tags.includes("shopping") ? "shopping" : "free",
+          location: secondFreeExperience.area,
+          description: "Keeps the plan Vegas-feeling without forcing casino time. " + secondFreeExperience.description,
         }
       : {
           time: "4:00 PM",
@@ -198,19 +202,21 @@ function buildBlocks(date: string, dayIndex: number, input: PlannerInput, events
 
   blocks.push({
     time: "10:30 PM",
-    title: noGambling ? "Dessert, views, or a walkable lounge nearby" : "Walkable drinks, casino time, or dessert nearby",
-    category: noGambling ? "free" : "casino",
+    title: noGambling ? "Dessert, views, or a walkable lounge nearby" : secondFreeExperience.name,
+    category: noGambling ? "free" : secondFreeExperience.tags.includes("shopping") ? "shopping" : "free",
     location: mainEvent?.venueName || dinner.area,
-    description: "Keep the final stop close to avoid long rides after the main event.",
+    description: noGambling
+      ? "Keep the final stop close to avoid long rides after the main event."
+      : `Use this as a flexible, non-ticketed decompression stop. ${secondFreeExperience.description}`,
   });
 
   if (packed) {
     blocks.splice(2, 0, {
       time: "3:00 PM",
-      title: "Quick bonus stop nearby",
-      category: "attraction",
-      location: attraction.area,
-      description: "A short extra stop added because you asked for a fuller schedule.",
+      title: freeExperience.name,
+      category: freeExperience.tags.includes("shopping") ? "shopping" : "free",
+      location: freeExperience.area,
+      description: "A short, no-ticket bonus stop added because you asked for a fuller schedule. " + freeExperience.description,
     });
   }
 
@@ -222,7 +228,7 @@ function dayTheme(dayIndex: number, event?: VegasEvent) {
   if (event?.category === "sports") return "Arena energy and easy post-game logistics";
   if (event?.category === "concerts") return "Dinner, headline energy, and late-night momentum";
   if (event?.category === "comedy") return "Flexible day, easy laughs, and low-friction nightlife";
-  return "Balanced Vegas day with food, exploring, gambling, and a main event";
+  return "Balanced Vegas day with food, free exploring, optional gambling, and a main event";
 }
 
 export function buildItinerary({ plannerInput, startDate, endDate, rankedEvents }: BuildItineraryInput): ItineraryDay[] {
