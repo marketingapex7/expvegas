@@ -1,0 +1,114 @@
+export type PlanningStop = {
+  name: string;
+  area: string;
+  tags: string[];
+  budget: "value" | "mid" | "premium";
+  description: string;
+};
+
+export const restaurantStops: PlanningStop[] = [
+  {
+    name: "Best Friend",
+    area: "Park MGM",
+    tags: ["friends", "date", "fun", "mid", "south strip"],
+    budget: "mid",
+    description: "High-energy Korean-American dinner that works before T-Mobile Arena, Park MGM, or Dolby Live plans.",
+  },
+  {
+    name: "Mon Ami Gabi",
+    area: "Paris Las Vegas",
+    tags: ["couple", "classic", "bellagio", "mid", "first-timers"],
+    budget: "mid",
+    description: "Reliable Strip dinner with Bellagio fountain energy and easy walking logistics.",
+  },
+  {
+    name: "Secret Pizza",
+    area: "The Cosmopolitan",
+    tags: ["value", "late-night", "friends", "quick"],
+    budget: "value",
+    description: "Fast, casual, and useful when the group wants to save budget for the main event.",
+  },
+  {
+    name: "Carbone",
+    area: "ARIA",
+    tags: ["premium", "date", "couple", "classic", "south strip"],
+    budget: "premium",
+    description: "Polished premium dinner when the night should feel like a splurge.",
+  },
+  {
+    name: "Din Tai Fung",
+    area: "ARIA",
+    tags: ["family", "friends", "mid", "south strip"],
+    budget: "mid",
+    description: "Group-friendly dinner with broad appeal and clean logistics near ARIA and Park MGM.",
+  },
+  {
+    name: "Tacos El Gordo",
+    area: "North Strip",
+    tags: ["value", "friends", "casual", "late-night"],
+    budget: "value",
+    description: "A strong casual food stop when the group wants flavor without burning the ticket budget.",
+  },
+];
+
+export const attractionStops: PlanningStop[] = [
+  {
+    name: "Bellagio Conservatory and Fountains",
+    area: "Bellagio",
+    tags: ["free", "couple", "family", "classic", "bellagio"],
+    budget: "value",
+    description: "Easy, photogenic Vegas stop that fits before dinner or after brunch.",
+  },
+  {
+    name: "High Roller Observation Wheel",
+    area: "The LINQ Promenade",
+    tags: ["views", "family", "couple", "mid", "center strip"],
+    budget: "mid",
+    description: "Simple Strip-view attraction that is easy to schedule between meals and shows.",
+  },
+  {
+    name: "Sphere exterior and Venetian walk",
+    area: "Near Sphere",
+    tags: ["sphere", "views", "free", "first-timers"],
+    budget: "value",
+    description: "A low-friction visual stop near Venetian and Sphere plans.",
+  },
+  {
+    name: "AREA15",
+    area: "Off Strip",
+    tags: ["immersive", "friends", "family", "not too touristy"],
+    budget: "mid",
+    description: "Good afternoon option for groups that want something more immersive than a casino walk.",
+  },
+];
+
+export const casinoStops: PlanningStop[] = [
+  {
+    name: "The Cosmopolitan casino floor",
+    area: "The Cosmopolitan",
+    tags: ["couple", "friends", "center strip", "cocktails"],
+    budget: "mid",
+    description: "Stylish casino energy with strong nearby bars and restaurants.",
+  },
+  {
+    name: "Park MGM / NoMad casino",
+    area: "Park MGM",
+    tags: ["south strip", "date", "sports", "concert"],
+    budget: "mid",
+    description: "Convenient gambling stop before or after T-Mobile Arena, Dolby Live, or ARIA plans.",
+  },
+  {
+    name: "Caesars Palace casino",
+    area: "Caesars Palace",
+    tags: ["classic", "first-timers", "center strip", "bachelor"],
+    budget: "premium",
+    description: "Big classic Vegas casino energy near Absinthe, the Forum Shops, and the Colosseum.",
+  },
+  {
+    name: "Ellis Island",
+    area: "East of Strip",
+    tags: ["value", "casual", "friends", "low budget"],
+    budget: "value",
+    description: "Lower-key gambling and food stop when the group wants value over spectacle.",
+  },
+];

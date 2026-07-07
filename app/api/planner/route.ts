@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { seedEvents } from "@/data/seed-events";
+import { buildItinerary } from "@/lib/itinerary-engine";
 import { rankEvents } from "@/lib/scoring";
 import { searchTicketmasterEvents } from "@/lib/ticketmaster";
 import { EventCategory, VegasEvent } from "@/types/event";
@@ -69,9 +70,10 @@ export async function POST(request: Request) {
   const ranked = rankEvents([...liveEvents, ...seedEvents], input);
   const best = ranked[0];
   const backups = ranked.slice(1, 4);
+  const itineraryDays = buildItinerary({ plannerInput: input, startDate, endDate, rankedEvents: ranked });
 
   const output: PlannerResponse = {
-    headline: liveEvents.length > 0 ? "Your Best Vegas Night From Live Events" : "Your Best Vegas Night",
+    headline: liveEvents.length > 0 ? "Your Timed Vegas Itinerary From Live Events" : "Your Timed Vegas Itinerary",
     bestPickId: best.id,
     bestPickName: best.name,
     whyItFits: buildWhyItFits(best, input, liveEvents.length),
@@ -89,6 +91,7 @@ export async function POST(request: Request) {
       liveEvents.length > 0
         ? `Included ${liveEvents.length} live Ticketmaster event${liveEvents.length === 1 ? "" : "s"} for the selected dates.`
         : "No live Ticketmaster events were available, so this used curated ExperienceVegas picks.",
+    itineraryDays,
   };
 
   return NextResponse.json(output);

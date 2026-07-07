@@ -86,16 +86,38 @@ export function PlannerForm() {
               {result.sourceSummary ? <p className="mt-3 text-sm font-bold text-white/45">{result.sourceSummary}</p> : null}
             </div>
             <div>
-              <p className="font-black text-white">Suggested night</p>
-              <div className="mt-3 grid gap-3">
-                {result.timeline.map((item) => (
-                  <div key={`${item.time}-${item.title}`} className="rounded-2xl bg-black/25 p-4">
-                    <p className="text-sm font-black text-fuchsia-200">{item.time}</p>
-                    <p className="mt-1 font-bold text-white">{item.title}</p>
-                    {item.description ? <p className="mt-1 text-sm text-white/60">{item.description}</p> : null}
-                  </div>
-                ))}
-              </div>
+              <p className="font-black text-white">Timed itinerary</p>
+              {result.itineraryDays?.length ? (
+                <div className="mt-3 grid gap-5">
+                  {result.itineraryDays.map((day) => (
+                    <section key={day.date} className="rounded-2xl bg-black/20 p-4">
+                      <p className="text-sm font-black text-fuchsia-200">{day.label}</p>
+                      <h4 className="mt-1 text-xl font-black text-white">{day.theme}</h4>
+                      <div className="mt-4 grid gap-3">
+                        {day.blocks.map((block) => (
+                          <div key={`${day.date}-${block.time}-${block.title}`} className="rounded-2xl bg-black/25 p-4">
+                            <p className="text-sm font-black text-fuchsia-200">{block.time}</p>
+                            <p className="mt-1 font-bold text-white">{block.title}</p>
+                            {block.location ? <p className="mt-1 text-xs font-bold uppercase tracking-[0.16em] text-white/40">{block.location}</p> : null}
+                            {block.description ? <p className="mt-2 text-sm leading-6 text-white/60">{block.description}</p> : null}
+                            {block.priceHint ? <p className="mt-2 text-sm font-bold text-white/70">{block.priceHint}</p> : null}
+                          </div>
+                        ))}
+                      </div>
+                    </section>
+                  ))}
+                </div>
+              ) : (
+                <div className="mt-3 grid gap-3">
+                  {result.timeline.map((item) => (
+                    <div key={`${item.time}-${item.title}`} className="rounded-2xl bg-black/25 p-4">
+                      <p className="text-sm font-black text-fuchsia-200">{item.time}</p>
+                      <p className="mt-1 font-bold text-white">{item.title}</p>
+                      {item.description ? <p className="mt-1 text-sm text-white/60">{item.description}</p> : null}
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
             <div className="grid gap-4 md:grid-cols-2">
               <div className="rounded-2xl bg-black/25 p-4">

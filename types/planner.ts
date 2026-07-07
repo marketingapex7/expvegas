@@ -19,8 +19,26 @@ export type PlannerOutput = {
   avoid?: string[];
 };
 
+export type ItineraryBlock = {
+  time: string;
+  title: string;
+  category: "meal" | "event" | "attraction" | "casino" | "transit" | "free";
+  location?: string;
+  description?: string;
+  bookingUrl?: string;
+  priceHint?: string;
+};
+
+export type ItineraryDay = {
+  date: string;
+  label: string;
+  theme: string;
+  blocks: ItineraryBlock[];
+};
+
 export type PlannerResponse = PlannerOutput & {
   bestPickName: string;
   backupPickNames: string[];
   sourceSummary?: string;
+  itineraryDays?: ItineraryDay[];
 };
