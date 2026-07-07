@@ -16,7 +16,7 @@ export function Header() {
           ))}
         </nav>
         <Link href="/planner" className="rounded-full bg-white px-4 py-2 text-sm font-bold text-black transition hover:bg-fuchsia-100">
-          Find My Night
+          Build my Experience
         </Link>
       </div>
     </header>
