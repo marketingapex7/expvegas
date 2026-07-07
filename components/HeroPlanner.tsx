@@ -4,6 +4,34 @@ import { FormEvent, useMemo, useState } from "react";
 import { ArrowRight, CalendarDays, Loader2, MapPin, Sparkles, Users, WalletCards } from "lucide-react";
 import { PlannerResponse } from "@/types/planner";
 
+const refinementGroups = [
+  {
+    label: "Food",
+    key: "foodPreference",
+    options: ["Steakhouse", "Buffet", "Celebrity chef", "Casual and fast", "Italian", "Asian", "Mexican", "Cheap eats", "Surprise me"],
+  },
+  {
+    label: "Meal budget",
+    key: "mealBudget",
+    options: ["Save money for events", "Balanced meals and tickets", "Food is a big part", "One premium dinner"],
+  },
+  {
+    label: "Gambling",
+    key: "gamblingPreference",
+    options: ["No gambling", "Light casino time", "Slots", "Table games", "Poker", "Sportsbook", "Casino atmosphere"],
+  },
+  {
+    label: "Pace",
+    key: "pace",
+    options: ["Packed schedule", "Balanced", "Slow mornings", "Late nights", "Family-friendly pace"],
+  },
+  {
+    label: "Logistics",
+    key: "logistics",
+    options: ["Keep it walkable", "Rideshares are fine", "Stay near hotel", "Avoid long lines"],
+  },
+] as const;
+
 const helperGroups = [
   {
     label: "Budget",
@@ -63,6 +91,9 @@ export function HeroPlanner() {
   const [departureDate, setDepartureDate] = useState("");
   const [result, setResult] = useState<PlannerResponse | null>(null);
   const [loading, setLoading] = useState(false);
+  const [showRefinements, setShowRefinements] = useState(false);
+  const [refinements, setRefinements] = useState<Record<string, string>>({});
+  const [additionalDetails, setAdditionalDetails] = useState("");
 
   const helperSummary = useMemo(() => {
     if (selectedHelpers.length === 0) return "Add dates, budget, group, area, and vibe when you know them.";
@@ -102,8 +133,11 @@ export function HeroPlanner() {
     return selectedHelpers.find((helper) => helper.startsWith(`${label}:`))?.split(":").slice(1).join(":");
   }
 
-  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
+  function setRefinement(key: string, value: string) {
+    setRefinements((current) => ({ ...current, [key]: value }));
+  }
+
+  async function buildPlan() {
     setLoading(true);
     setResult(null);
 
@@ -120,11 +154,29 @@ export function HeroPlanner() {
         groupType: selectedValue("Group"),
         stayingNear: selectedValue("Area"),
         vibe: selectedValue("Vibe") || prompt,
+        foodPreference: refinements.foodPreference,
+        mealBudget: refinements.mealBudget,
+        gamblingPreference: refinements.gamblingPreference,
+        pace: refinements.pace,
+        logistics: refinements.logistics,
+        additionalDetails,
       }),
     });
 
     setResult(await response.json());
     setLoading(false);
+  }
+
+  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+
+    if (!showRefinements) {
+      setShowRefinements(true);
+      setResult(null);
+      return;
+    }
+
+    await buildPlan();
   }
 
   return (
@@ -216,10 +268,63 @@ export function HeroPlanner() {
               </div>
             </div>
 
+            {showRefinements ? (
+              <div className="mt-4 border-t border-white/10 pt-4">
+                <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
+                  <div>
+                    <p className="text-xs font-black uppercase tracking-[0.22em] text-amber-100">Tune your itinerary</p>
+                    <h2 className="mt-2 text-2xl font-black text-white">A few quick choices make the plan much better.</h2>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => buildPlan()}
+                    disabled={loading}
+                    className="inline-flex min-h-11 items-center justify-center gap-2 rounded-lg bg-amber-200 px-4 py-3 text-sm font-black text-black transition hover:bg-amber-100 disabled:cursor-wait disabled:opacity-70"
+                  >
+                    {loading ? "Building..." : "Build with these options"} {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <ArrowRight className="h-4 w-4" />}
+                  </button>
+                </div>
+                <div className="mt-5 grid gap-3 lg:grid-cols-5">
+                  {refinementGroups.map((group) => (
+                    <div key={group.key} className="rounded-lg border border-white/10 bg-white/[0.04] p-3">
+                      <p className="mb-3 text-xs font-black uppercase tracking-[0.16em] text-white/50">{group.label}</p>
+                      <div className="flex flex-wrap gap-2 lg:block lg:space-y-2">
+                        {group.options.map((option) => {
+                          const isSelected = refinements[group.key] === option;
+
+                          return (
+                            <button
+                              key={option}
+                              type="button"
+                              onClick={() => setRefinement(group.key, option)}
+                              className={`rounded-full px-3 py-2 text-left text-xs font-bold leading-5 transition lg:w-full ${
+                                isSelected ? "bg-amber-200 text-black" : "bg-white/10 text-white/72 hover:bg-white/15"
+                              }`}
+                            >
+                              {option}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+                <label className="mt-4 grid gap-2 text-sm font-bold text-white/70">
+                  Anything else we should know?
+                  <textarea
+                    value={additionalDetails}
+                    onChange={(event) => setAdditionalDetails(event.target.value)}
+                    className="min-h-20 resize-none rounded-lg border border-white/10 bg-black/35 px-4 py-3 text-white outline-none transition placeholder:text-white/35 focus:border-amber-100/70"
+                    placeholder="Dietary restrictions, must-see restaurants, no late nights, celebrating a birthday..."
+                  />
+                </label>
+              </div>
+            ) : null}
+
             <div className="mt-4 flex flex-col gap-3 border-t border-white/10 pt-4 sm:flex-row sm:items-center sm:justify-between">
               <p className="text-sm font-bold text-white/45">{helperSummary}</p>
               <button disabled={loading} className="inline-flex min-h-12 items-center justify-center gap-2 rounded-lg bg-white px-5 py-3 font-black text-black transition hover:bg-amber-100 disabled:cursor-wait disabled:opacity-70 sm:min-w-56">
-                {loading ? "Building..." : "Build My Experience"} {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <ArrowRight className="h-4 w-4" />}
+                {loading ? "Building..." : showRefinements ? "Build with these options" : "Build My Experience"} {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <ArrowRight className="h-4 w-4" />}
               </button>
             </div>
           </div>

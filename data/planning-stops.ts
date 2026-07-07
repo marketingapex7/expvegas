@@ -8,6 +8,20 @@ export type PlanningStop = {
 
 export const restaurantStops: PlanningStop[] = [
   {
+    name: "Bacchanal Buffet",
+    area: "Caesars Palace",
+    tags: ["buffet", "premium", "caesars", "first-timers", "family", "food is a big part"],
+    budget: "premium",
+    description: "Big Vegas buffet energy for groups that want variety and a classic indulgent meal.",
+  },
+  {
+    name: "Golden Steer Steakhouse",
+    area: "West of Strip",
+    tags: ["steakhouse", "steak", "premium", "classic", "date", "splurge"],
+    budget: "premium",
+    description: "Old-school Vegas steakhouse choice when dinner should be one of the trip anchors.",
+  },
+  {
     name: "Best Friend",
     area: "Park MGM",
     tags: ["friends", "date", "fun", "mid", "south strip"],
@@ -31,21 +45,21 @@ export const restaurantStops: PlanningStop[] = [
   {
     name: "Carbone",
     area: "ARIA",
-    tags: ["premium", "date", "couple", "classic", "south strip"],
+    tags: ["premium", "date", "couple", "classic", "south strip", "italian", "fine dining", "celebrity chef"],
     budget: "premium",
     description: "Polished premium dinner when the night should feel like a splurge.",
   },
   {
     name: "Din Tai Fung",
     area: "ARIA",
-    tags: ["family", "friends", "mid", "south strip"],
+    tags: ["family", "friends", "mid", "south strip", "asian"],
     budget: "mid",
     description: "Group-friendly dinner with broad appeal and clean logistics near ARIA and Park MGM.",
   },
   {
     name: "Tacos El Gordo",
     area: "North Strip",
-    tags: ["value", "friends", "casual", "late-night"],
+    tags: ["value", "friends", "casual", "late-night", "mexican", "cheap eats"],
     budget: "value",
     description: "A strong casual food stop when the group wants flavor without burning the ticket budget.",
   },

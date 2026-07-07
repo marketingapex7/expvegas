@@ -34,11 +34,14 @@ function formatDayLabel(date: string) {
 function textFor(input: PlannerInput) {
   return `${input.prompt || ""} ${input.groupType || ""} ${input.budget || ""} ${input.vibe || ""} ${
     input.stayingNear || ""
+  } ${input.foodPreference || ""} ${input.mealBudget || ""} ${input.gamblingPreference || ""} ${
+    input.pace || ""
+  } ${input.logistics || ""} ${input.additionalDetails || ""
   }`.toLowerCase();
 }
 
 function budgetPreference(input: PlannerInput): PlanningStop["budget"] | undefined {
-  const text = `${input.prompt || ""} ${input.budget || ""}`.toLowerCase();
+  const text = `${input.prompt || ""} ${input.budget || ""} ${input.mealBudget || ""}`.toLowerCase();
   if (text.includes("under") || text.includes("cheap") || text.includes("value") || text.includes("$50")) return "value";
   if (text.includes("premium") || text.includes("splurge") || text.includes("worth it")) return "premium";
   return "mid";
@@ -91,29 +94,41 @@ function buildBlocks(date: string, dayIndex: number, input: PlannerInput, events
   const casino = pickStop(casinoStops, input, dayIndex);
   const dayEvents = eventsForDay(events, date);
   const mainEvent = dayEvents[0];
+  const text = textFor(input);
+  const slowMorning = text.includes("slow morning");
+  const packed = text.includes("packed");
+  const noGambling = text.includes("no gambling");
 
   const blocks: ItineraryBlock[] = [
     {
-      time: "11:00 AM",
+      time: slowMorning ? "12:00 PM" : "11:00 AM",
       title: lunch.name,
       category: "meal",
       location: lunch.area,
       description: lunch.description,
     },
     {
-      time: "1:00 PM",
+      time: slowMorning ? "2:00 PM" : "1:00 PM",
       title: attraction.name,
       category: "attraction",
       location: attraction.area,
       description: attraction.description,
     },
-    {
-      time: "4:00 PM",
-      title: casino.name,
-      category: "casino",
-      location: casino.area,
-      description: casino.description,
-    },
+    noGambling
+      ? {
+          time: "4:00 PM",
+          title: "Hotel reset, lounge, or extra Strip walk",
+          category: "free",
+          location: attraction.area,
+          description: "Keeps the plan Vegas-feeling without forcing casino time.",
+        }
+      : {
+          time: "4:00 PM",
+          title: casino.name,
+          category: "casino",
+          location: casino.area,
+          description: casino.description,
+        },
     {
       time: "6:00 PM",
       title: dinner.name,
@@ -144,11 +159,21 @@ function buildBlocks(date: string, dayIndex: number, input: PlannerInput, events
 
   blocks.push({
     time: "10:30 PM",
-    title: "Walkable drinks, casino time, or dessert nearby",
-    category: "casino",
+    title: noGambling ? "Dessert, views, or a walkable lounge nearby" : "Walkable drinks, casino time, or dessert nearby",
+    category: noGambling ? "free" : "casino",
     location: mainEvent?.venueName || dinner.area,
     description: "Keep the final stop close to avoid long rides after the main event.",
   });
+
+  if (packed) {
+    blocks.splice(2, 0, {
+      time: "3:00 PM",
+      title: "Quick bonus stop nearby",
+      category: "attraction",
+      location: attraction.area,
+      description: "A short extra stop added because you asked for a fuller schedule.",
+    });
+  }
 
   return blocks;
 }

@@ -6,6 +6,12 @@ export type PlannerInput = {
   vibe?: string;
   stayingNear?: string;
   dealbreakers?: string;
+  foodPreference?: string;
+  mealBudget?: string;
+  gamblingPreference?: string;
+  pace?: string;
+  logistics?: string;
+  additionalDetails?: string;
 };
 
 export type PlannerOutput = {
