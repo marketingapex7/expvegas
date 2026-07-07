@@ -20,6 +20,7 @@ type PlanResultProps = {
   tuneOptions?: TuneOption[];
   onTune?: (updates: Partial<Record<string, string>>) => void;
   loading?: boolean;
+  saveStatus?: string;
 };
 
 function actionForCategory(category: string, bookingUrl?: string) {
@@ -41,6 +42,7 @@ export function PlanResult({
   tuneOptions = [],
   onTune,
   loading = false,
+  saveStatus,
 }: PlanResultProps) {
   return (
     <div className="mx-auto mt-5 rounded-lg border border-amber-100/20 bg-white/[0.07] p-5">
@@ -54,6 +56,11 @@ export function PlanResult({
           <a href={shareUrl} className="mt-2 block break-all text-sm font-bold text-amber-100 hover:text-white">
             {shareUrl}
           </a>
+        </div>
+      ) : saveStatus ? (
+        <div className="mt-4 rounded-lg border border-white/10 bg-black/20 p-4">
+          <p className="text-sm font-black text-white">Plan save status</p>
+          <p className="mt-2 text-sm font-bold text-amber-100">{saveStatus}</p>
         </div>
       ) : null}
       {result.itineraryDays?.length ? (

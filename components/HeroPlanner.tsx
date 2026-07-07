@@ -117,6 +117,7 @@ export function HeroPlanner() {
   const [email, setEmail] = useState("");
   const [savingEmail, setSavingEmail] = useState(false);
   const [emailMessage, setEmailMessage] = useState("");
+  const [saveStatus, setSaveStatus] = useState("");
 
   const helperSummary = useMemo(() => {
     if (selectedHelpers.length === 0) return "Add dates, budget, group, area, and vibe when you know them.";
@@ -206,21 +207,32 @@ export function HeroPlanner() {
   }
 
   async function savePlan(input: PlannerInput, nextResult: PlannerResponse) {
+    setSaveStatus("Saving this game plan...");
+
     const response = await fetch("/api/plans", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ input, result: nextResult }),
     });
 
-    if (!response.ok) return;
+    if (!response.ok) {
+      const data = (await response.json().catch(() => null)) as { error?: string } | null;
+      setSaveStatus(data?.error ? `Could not save plan: ${data.error}` : "Could not save this plan yet.");
+      return "";
+    }
 
     const data = (await response.json()) as { shareToken?: string };
 
     if (data.shareToken) {
       setSavedPlanToken(data.shareToken);
       setSavedPlanFound(false);
+      setSaveStatus("");
       window.localStorage.setItem("experiencevegas:lastPlanToken", data.shareToken);
+      return data.shareToken;
     }
+
+    setSaveStatus("Plan built, but no saved link was returned.");
+    return "";
   }
 
   async function loadSavedPlan() {
@@ -245,6 +257,7 @@ export function HeroPlanner() {
     setLoading(true);
     setResult(null);
     setEmailMessage("");
+    setSaveStatus("");
 
     const payload = buildPlannerPayload(overrides);
 
@@ -258,7 +271,7 @@ export function HeroPlanner() {
     setPlanInput(payload);
     setResult(nextResult);
     setLoading(false);
-    void savePlan(payload, nextResult);
+    await savePlan(payload, nextResult);
   }
 
   async function handleEmailSubmit(event: FormEvent<HTMLFormElement>) {
@@ -273,7 +286,10 @@ export function HeroPlanner() {
     setEmailMessage("");
 
     if (!savedPlanToken && planInput && result) {
-      await savePlan(planInput, result);
+      const nextToken = await savePlan(planInput, result);
+      if (nextToken) {
+        setSavedPlanToken(nextToken);
+      }
     }
 
     const token = savedPlanToken || window.localStorage.getItem("experiencevegas:lastPlanToken");
@@ -513,6 +529,7 @@ export function HeroPlanner() {
             tuneOptions={tuneOptions}
             onTune={(updates) => buildPlan(updates)}
             loading={loading}
+            saveStatus={saveStatus}
           />
         ) : null}
       </div>
