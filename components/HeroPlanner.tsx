@@ -18,26 +18,31 @@ const refinementGroups = [
   {
     label: "Food",
     key: "foodPreference",
+    multi: true,
     options: ["Steakhouse", "Buffet", "Celebrity chef", "Casual and fast", "Italian", "Asian", "Mexican", "Cheap eats", "Surprise me"],
   },
   {
     label: "Meal budget",
     key: "mealBudget",
+    multi: false,
     options: ["Save money for events", "Balanced meals and tickets", "Food is a big part", "One premium dinner"],
   },
   {
     label: "Gambling",
     key: "gamblingPreference",
+    multi: false,
     options: ["No gambling", "Light casino time", "Slots", "Table games", "Poker", "Sportsbook", "Casino atmosphere"],
   },
   {
     label: "Pace",
     key: "pace",
+    multi: false,
     options: ["Packed schedule", "Balanced", "Slow mornings", "Late nights", "Family-friendly pace"],
   },
   {
     label: "Logistics",
     key: "logistics",
+    multi: false,
     options: ["Keep it walkable", "Rideshares are fine", "Stay near hotel", "Avoid long lines"],
   },
 ] as const;
@@ -111,6 +116,7 @@ export function HeroPlanner() {
   const [loading, setLoading] = useState(false);
   const [showRefinements, setShowRefinements] = useState(false);
   const [refinements, setRefinements] = useState<Record<string, string>>({});
+  const [multiRefinements, setMultiRefinements] = useState<Record<string, string[]>>({});
   const [additionalDetails, setAdditionalDetails] = useState("");
 
   const helperSummary = useMemo(() => {
@@ -155,6 +161,15 @@ export function HeroPlanner() {
     setRefinements((current) => ({ ...current, [key]: value }));
   }
 
+  function toggleMultiRefinement(key: string, value: string) {
+    setMultiRefinements((current) => {
+      const values = current[key] || [];
+      const nextValues = values.includes(value) ? values.filter((item) => item !== value) : [...values, value];
+
+      return { ...current, [key]: nextValues };
+    });
+  }
+
   async function buildPlan(overrides: Partial<Record<string, string>> = {}) {
     setLoading(true);
     setResult(null);
@@ -172,7 +187,7 @@ export function HeroPlanner() {
         groupType: overrides.groupType || selectedValue("Group"),
         stayingNear: overrides.stayingNear || selectedValue("Area"),
         vibe: overrides.vibe || selectedValue("Vibe") || prompt,
-        foodPreference: overrides.foodPreference || refinements.foodPreference,
+        foodPreference: overrides.foodPreference || multiRefinements.foodPreference?.join(", ") || refinements.foodPreference,
         mealBudget: overrides.mealBudget || refinements.mealBudget,
         gamblingPreference: overrides.gamblingPreference || refinements.gamblingPreference,
         pace: overrides.pace || refinements.pace,
@@ -320,13 +335,15 @@ export function HeroPlanner() {
                       <p className="mb-3 text-xs font-black uppercase tracking-[0.16em] text-white/50">{group.label}</p>
                       <div className="flex flex-wrap gap-2 lg:block lg:space-y-2">
                         {group.options.map((option) => {
-                          const isSelected = refinements[group.key] === option;
+                          const isSelected = group.multi
+                            ? multiRefinements[group.key]?.includes(option)
+                            : refinements[group.key] === option;
 
                           return (
                             <button
                               key={option}
                               type="button"
-                              onClick={() => setRefinement(group.key, option)}
+                              onClick={() => (group.multi ? toggleMultiRefinement(group.key, option) : setRefinement(group.key, option))}
                               className={`rounded-full px-3 py-2 text-left text-xs font-bold leading-5 transition lg:w-full ${
                                 isSelected ? "bg-amber-200 text-black" : "bg-white/10 text-white/72 hover:bg-white/15"
                               }`}
@@ -394,7 +411,7 @@ export function HeroPlanner() {
                           {block.description ? <p className="mt-2 text-sm leading-6 text-white/60">{block.description}</p> : null}
                           <div className="mt-3 flex flex-wrap gap-2">
                             {block.bookingUrl ? (
-                              <a href={block.bookingUrl} className="inline-flex items-center gap-1 rounded-full bg-white px-3 py-2 text-xs font-black text-black transition hover:bg-amber-100">
+                              <a href={block.bookingUrl} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 rounded-full bg-white px-3 py-2 text-xs font-black text-black transition hover:bg-amber-100">
                                 <Ticket className="h-3.5 w-3.5" /> {actionForCategory(block.category, block.bookingUrl)}
                               </a>
                             ) : (

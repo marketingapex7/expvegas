@@ -111,7 +111,7 @@ export function PlannerForm() {
                             {block.priceHint ? <p className="mt-2 text-sm font-bold text-white/70">{block.priceHint}</p> : null}
                             <div className="mt-3 flex flex-wrap gap-2">
                               {block.bookingUrl ? (
-                                <a href={block.bookingUrl} className="inline-flex items-center gap-1 rounded-full bg-white px-3 py-2 text-xs font-black text-black transition hover:bg-fuchsia-100">
+                                <a href={block.bookingUrl} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 rounded-full bg-white px-3 py-2 text-xs font-black text-black transition hover:bg-fuchsia-100">
                                   <Ticket className="h-3.5 w-3.5" /> {actionForCategory(block.category, block.bookingUrl)}
                                 </a>
                               ) : (
