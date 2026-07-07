@@ -65,6 +65,54 @@ export function PlanResult({
           <p className="mt-2 text-sm font-bold text-amber-100">{saveStatus}</p>
         </div>
       ) : null}
+      {result.tripSummary ? (
+        <section className="mt-5 rounded-lg border border-white/10 bg-black/20 p-4">
+          <div className="grid gap-4 lg:grid-cols-[1.15fr_0.85fr]">
+            <div>
+              <p className="text-xs font-black uppercase tracking-[0.2em] text-amber-100">Trip summary</p>
+              <p className="mt-3 text-sm leading-6 text-white/68">{result.tripSummary.whyThisPlanWorks}</p>
+              <div className="mt-4 grid gap-3 sm:grid-cols-3">
+                <div className="rounded-lg bg-white/[0.06] p-3">
+                  <p className="text-xs font-black uppercase tracking-[0.16em] text-white/40">Staying</p>
+                  <p className="mt-2 text-sm font-black text-white">{result.tripSummary.lodging}</p>
+                </div>
+                <div className="rounded-lg bg-white/[0.06] p-3">
+                  <p className="text-xs font-black uppercase tracking-[0.16em] text-white/40">Spend</p>
+                  <p className="mt-2 text-sm font-black text-white">{result.tripSummary.estimatedSpend}</p>
+                </div>
+                <div className="rounded-lg bg-white/[0.06] p-3">
+                  <p className="text-xs font-black uppercase tracking-[0.16em] text-white/40">Style</p>
+                  <p className="mt-2 text-sm font-black text-white">{result.tripSummary.tripStyle.join(" / ")}</p>
+                </div>
+              </div>
+              {result.tripSummary.bestLodgingZone ? (
+                <div className="mt-3 rounded-lg border border-amber-100/20 bg-amber-100/[0.07] p-3">
+                  <p className="text-xs font-black uppercase tracking-[0.16em] text-amber-100">Best lodging zone</p>
+                  <p className="mt-2 text-sm leading-6 text-white/72">{result.tripSummary.bestLodgingZone}</p>
+                </div>
+              ) : null}
+            </div>
+            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-1">
+              <div className="rounded-lg bg-white/[0.06] p-4">
+                <p className="text-sm font-black text-white">Book now</p>
+                <ul className="mt-3 space-y-2 text-sm text-white/65">
+                  {result.tripSummary.bookNow.map((item) => (
+                    <li key={item}>- {item}</li>
+                  ))}
+                </ul>
+              </div>
+              <div className="rounded-lg bg-white/[0.06] p-4">
+                <p className="text-sm font-black text-white">Keep flexible</p>
+                <ul className="mt-3 space-y-2 text-sm text-white/65">
+                  {result.tripSummary.keepFlexible.map((item) => (
+                    <li key={item}>- {item}</li>
+                  ))}
+                </ul>
+              </div>
+            </div>
+          </div>
+        </section>
+      ) : null}
       {result.itineraryDays?.length ? (
         <div className="mt-5 grid gap-4">
           {result.itineraryDays.map((day) => (

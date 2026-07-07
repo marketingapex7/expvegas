@@ -105,6 +105,37 @@ export function PlannerForm() {
               <p className="mt-4 leading-7 text-white/70">{result.whyItFits}</p>
               {result.sourceSummary ? <p className="mt-3 text-sm font-bold text-white/45">{result.sourceSummary}</p> : null}
             </div>
+            {result.tripSummary ? (
+              <section className="rounded-2xl border border-white/10 bg-black/20 p-4">
+                <p className="text-sm font-black uppercase tracking-[0.2em] text-fuchsia-200">Trip summary</p>
+                <p className="mt-3 text-sm leading-6 text-white/68">{result.tripSummary.whyThisPlanWorks}</p>
+                <div className="mt-4 grid gap-3 sm:grid-cols-3">
+                  <div className="rounded-2xl bg-white/[0.06] p-3">
+                    <p className="text-xs font-black uppercase tracking-[0.16em] text-white/40">Staying</p>
+                    <p className="mt-2 text-sm font-black text-white">{result.tripSummary.lodging}</p>
+                  </div>
+                  <div className="rounded-2xl bg-white/[0.06] p-3">
+                    <p className="text-xs font-black uppercase tracking-[0.16em] text-white/40">Spend</p>
+                    <p className="mt-2 text-sm font-black text-white">{result.tripSummary.estimatedSpend}</p>
+                  </div>
+                  <div className="rounded-2xl bg-white/[0.06] p-3">
+                    <p className="text-xs font-black uppercase tracking-[0.16em] text-white/40">Style</p>
+                    <p className="mt-2 text-sm font-black text-white">{result.tripSummary.tripStyle.join(" / ")}</p>
+                  </div>
+                </div>
+                {result.tripSummary.bestLodgingZone ? <p className="mt-3 text-sm leading-6 text-white/70">{result.tripSummary.bestLodgingZone}</p> : null}
+                <div className="mt-4 grid gap-3 sm:grid-cols-2">
+                  <div className="rounded-2xl bg-white/[0.06] p-3">
+                    <p className="text-sm font-black text-white">Book now</p>
+                    <p className="mt-2 text-sm text-white/65">{result.tripSummary.bookNow.join(" / ")}</p>
+                  </div>
+                  <div className="rounded-2xl bg-white/[0.06] p-3">
+                    <p className="text-sm font-black text-white">Keep flexible</p>
+                    <p className="mt-2 text-sm text-white/65">{result.tripSummary.keepFlexible.join(" / ")}</p>
+                  </div>
+                </div>
+              </section>
+            ) : null}
             <div>
               <p className="font-black text-white">Timed itinerary</p>
               {result.itineraryDays?.length ? (

@@ -42,9 +42,20 @@ export type ItineraryDay = {
   blocks: ItineraryBlock[];
 };
 
+export type TripSummary = {
+  lodging: string;
+  bestLodgingZone?: string;
+  tripStyle: string[];
+  estimatedSpend: string;
+  bookNow: string[];
+  keepFlexible: string[];
+  whyThisPlanWorks: string;
+};
+
 export type PlannerResponse = PlannerOutput & {
   bestPickName: string;
   backupPickNames: string[];
   sourceSummary?: string;
   itineraryDays?: ItineraryDay[];
+  tripSummary?: TripSummary;
 };
