@@ -43,7 +43,7 @@ function sentenceFor(group: string, option: string) {
 }
 
 export function HeroPlanner() {
-  const [prompt, setPrompt] = useState(starterPrompt);
+  const [prompt, setPrompt] = useState("");
   const [selectedHelpers, setSelectedHelpers] = useState<string[]>([]);
   const [hasGenerated, setHasGenerated] = useState(false);
 
@@ -94,7 +94,7 @@ export function HeroPlanner() {
               value={prompt}
               onChange={(event) => setPrompt(event.target.value)}
               className="min-h-36 w-full resize-none bg-transparent px-1 py-1 text-base leading-7 text-white outline-none placeholder:text-white/35 sm:min-h-40 sm:text-lg"
-              placeholder="Example: Two couples staying near Caesars this weekend. We want something impressive, around $150 each, with dinner nearby and no club scene."
+              placeholder={starterPrompt}
             />
 
             <div className="mt-3 border-t border-white/10 pt-4">
