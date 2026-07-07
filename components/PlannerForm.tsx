@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { CalendarDays } from "lucide-react";
 
 type PlannerResponse = {
   headline: string;
@@ -16,6 +17,11 @@ type PlannerResponse = {
 export function PlannerForm() {
   const [result, setResult] = useState<PlannerResponse | null>(null);
   const [loading, setLoading] = useState(false);
+  const [arrivalDate, setArrivalDate] = useState("");
+  const [departureDate, setDepartureDate] = useState("");
+
+  const travelDates =
+    arrivalDate && departureDate ? `${arrivalDate} to ${departureDate}` : arrivalDate || departureDate;
 
   async function handleSubmit(formData: FormData) {
     setLoading(true);
@@ -32,7 +38,32 @@ export function PlannerForm() {
   return (
     <div className="grid gap-8 lg:grid-cols-[0.85fr_1.15fr]">
       <form action={handleSubmit} className="grid gap-4 rounded-[2rem] border border-white/10 bg-white/[0.06] p-6">
-        <input name="travelDates" placeholder="Travel dates" className="rounded-2xl border border-white/10 bg-black/25 px-4 py-4 text-white outline-none placeholder:text-white/35" />
+        <input type="hidden" name="travelDates" value={travelDates} />
+        <div className="rounded-2xl border border-white/10 bg-black/25 p-4">
+          <p className="mb-3 inline-flex items-center gap-2 text-sm font-bold text-white/75">
+            <CalendarDays className="h-4 w-4 text-fuchsia-200" /> Travel dates
+          </p>
+          <div className="grid gap-3 sm:grid-cols-2">
+            <label className="grid gap-1 text-xs font-bold uppercase tracking-[0.12em] text-white/45">
+              Arrive
+              <input
+                type="date"
+                value={arrivalDate}
+                onChange={(event) => setArrivalDate(event.target.value)}
+                className="min-h-12 rounded-2xl border border-white/10 bg-black/25 px-4 py-3 text-white [color-scheme:dark] outline-none transition focus:border-fuchsia-200/60"
+              />
+            </label>
+            <label className="grid gap-1 text-xs font-bold uppercase tracking-[0.12em] text-white/45">
+              Leave
+              <input
+                type="date"
+                value={departureDate}
+                onChange={(event) => setDepartureDate(event.target.value)}
+                className="min-h-12 rounded-2xl border border-white/10 bg-black/25 px-4 py-3 text-white [color-scheme:dark] outline-none transition focus:border-fuchsia-200/60"
+              />
+            </label>
+          </div>
+        </div>
         <select name="groupType" className="rounded-2xl border border-white/10 bg-black/25 px-4 py-4 text-white outline-none">
           <option>Couple</option><option>Family</option><option>Friends trip</option><option>Bachelor party</option><option>Bachelorette party</option><option>Solo</option>
         </select>

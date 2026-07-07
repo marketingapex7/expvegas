@@ -5,11 +5,6 @@ import { ArrowRight, CalendarDays, Loader2, MapPin, Sparkles, Users, WalletCards
 
 const helperGroups = [
   {
-    label: "Dates",
-    icon: CalendarDays,
-    options: ["tonight", "this weekend", "Friday to Sunday", "next month"],
-  },
-  {
     label: "Budget",
     icon: WalletCards,
     options: ["under $100 per person", "$100-$200 per person", "premium but worth it"],
@@ -34,17 +29,37 @@ const helperGroups = [
 const starterPrompt =
   "We want a memorable Vegas night with one strong anchor, easy logistics, and something that feels worth booking.";
 
+function formatTravelDate(value: string) {
+  if (!value) return "";
+
+  return new Intl.DateTimeFormat("en-US", { month: "short", day: "numeric", year: "numeric" }).format(
+    new Date(`${value}T00:00:00`),
+  );
+}
+
 function sentenceFor(group: string, option: string) {
-  if (group === "Dates") return `Dates: ${option}.`;
   if (group === "Budget") return `Budget: ${option}.`;
   if (group === "Group") return `Group: ${option}.`;
   if (group === "Area") return `Staying ${option}.`;
   return `Vibe: ${option}.`;
 }
 
+function upsertPromptSentence(current: string, label: string, sentence: string) {
+  const trimmed = current.trim();
+  const pattern = new RegExp(`${label}: [^.]*\\.`);
+
+  if (pattern.test(trimmed)) {
+    return trimmed.replace(pattern, sentence);
+  }
+
+  return trimmed.length > 0 ? `${trimmed} ${sentence}` : sentence;
+}
+
 export function HeroPlanner() {
   const [prompt, setPrompt] = useState("");
   const [selectedHelpers, setSelectedHelpers] = useState<string[]>([]);
+  const [arrivalDate, setArrivalDate] = useState("");
+  const [departureDate, setDepartureDate] = useState("");
   const [hasGenerated, setHasGenerated] = useState(false);
 
   const helperSummary = useMemo(() => {
@@ -61,6 +76,24 @@ export function HeroPlanner() {
       const nextSentence = sentenceFor(group, option);
       return current.trim().length > 0 ? `${current.trim()} ${nextSentence}` : nextSentence;
     });
+  }
+
+  function updateTravelDates(nextArrivalDate: string, nextDepartureDate: string) {
+    setArrivalDate(nextArrivalDate);
+    setDepartureDate(nextDepartureDate);
+
+    const formattedArrival = formatTravelDate(nextArrivalDate);
+    const formattedDeparture = formatTravelDate(nextDepartureDate);
+
+    if (!formattedArrival && !formattedDeparture) return;
+
+    const dateText =
+      formattedArrival && formattedDeparture
+        ? `${formattedArrival} to ${formattedDeparture}`
+        : formattedArrival || formattedDeparture;
+
+    setSelectedHelpers((current) => (current.includes("Dates:calendar") ? current : [...current, "Dates:calendar"]));
+    setPrompt((current) => upsertPromptSentence(current, "Dates", `Dates: ${dateText}.`));
   }
 
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
@@ -99,6 +132,31 @@ export function HeroPlanner() {
 
             <div className="mt-3 border-t border-white/10 pt-4">
               <div className="grid gap-3 md:grid-cols-5">
+                <div className="rounded-lg border border-white/10 bg-white/[0.04] p-3">
+                  <p className="mb-3 inline-flex items-center gap-2 text-xs font-black uppercase tracking-[0.16em] text-white/50">
+                    <CalendarDays className="h-4 w-4 text-amber-100" /> Dates
+                  </p>
+                  <div className="grid gap-2">
+                    <label className="grid gap-1 text-xs font-bold text-white/55">
+                      Arrive
+                      <input
+                        type="date"
+                        value={arrivalDate}
+                        onChange={(event) => updateTravelDates(event.target.value, departureDate)}
+                        className="min-h-10 rounded-lg border border-white/10 bg-black/35 px-3 py-2 text-sm text-white [color-scheme:dark] outline-none transition focus:border-amber-100/70"
+                      />
+                    </label>
+                    <label className="grid gap-1 text-xs font-bold text-white/55">
+                      Leave
+                      <input
+                        type="date"
+                        value={departureDate}
+                        onChange={(event) => updateTravelDates(arrivalDate, event.target.value)}
+                        className="min-h-10 rounded-lg border border-white/10 bg-black/35 px-3 py-2 text-sm text-white [color-scheme:dark] outline-none transition focus:border-amber-100/70"
+                      />
+                    </label>
+                  </div>
+                </div>
                 {helperGroups.map((group) => {
                   const Icon = group.icon;
 
