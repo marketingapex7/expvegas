@@ -73,7 +73,17 @@ export function PlannerForm() {
         <select name="vibe" className="rounded-2xl border border-white/10 bg-black/25 px-4 py-4 text-white outline-none">
           <option>Funny</option><option>Romantic</option><option>Wild</option><option>Iconic</option><option>Family-friendly</option><option>Sports</option>
         </select>
-        <input name="stayingNear" placeholder="Staying near / hotel" className="rounded-2xl border border-white/10 bg-black/25 px-4 py-4 text-white outline-none placeholder:text-white/35" />
+        <select name="stayingNear" className="rounded-2xl border border-white/10 bg-black/25 px-4 py-4 text-white outline-none">
+          <option>{`Haven't booked lodging yet`}</option>
+          <option>Center Strip</option>
+          <option>Near Bellagio</option>
+          <option>Near Caesars Palace</option>
+          <option>Near Sphere / Venetian</option>
+          <option>Near T-Mobile Arena</option>
+          <option>Downtown / Fremont</option>
+          <option>Off Strip</option>
+        </select>
+        <input name="additionalDetails" placeholder="Exact hotel if booked, or lodging preferences if not" className="rounded-2xl border border-white/10 bg-black/25 px-4 py-4 text-white outline-none placeholder:text-white/35" />
         <textarea name="dealbreakers" placeholder="Dealbreakers: no adult content, no long rides, no heights, etc." className="min-h-28 rounded-2xl border border-white/10 bg-black/25 px-4 py-4 text-white outline-none placeholder:text-white/35" />
         <button className="rounded-2xl bg-fuchsia-300 px-5 py-4 font-black text-black" disabled={loading}>
           {loading ? "Building..." : "Build My Vegas Game Plan"}

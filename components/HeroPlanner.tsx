@@ -60,9 +60,9 @@ const helperGroups = [
     options: ["couple", "friends trip", "family with teens", "bachelor party"],
   },
   {
-    label: "Area",
+    label: "Lodging",
     icon: MapPin,
-    options: ["near Sphere", "near Bellagio", "near Caesars", "near T-Mobile Arena"],
+    options: ["haven't booked lodging yet", "center Strip", "near Bellagio", "near Caesars", "near Sphere", "near T-Mobile Arena", "Downtown"],
   },
   {
     label: "Vibe",
@@ -85,7 +85,9 @@ function formatTravelDate(value: string) {
 function sentenceFor(group: string, option: string) {
   if (group === "Budget") return `Budget: ${option}.`;
   if (group === "Group") return `Group: ${option}.`;
-  if (group === "Area") return `Staying ${option}.`;
+  if (group === "Lodging") {
+    return option.includes("haven't booked") ? "Lodging: not booked yet." : `Staying near ${option}.`;
+  }
   return `Vibe: ${option}.`;
 }
 
@@ -195,7 +197,7 @@ export function HeroPlanner() {
       travelDates,
       budget: overrides.budget || selectedValue("Budget"),
       groupType: overrides.groupType || selectedValue("Group"),
-      stayingNear: overrides.stayingNear || selectedValue("Area"),
+      stayingNear: overrides.stayingNear || selectedValue("Lodging"),
       vibe: overrides.vibe || selectedValue("Vibe") || prompt,
       foodPreference: overrides.foodPreference || multiRefinements.foodPreference?.join(", ") || refinements.foodPreference,
       mealBudget: overrides.mealBudget || refinements.mealBudget,

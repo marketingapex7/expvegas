@@ -41,6 +41,38 @@ function textFor(input: PlannerInput) {
   }`.toLowerCase();
 }
 
+function lodgingIsFlexible(input: PlannerInput) {
+  const lodging = `${input.stayingNear || ""} ${input.prompt || ""} ${input.additionalDetails || ""}`.toLowerCase();
+  return lodging.includes("not booked") || lodging.includes("haven't booked") || lodging.includes("havent booked");
+}
+
+function normalizedStayArea(input: PlannerInput) {
+  if (!input.stayingNear || lodgingIsFlexible(input)) return "";
+  return input.stayingNear.toLowerCase().replace("near ", "").replace(" / ", " ");
+}
+
+function lodgingRecommendation(input: PlannerInput, event?: VegasEvent) {
+  const text = textFor(input);
+
+  if (event?.venueName.toLowerCase().includes("t-mobile") || text.includes("sports") || text.includes("arena")) {
+    return "Target lodging around Park MGM, NYNY, Aria, or Cosmopolitan so arena nights stay easy.";
+  }
+
+  if (text.includes("sphere") || event?.venueName.toLowerCase().includes("sphere")) {
+    return "Target lodging around Venetian, Palazzo, Wynn, or the north-center Strip for Sphere-friendly logistics.";
+  }
+
+  if (text.includes("downtown") || text.includes("fremont")) {
+    return "Target Downtown/Fremont if you want cheaper rooms and late-night casino-hopping over Strip polish.";
+  }
+
+  if (text.includes("family")) {
+    return "Target center Strip or south Strip so meals, attractions, and rideshares stay simple for the group.";
+  }
+
+  return "Target center Strip around Bellagio, Caesars, Cosmopolitan, or Paris for the easiest first-trip logistics.";
+}
+
 function budgetPreference(input: PlannerInput): PlanningStop["budget"] | undefined {
   const text = `${input.prompt || ""} ${input.budget || ""} ${input.mealBudget || ""}`.toLowerCase();
   if (text.includes("under") || text.includes("cheap") || text.includes("value") || text.includes("$50")) return "value";
@@ -51,13 +83,14 @@ function budgetPreference(input: PlannerInput): PlanningStop["budget"] | undefin
 function scoreStop(stop: PlanningStop, input: PlannerInput) {
   const text = textFor(input);
   const preferredBudget = budgetPreference(input);
+  const stayArea = normalizedStayArea(input);
   let score = stop.budget === preferredBudget ? 8 : 0;
 
   for (const tag of stop.tags) {
     if (text.includes(tag)) score += 5;
   }
 
-  if (input.stayingNear && stop.area.toLowerCase().includes(input.stayingNear.toLowerCase().replace("near ", ""))) {
+  if (stayArea && stop.area.toLowerCase().includes(stayArea)) {
     score += 8;
   }
 
@@ -76,6 +109,7 @@ function restaurantBudgetPreference(input: PlannerInput): VegasRestaurant["price
 function scoreRestaurant(restaurant: VegasRestaurant, input: PlannerInput) {
   const text = textFor(input);
   const preferredBudget = restaurantBudgetPreference(input);
+  const stayArea = normalizedStayArea(input);
   const terms = [
     ...restaurant.cuisine,
     ...restaurant.categories,
@@ -93,7 +127,7 @@ function scoreRestaurant(restaurant: VegasRestaurant, input: PlannerInput) {
     if (term && text.includes(term)) score += 6;
   }
 
-  if (input.stayingNear && restaurant.area.toLowerCase().includes(input.stayingNear.toLowerCase().replace("near ", ""))) {
+  if (stayArea && restaurant.area.toLowerCase().includes(stayArea)) {
     score += 10;
   }
 
@@ -139,6 +173,7 @@ function buildBlocks(date: string, dayIndex: number, input: PlannerInput, events
   const noGambling = text.includes("no gambling");
   const shoppingFocused = text.includes("shopping") || text.includes("shop");
   const freeFocused = text.includes("free") || text.includes("cheap") || text.includes("budget") || text.includes("under");
+  const flexibleLodging = lodgingIsFlexible(input);
 
   const blocks: ItineraryBlock[] = [
     {
@@ -180,6 +215,16 @@ function buildBlocks(date: string, dayIndex: number, input: PlannerInput, events
       bookingUrl: dinner.reservationUrl,
     },
   ];
+
+  if (flexibleLodging && dayIndex === 0) {
+    blocks.unshift({
+      time: slowMorning ? "11:15 AM" : "10:15 AM",
+      title: "Lodging target before you book",
+      category: "free",
+      location: mainEvent?.venueName || freeExperience.area,
+      description: lodgingRecommendation(input, mainEvent),
+    });
+  }
 
   if (mainEvent) {
     blocks.push({
