@@ -1,4 +1,5 @@
-import { attractionStops, casinoStops, PlanningStop, restaurantStops } from "@/data/planning-stops";
+import { attractionStops, casinoStops, PlanningStop } from "@/data/planning-stops";
+import { restaurants, VegasRestaurant } from "@/data/restaurants";
 import { VegasEvent } from "@/types/event";
 import { ItineraryBlock, ItineraryDay, PlannerInput } from "@/types/planner";
 
@@ -68,6 +69,42 @@ function pickStop(stops: PlanningStop[], input: PlannerInput, offset: number) {
   return ranked[offset % ranked.length];
 }
 
+function restaurantBudgetPreference(input: PlannerInput): VegasRestaurant["priceLevel"] {
+  return budgetPreference(input) || "mid";
+}
+
+function scoreRestaurant(restaurant: VegasRestaurant, input: PlannerInput) {
+  const text = textFor(input);
+  const preferredBudget = restaurantBudgetPreference(input);
+  const terms = [
+    ...restaurant.cuisine,
+    ...restaurant.categories,
+    ...restaurant.bestFor,
+    ...restaurant.vibeTags,
+    ...(restaurant.dietaryTags || []),
+    restaurant.area,
+    restaurant.venue || "",
+  ].map((term) => term.toLowerCase());
+
+  let score = restaurant.editorialScore / 10;
+  if (restaurant.priceLevel === preferredBudget) score += 10;
+
+  for (const term of terms) {
+    if (term && text.includes(term)) score += 6;
+  }
+
+  if (input.stayingNear && restaurant.area.toLowerCase().includes(input.stayingNear.toLowerCase().replace("near ", ""))) {
+    score += 10;
+  }
+
+  return score;
+}
+
+function pickRestaurant(input: PlannerInput, offset: number) {
+  const ranked = [...restaurants].sort((a, b) => scoreRestaurant(b, input) - scoreRestaurant(a, input));
+  return ranked[offset % ranked.length];
+}
+
 function eventTime(event: VegasEvent, fallback: string) {
   if (!event.localDate || !event.localTime) return fallback;
 
@@ -88,9 +125,9 @@ function priceHint(event: VegasEvent) {
 }
 
 function buildBlocks(date: string, dayIndex: number, input: PlannerInput, events: VegasEvent[]): ItineraryBlock[] {
-  const lunch = pickStop(restaurantStops, input, dayIndex);
   const attraction = pickStop(attractionStops, input, dayIndex);
-  const dinner = pickStop(restaurantStops, input, dayIndex + 2);
+  const dinner = pickRestaurant(input, dayIndex + 2);
+  const lunchRestaurant = pickRestaurant(input, dayIndex + 6);
   const casino = pickStop(casinoStops, input, dayIndex);
   const dayEvents = eventsForDay(events, date);
   const mainEvent = dayEvents[0];
@@ -102,10 +139,11 @@ function buildBlocks(date: string, dayIndex: number, input: PlannerInput, events
   const blocks: ItineraryBlock[] = [
     {
       time: slowMorning ? "12:00 PM" : "11:00 AM",
-      title: lunch.name,
+      title: lunchRestaurant.name,
       category: "meal",
-      location: lunch.area,
-      description: lunch.description,
+      location: lunchRestaurant.venue || lunchRestaurant.area,
+      description: lunchRestaurant.description,
+      bookingUrl: lunchRestaurant.reservationUrl,
     },
     {
       time: slowMorning ? "2:00 PM" : "1:00 PM",
@@ -133,8 +171,9 @@ function buildBlocks(date: string, dayIndex: number, input: PlannerInput, events
       time: "6:00 PM",
       title: dinner.name,
       category: "meal",
-      location: dinner.area,
+      location: dinner.venue || dinner.area,
       description: dinner.description,
+      bookingUrl: dinner.reservationUrl,
     },
   ];
 
