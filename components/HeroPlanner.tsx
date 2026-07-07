@@ -1,8 +1,18 @@
 "use client";
 
 import { FormEvent, useMemo, useState } from "react";
-import { ArrowRight, CalendarDays, Loader2, MapPin, Sparkles, Users, WalletCards } from "lucide-react";
+import { ArrowRight, CalendarDays, Loader2, Mail, MapPin, RefreshCw, Sparkles, Ticket, Users, WalletCards } from "lucide-react";
 import { PlannerResponse } from "@/types/planner";
+
+const tuneOptions = [
+  { label: "Make cheaper", updates: { mealBudget: "Save money for events", budget: "under $100 per person" } },
+  { label: "More premium", updates: { mealBudget: "One premium dinner", budget: "premium but worth it" } },
+  { label: "Less walking", updates: { logistics: "Keep it walkable" } },
+  { label: "More food-focused", updates: { mealBudget: "Food is a big part" } },
+  { label: "More gambling", updates: { gamblingPreference: "Table games" } },
+  { label: "No gambling", updates: { gamblingPreference: "No gambling" } },
+  { label: "Family-friendly", updates: { pace: "Family-friendly pace", groupType: "family with teens" } },
+];
 
 const refinementGroups = [
   {
@@ -84,6 +94,14 @@ function upsertPromptSentence(current: string, label: string, sentence: string) 
   return trimmed.length > 0 ? `${trimmed} ${sentence}` : sentence;
 }
 
+function actionForCategory(category: string, bookingUrl?: string) {
+  if (category === "event" && bookingUrl) return "Check Tickets";
+  if (category === "meal") return "Reserve Table";
+  if (category === "attraction") return "View Nearby";
+  if (category === "casino") return "Map It";
+  return "Swap Pick";
+}
+
 export function HeroPlanner() {
   const [prompt, setPrompt] = useState("");
   const [selectedHelpers, setSelectedHelpers] = useState<string[]>([]);
@@ -137,7 +155,7 @@ export function HeroPlanner() {
     setRefinements((current) => ({ ...current, [key]: value }));
   }
 
-  async function buildPlan() {
+  async function buildPlan(overrides: Partial<Record<string, string>> = {}) {
     setLoading(true);
     setResult(null);
 
@@ -150,15 +168,15 @@ export function HeroPlanner() {
       body: JSON.stringify({
         prompt,
         travelDates,
-        budget: selectedValue("Budget"),
-        groupType: selectedValue("Group"),
-        stayingNear: selectedValue("Area"),
-        vibe: selectedValue("Vibe") || prompt,
-        foodPreference: refinements.foodPreference,
-        mealBudget: refinements.mealBudget,
-        gamblingPreference: refinements.gamblingPreference,
-        pace: refinements.pace,
-        logistics: refinements.logistics,
+        budget: overrides.budget || selectedValue("Budget"),
+        groupType: overrides.groupType || selectedValue("Group"),
+        stayingNear: overrides.stayingNear || selectedValue("Area"),
+        vibe: overrides.vibe || selectedValue("Vibe") || prompt,
+        foodPreference: overrides.foodPreference || refinements.foodPreference,
+        mealBudget: overrides.mealBudget || refinements.mealBudget,
+        gamblingPreference: overrides.gamblingPreference || refinements.gamblingPreference,
+        pace: overrides.pace || refinements.pace,
+        logistics: overrides.logistics || refinements.logistics,
         additionalDetails,
       }),
     });
@@ -188,11 +206,23 @@ export function HeroPlanner() {
             Vegas planning that starts with what you actually want
           </p>
           <h1 className="text-4xl font-black leading-[1.01] text-white sm:text-5xl md:text-6xl lg:text-7xl">
-            Describe your perfect Vegas experience.
+            Build your Vegas game plan.
           </h1>
           <p className="mx-auto mt-5 max-w-2xl text-lg leading-8 text-white/72 sm:text-xl sm:leading-9">
-            Tell ExperienceVegas the dates, budget, group, location, and vibe. We will turn the messy ticket search into a focused plan worth booking.
+            Tell ExperienceVegas the dates, budget, group, location, and vibe. We will turn the messy ticket search into a timed plan for events, food, casino time, and places worth seeing.
           </p>
+          <div className="mx-auto mt-6 grid max-w-2xl gap-2 text-left sm:grid-cols-3">
+            {["Tell us the trip", "Tune the plan", "Get the game plan"].map((step, index) => {
+              const isActive = index === 0 || (index === 1 && showRefinements) || (index === 2 && result);
+
+              return (
+                <div key={step} className={`rounded-lg border px-3 py-3 ${isActive ? "border-amber-100/40 bg-amber-100/10" : "border-white/10 bg-white/[0.04]"}`}>
+                  <p className="text-xs font-black uppercase tracking-[0.16em] text-white/40">Step {index + 1}</p>
+                  <p className="mt-1 text-sm font-black text-white">{step}</p>
+                </div>
+              );
+            })}
+          </div>
         </div>
 
         <form onSubmit={handleSubmit} className="mx-auto mt-8 rounded-lg border border-white/10 bg-white/[0.08] p-3 shadow-2xl shadow-black/30 backdrop-blur sm:p-4">
@@ -273,7 +303,7 @@ export function HeroPlanner() {
                 <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
                   <div>
                     <p className="text-xs font-black uppercase tracking-[0.22em] text-amber-100">Tune your itinerary</p>
-                    <h2 className="mt-2 text-2xl font-black text-white">A few quick choices make the plan much better.</h2>
+                    <h2 className="mt-2 text-2xl font-black text-white">A few quick choices make the game plan much better.</h2>
                   </div>
                   <button
                     type="button"
@@ -281,7 +311,7 @@ export function HeroPlanner() {
                     disabled={loading}
                     className="inline-flex min-h-11 items-center justify-center gap-2 rounded-lg bg-amber-200 px-4 py-3 text-sm font-black text-black transition hover:bg-amber-100 disabled:cursor-wait disabled:opacity-70"
                   >
-                    {loading ? "Building..." : "Build with these options"} {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <ArrowRight className="h-4 w-4" />}
+                    {loading ? "Building..." : "Build My Game Plan"} {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <ArrowRight className="h-4 w-4" />}
                   </button>
                 </div>
                 <div className="mt-5 grid gap-3 lg:grid-cols-5">
@@ -324,7 +354,7 @@ export function HeroPlanner() {
             <div className="mt-4 flex flex-col gap-3 border-t border-white/10 pt-4 sm:flex-row sm:items-center sm:justify-between">
               <p className="text-sm font-bold text-white/45">{helperSummary}</p>
               <button disabled={loading} className="inline-flex min-h-12 items-center justify-center gap-2 rounded-lg bg-white px-5 py-3 font-black text-black transition hover:bg-amber-100 disabled:cursor-wait disabled:opacity-70 sm:min-w-56">
-                {loading ? "Building..." : showRefinements ? "Build with these options" : "Build My Experience"} {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <ArrowRight className="h-4 w-4" />}
+                {loading ? "Building..." : showRefinements ? "Build My Game Plan" : "Build My Experience"} {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <ArrowRight className="h-4 w-4" />}
               </button>
             </div>
           </div>
@@ -338,7 +368,7 @@ export function HeroPlanner() {
             <div className="mt-4 grid gap-3 text-sm leading-6 text-white/68 sm:grid-cols-3">
               <p className="rounded-lg bg-black/25 p-4">Reading your dates, budget, group, area, and vibe.</p>
               <p className="rounded-lg bg-black/25 p-4">Scoring shows, comedy, sports, concerts, and attractions for fit.</p>
-              <p className="rounded-lg bg-black/25 p-4">Building a short, bookable plan with strong nearby options.</p>
+              <p className="rounded-lg bg-black/25 p-4">Building your Vegas game plan with strong nearby options.</p>
             </div>
           </div>
         ) : null}
@@ -362,6 +392,20 @@ export function HeroPlanner() {
                           <p className="mt-1 font-bold text-white">{block.title}</p>
                           {block.location ? <p className="mt-1 text-xs font-bold uppercase tracking-[0.16em] text-white/40">{block.location}</p> : null}
                           {block.description ? <p className="mt-2 text-sm leading-6 text-white/60">{block.description}</p> : null}
+                          <div className="mt-3 flex flex-wrap gap-2">
+                            {block.bookingUrl ? (
+                              <a href={block.bookingUrl} className="inline-flex items-center gap-1 rounded-full bg-white px-3 py-2 text-xs font-black text-black transition hover:bg-amber-100">
+                                <Ticket className="h-3.5 w-3.5" /> {actionForCategory(block.category, block.bookingUrl)}
+                              </a>
+                            ) : (
+                              <button type="button" className="rounded-full border border-white/15 px-3 py-2 text-xs font-bold text-white/72 transition hover:bg-white/10">
+                                {actionForCategory(block.category)}
+                              </button>
+                            )}
+                            <button type="button" className="rounded-full border border-white/15 px-3 py-2 text-xs font-bold text-white/72 transition hover:bg-white/10">
+                              Swap Pick
+                            </button>
+                          </div>
                         </div>
                       ))}
                     </div>
@@ -384,6 +428,31 @@ export function HeroPlanner() {
                 Backup picks: <span className="font-bold text-white/72">{result.backupPickNames.join(" / ")}</span>
               </p>
             ) : null}
+            <div className="mt-5 rounded-lg border border-white/10 bg-black/20 p-4">
+              <p className="text-sm font-black text-white">Tune this game plan</p>
+              <div className="mt-3 flex flex-wrap gap-2">
+                {tuneOptions.map((option) => (
+                  <button
+                    key={option.label}
+                    type="button"
+                    onClick={() => buildPlan(option.updates)}
+                    disabled={loading}
+                    className="inline-flex items-center gap-1 rounded-full bg-white/10 px-3 py-2 text-xs font-bold text-white/75 transition hover:bg-white/15 disabled:cursor-wait disabled:opacity-60"
+                  >
+                    <RefreshCw className="h-3.5 w-3.5" /> {option.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+            <form className="mt-4 grid gap-3 rounded-lg border border-amber-100/20 bg-amber-100/[0.07] p-4 sm:grid-cols-[1fr_auto]">
+              <label className="grid gap-2 text-sm font-bold text-white/70">
+                Send this game plan
+                <input type="email" placeholder="Email address" className="min-h-11 rounded-lg border border-white/10 bg-black/30 px-4 py-3 text-white outline-none placeholder:text-white/35 focus:border-amber-100/70" />
+              </label>
+              <button className="inline-flex min-h-11 items-center justify-center gap-2 self-end rounded-lg bg-white px-4 py-3 text-sm font-black text-black transition hover:bg-amber-100">
+                <Mail className="h-4 w-4" /> Save Plan
+              </button>
+            </form>
           </div>
         ) : null}
       </div>

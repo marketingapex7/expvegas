@@ -73,7 +73,7 @@ export async function POST(request: Request) {
   const itineraryDays = buildItinerary({ plannerInput: input, startDate, endDate, rankedEvents: ranked });
 
   const output: PlannerResponse = {
-    headline: liveEvents.length > 0 ? "Your Timed Vegas Itinerary From Live Events" : "Your Timed Vegas Itinerary",
+    headline: liveEvents.length > 0 ? "Your Vegas Game Plan From Live Events" : "Your Vegas Game Plan",
     bestPickId: best.id,
     bestPickName: best.name,
     whyItFits: buildWhyItFits(best, input, liveEvents.length),

@@ -1,8 +1,16 @@
 "use client";
 
 import { useState } from "react";
-import { CalendarDays } from "lucide-react";
+import { CalendarDays, Ticket } from "lucide-react";
 import { PlannerResponse } from "@/types/planner";
+
+function actionForCategory(category: string, bookingUrl?: string) {
+  if (category === "event" && bookingUrl) return "Check Tickets";
+  if (category === "meal") return "Reserve Table";
+  if (category === "attraction") return "View Nearby";
+  if (category === "casino") return "Map It";
+  return "Swap Pick";
+}
 
 export function PlannerForm() {
   const [result, setResult] = useState<PlannerResponse | null>(null);
@@ -66,16 +74,16 @@ export function PlannerForm() {
         <input name="stayingNear" placeholder="Staying near / hotel" className="rounded-2xl border border-white/10 bg-black/25 px-4 py-4 text-white outline-none placeholder:text-white/35" />
         <textarea name="dealbreakers" placeholder="Dealbreakers: no adult content, no long rides, no heights, etc." className="min-h-28 rounded-2xl border border-white/10 bg-black/25 px-4 py-4 text-white outline-none placeholder:text-white/35" />
         <button className="rounded-2xl bg-fuchsia-300 px-5 py-4 font-black text-black" disabled={loading}>
-          {loading ? "Building..." : "Build My Vegas Plan"}
+          {loading ? "Building..." : "Build My Vegas Game Plan"}
         </button>
       </form>
 
       <div className="rounded-[2rem] border border-white/10 bg-white/[0.06] p-6">
         {!result ? (
           <div>
-            <p className="text-sm font-black uppercase tracking-[0.25em] text-fuchsia-200">Planner Output</p>
-            <h3 className="mt-3 text-3xl font-black text-white">A concierge-style result will appear here.</h3>
-            <p className="mt-4 leading-7 text-white/65">The first version uses local seed events and scoring. Later it will use live inventory plus LLM-written explanations.</p>
+            <p className="text-sm font-black uppercase tracking-[0.25em] text-fuchsia-200">Vegas Game Plan</p>
+            <h3 className="mt-3 text-3xl font-black text-white">A timed plan will appear here.</h3>
+            <p className="mt-4 leading-7 text-white/65">It blends live events with curated food, attraction, casino, and logistics picks.</p>
           </div>
         ) : (
           <div className="space-y-6">
@@ -101,6 +109,20 @@ export function PlannerForm() {
                             {block.location ? <p className="mt-1 text-xs font-bold uppercase tracking-[0.16em] text-white/40">{block.location}</p> : null}
                             {block.description ? <p className="mt-2 text-sm leading-6 text-white/60">{block.description}</p> : null}
                             {block.priceHint ? <p className="mt-2 text-sm font-bold text-white/70">{block.priceHint}</p> : null}
+                            <div className="mt-3 flex flex-wrap gap-2">
+                              {block.bookingUrl ? (
+                                <a href={block.bookingUrl} className="inline-flex items-center gap-1 rounded-full bg-white px-3 py-2 text-xs font-black text-black transition hover:bg-fuchsia-100">
+                                  <Ticket className="h-3.5 w-3.5" /> {actionForCategory(block.category, block.bookingUrl)}
+                                </a>
+                              ) : (
+                                <button type="button" className="rounded-full border border-white/15 px-3 py-2 text-xs font-bold text-white/72 transition hover:bg-white/10">
+                                  {actionForCategory(block.category)}
+                                </button>
+                              )}
+                              <button type="button" className="rounded-full border border-white/15 px-3 py-2 text-xs font-bold text-white/72 transition hover:bg-white/10">
+                                Swap Pick
+                              </button>
+                            </div>
                           </div>
                         ))}
                       </div>
