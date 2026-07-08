@@ -309,6 +309,7 @@ export function HeroPlanner() {
 
     const payload = buildPlannerPayload(overrides);
     setPlanInput(payload);
+    const minimumBuildTime = new Promise((resolve) => window.setTimeout(resolve, 6000));
 
     const response = await fetch("/api/planner", {
       method: "POST",
@@ -317,9 +318,13 @@ export function HeroPlanner() {
     });
 
     const nextResult = (await response.json()) as PlannerResponse;
+    await savePlan(payload, nextResult);
+    await minimumBuildTime;
+    setBuildStepIndex(buildSteps.length - 1);
+    setBuildProgress(100);
+    await new Promise((resolve) => window.setTimeout(resolve, 650));
     setResult(nextResult);
     setLoading(false);
-    await savePlan(payload, nextResult);
   }
 
   async function handleEmailSubmit(event: FormEvent<HTMLFormElement>) {
@@ -420,7 +425,8 @@ export function HeroPlanner() {
           </div>
         ) : null}
 
-        <form onSubmit={handleSubmit} className="mx-auto mt-8 rounded-lg border border-white/10 bg-white/[0.08] p-3 shadow-2xl shadow-black/30 backdrop-blur sm:p-4">
+        {!loading && !result ? (
+          <form onSubmit={handleSubmit} className="mx-auto mt-8 rounded-lg border border-white/10 bg-white/[0.08] p-3 shadow-2xl shadow-black/30 backdrop-blur sm:p-4">
           <div className="rounded-lg border border-white/10 bg-black/35 p-3 sm:p-4">
             <div className="rounded-lg border border-amber-100/20 bg-amber-100/[0.07] p-4">
               <p className="mb-3 inline-flex items-center gap-2 text-xs font-black uppercase tracking-[0.16em] text-amber-100">
@@ -566,10 +572,11 @@ export function HeroPlanner() {
               </button>
             </div>
           </div>
-        </form>
+          </form>
+        ) : null}
 
         {loading ? (
-          <div className="mx-auto mt-5 overflow-hidden rounded-lg border border-amber-100/20 bg-amber-100/[0.08] p-5">
+          <div className="mx-auto mt-8 min-h-[32rem] overflow-hidden rounded-lg border border-amber-100/20 bg-amber-100/[0.08] p-5 shadow-2xl shadow-black/30 sm:p-7">
             <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
               <div>
                 <p className="inline-flex items-center gap-2 text-sm font-black text-amber-100">
