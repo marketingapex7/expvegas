@@ -148,9 +148,42 @@ function eventTime(event: VegasEvent, fallback: string) {
   }).format(new Date(`${event.localDate}T${event.localTime}`));
 }
 
-function eventsForDay(events: VegasEvent[], date: string) {
+function hourForEvent(event: VegasEvent) {
+  if (!event.localTime) return undefined;
+  return Number(event.localTime.split(":")[0]);
+}
+
+function eventMatchesIntent(event: VegasEvent, input: PlannerInput) {
+  const text = textFor(input);
+  const eventText = `${event.name} ${event.category} ${event.subcategory || ""} ${event.tags.join(" ")} ${event.quickVerdict}`.toLowerCase();
+
+  if (eventText.includes("drag") || eventText.includes("brunch")) {
+    return text.includes("drag") || text.includes("brunch") || text.includes("lgbtq") || text.includes("lgbt");
+  }
+
+  return true;
+}
+
+function isGoodAnchorEvent(event: VegasEvent, input: PlannerInput) {
+  const hour = hourForEvent(event);
+  const text = textFor(input);
+  const wantsDaytime = text.includes("brunch") || text.includes("daytime") || text.includes("afternoon");
+
+  if (!eventMatchesIntent(event, input)) return false;
+  if (hour === undefined) return true;
+  if (wantsDaytime) return hour >= 11;
+
+  return hour >= 17;
+}
+
+function eventsForDay(events: VegasEvent[], date: string, input: PlannerInput) {
   const dated = events.filter((event) => event.localDate === date);
-  return dated.length > 0 ? dated : events.filter((event) => !event.localDate).slice(0, 1);
+  const anchorable = dated.filter((event) => isGoodAnchorEvent(event, input));
+
+  if (anchorable.length > 0) return anchorable;
+  if (dated.length > 0) return [];
+
+  return events.filter((event) => !event.localDate && eventMatchesIntent(event, input)).slice(0, 1);
 }
 
 function priceHint(event: VegasEvent) {
@@ -165,7 +198,7 @@ function buildBlocks(date: string, dayIndex: number, input: PlannerInput, events
   const dinner = pickRestaurant(input, dayIndex + 2);
   const lunchRestaurant = pickRestaurant(input, dayIndex + 6);
   const casino = pickStop(casinoStops, input, dayIndex);
-  const dayEvents = eventsForDay(events, date);
+  const dayEvents = eventsForDay(events, date, input);
   const mainEvent = dayEvents[0];
   const text = textFor(input);
   const slowMorning = text.includes("slow morning");
@@ -265,7 +298,21 @@ function buildBlocks(date: string, dayIndex: number, input: PlannerInput, events
     });
   }
 
-  return blocks;
+  return blocks.sort((a, b) => timeSortValue(a.time) - timeSortValue(b.time));
+}
+
+function timeSortValue(time: string) {
+  const match = time.match(/^(\d{1,2}):(\d{2})\s*(AM|PM)$/i);
+  if (!match) return 9999;
+
+  const [, rawHour, rawMinute, period] = match;
+  let hour = Number(rawHour);
+  const minute = Number(rawMinute);
+
+  if (period.toUpperCase() === "PM" && hour !== 12) hour += 12;
+  if (period.toUpperCase() === "AM" && hour === 12) hour = 0;
+
+  return hour * 60 + minute;
 }
 
 function dayTheme(dayIndex: number, event?: VegasEvent) {
@@ -281,7 +328,7 @@ export function buildItinerary({ plannerInput, startDate, endDate, rankedEvents 
   const itineraryDates = dates.length > 0 ? dates : [new Date().toISOString().slice(0, 10)];
 
   return itineraryDates.map((date, index) => {
-    const dayEvents = eventsForDay(rankedEvents, date);
+    const dayEvents = eventsForDay(rankedEvents, date, plannerInput);
 
     return {
       date,
