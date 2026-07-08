@@ -19,12 +19,19 @@ export function PlannerForm() {
   const [loading, setLoading] = useState(false);
   const [arrivalDate, setArrivalDate] = useState("");
   const [departureDate, setDepartureDate] = useState("");
+  const [dateError, setDateError] = useState("");
 
   const travelDates =
     arrivalDate && departureDate ? `${arrivalDate} to ${departureDate}` : arrivalDate || departureDate;
 
   async function handleSubmit(formData: FormData) {
+    if (!arrivalDate || !departureDate) {
+      setDateError("Choose arrival and departure dates first.");
+      return;
+    }
+
     setLoading(true);
+    setDateError("");
     const payload = Object.fromEntries(formData.entries());
     const response = await fetch("/api/planner", {
       method: "POST",
@@ -48,8 +55,12 @@ export function PlannerForm() {
               Arrive
               <input
                 type="date"
+                required
                 value={arrivalDate}
-                onChange={(event) => setArrivalDate(event.target.value)}
+                onChange={(event) => {
+                  setArrivalDate(event.target.value);
+                  setDateError("");
+                }}
                 className="min-h-12 rounded-2xl border border-white/10 bg-black/25 px-4 py-3 text-white [color-scheme:dark] outline-none transition focus:border-fuchsia-200/60"
               />
             </label>
@@ -57,12 +68,18 @@ export function PlannerForm() {
               Leave
               <input
                 type="date"
+                required
+                min={arrivalDate || undefined}
                 value={departureDate}
-                onChange={(event) => setDepartureDate(event.target.value)}
+                onChange={(event) => {
+                  setDepartureDate(event.target.value);
+                  setDateError("");
+                }}
                 className="min-h-12 rounded-2xl border border-white/10 bg-black/25 px-4 py-3 text-white [color-scheme:dark] outline-none transition focus:border-fuchsia-200/60"
               />
             </label>
           </div>
+          {dateError ? <p className="mt-3 text-sm font-bold text-fuchsia-200">{dateError}</p> : null}
         </div>
         <select name="groupType" className="rounded-2xl border border-white/10 bg-black/25 px-4 py-4 text-white outline-none">
           <option>Couple</option><option>Family</option><option>Friends trip</option><option>Bachelor party</option><option>Bachelorette party</option><option>Solo</option>

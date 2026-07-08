@@ -122,6 +122,8 @@ export function HeroPlanner() {
   const [saveStatus, setSaveStatus] = useState("");
   const [buildProgress, setBuildProgress] = useState(8);
   const [buildStepIndex, setBuildStepIndex] = useState(0);
+  const [dateError, setDateError] = useState("");
+  const datesAreSet = Boolean(arrivalDate && departureDate);
 
   const helperSummary = useMemo(() => {
     if (selectedHelpers.length === 0) return "Add dates, ticket budget, group, lodging, and vibe when you know them.";
@@ -142,6 +144,7 @@ export function HeroPlanner() {
   function updateTravelDates(nextArrivalDate: string, nextDepartureDate: string) {
     setArrivalDate(nextArrivalDate);
     setDepartureDate(nextDepartureDate);
+    setDateError("");
 
     const formattedArrival = formatTravelDate(nextArrivalDate);
     const formattedDeparture = formatTravelDate(nextDepartureDate);
@@ -292,6 +295,11 @@ export function HeroPlanner() {
   }
 
   async function buildPlan(overrides: Partial<Record<string, string>> = {}) {
+    if (!datesAreSet) {
+      setDateError("Choose arrival and departure dates first so we can use real Vegas schedules.");
+      return;
+    }
+
     setBuildProgress(8);
     setBuildStepIndex(0);
     setLoading(true);
@@ -353,6 +361,11 @@ export function HeroPlanner() {
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
 
+    if (!datesAreSet) {
+      setDateError("Choose arrival and departure dates first so we can build around real events.");
+      return;
+    }
+
     if (!showRefinements) {
       setShowRefinements(true);
       setResult(null);
@@ -376,9 +389,9 @@ export function HeroPlanner() {
           <p className="mx-auto mt-5 max-w-2xl text-lg leading-8 text-white/72 sm:text-xl sm:leading-9">
             Tell ExperienceVegas the dates, ticket budget, food spend, group, lodging, and vibe. We will turn the messy ticket search into a timed plan for events, food, casino time, and places worth seeing.
           </p>
-          <div className="mx-auto mt-6 grid max-w-2xl gap-2 text-left sm:grid-cols-3">
-            {["Tell us the trip", "Tune the plan", "Get the game plan"].map((step, index) => {
-              const isActive = index === 0 || (index === 1 && showRefinements) || (index === 2 && result);
+          <div className="mx-auto mt-6 grid max-w-3xl gap-2 text-left sm:grid-cols-4">
+            {["Pick dates", "Tell us the trip", "Tune the plan", "Get the game plan"].map((step, index) => {
+              const isActive = (index === 0 && datesAreSet) || (index === 1 && datesAreSet) || (index === 2 && showRefinements) || (index === 3 && result);
 
               return (
                 <div key={step} className={`rounded-lg border px-3 py-3 ${isActive ? "border-amber-100/40 bg-amber-100/10" : "border-white/10 bg-white/[0.04]"}`}>
@@ -409,44 +422,54 @@ export function HeroPlanner() {
 
         <form onSubmit={handleSubmit} className="mx-auto mt-8 rounded-lg border border-white/10 bg-white/[0.08] p-3 shadow-2xl shadow-black/30 backdrop-blur sm:p-4">
           <div className="rounded-lg border border-white/10 bg-black/35 p-3 sm:p-4">
-            <label className="sr-only" htmlFor="experience-prompt">
-              Describe your perfect Vegas experience
-            </label>
-            <textarea
-              id="experience-prompt"
-              value={prompt}
-              onChange={(event) => setPrompt(event.target.value)}
-              className="min-h-36 w-full resize-none bg-transparent px-1 py-1 text-base leading-7 text-white outline-none placeholder:text-white/35 sm:min-h-40 sm:text-lg"
-              placeholder={starterPrompt}
-            />
-
-            <div className="mt-3 border-t border-white/10 pt-4">
-              <div className="grid gap-3 md:grid-cols-5">
-                <div className="rounded-lg border border-white/10 bg-white/[0.04] p-3">
-                  <p className="mb-3 inline-flex items-center gap-2 text-xs font-black uppercase tracking-[0.16em] text-white/50">
-                    <CalendarDays className="h-4 w-4 text-amber-100" /> Dates
-                  </p>
-                  <div className="grid gap-2">
-                    <label className="grid gap-1 text-xs font-bold text-white/55">
-                      Arrive
-                      <input
-                        type="date"
-                        value={arrivalDate}
-                        onChange={(event) => updateTravelDates(event.target.value, departureDate)}
-                        className="min-h-10 rounded-lg border border-white/10 bg-black/35 px-3 py-2 text-sm text-white [color-scheme:dark] outline-none transition focus:border-amber-100/70"
-                      />
-                    </label>
-                    <label className="grid gap-1 text-xs font-bold text-white/55">
-                      Leave
-                      <input
-                        type="date"
-                        value={departureDate}
-                        onChange={(event) => updateTravelDates(arrivalDate, event.target.value)}
-                        className="min-h-10 rounded-lg border border-white/10 bg-black/35 px-3 py-2 text-sm text-white [color-scheme:dark] outline-none transition focus:border-amber-100/70"
-                      />
-                    </label>
-                  </div>
+            <div className="rounded-lg border border-amber-100/20 bg-amber-100/[0.07] p-4">
+              <p className="mb-3 inline-flex items-center gap-2 text-xs font-black uppercase tracking-[0.16em] text-amber-100">
+                <CalendarDays className="h-4 w-4" /> Step 1: Pick your Vegas dates
+              </p>
+              <div className="grid gap-3 sm:grid-cols-[1fr_1fr_auto] sm:items-end">
+                <label className="grid gap-1 text-xs font-bold text-white/65">
+                  Arrive
+                  <input
+                    type="date"
+                    required
+                    value={arrivalDate}
+                    onChange={(event) => updateTravelDates(event.target.value, departureDate)}
+                    className="min-h-11 rounded-lg border border-white/10 bg-black/35 px-3 py-2 text-sm text-white [color-scheme:dark] outline-none transition focus:border-amber-100/70"
+                  />
+                </label>
+                <label className="grid gap-1 text-xs font-bold text-white/65">
+                  Leave
+                  <input
+                    type="date"
+                    required
+                    min={arrivalDate || undefined}
+                    value={departureDate}
+                    onChange={(event) => updateTravelDates(arrivalDate, event.target.value)}
+                    className="min-h-11 rounded-lg border border-white/10 bg-black/35 px-3 py-2 text-sm text-white [color-scheme:dark] outline-none transition focus:border-amber-100/70"
+                  />
+                </label>
+                <div className="rounded-lg bg-black/25 px-3 py-3 text-sm font-bold text-white/70">
+                  {datesAreSet ? `${formatTravelDate(arrivalDate)} to ${formatTravelDate(departureDate)}` : "Dates required"}
                 </div>
+              </div>
+              {dateError ? <p className="mt-3 text-sm font-bold text-amber-100">{dateError}</p> : null}
+            </div>
+
+            <div className={`mt-4 transition ${datesAreSet ? "opacity-100" : "pointer-events-none opacity-45"}`}>
+              <label className="sr-only" htmlFor="experience-prompt">
+                Describe your perfect Vegas experience
+              </label>
+              <textarea
+                id="experience-prompt"
+                value={prompt}
+                disabled={!datesAreSet}
+                onChange={(event) => setPrompt(event.target.value)}
+                className="min-h-36 w-full resize-none bg-transparent px-1 py-1 text-base leading-7 text-white outline-none placeholder:text-white/35 disabled:cursor-not-allowed sm:min-h-40 sm:text-lg"
+                placeholder={datesAreSet ? starterPrompt : "Pick your dates first, then describe the trip you want."}
+              />
+
+              <div className="mt-3 border-t border-white/10 pt-4">
+                <div className="grid gap-3 md:grid-cols-4">
                 {helperGroups.map((group) => {
                   const Icon = group.icon;
 
@@ -477,6 +500,7 @@ export function HeroPlanner() {
                     </div>
                   );
                 })}
+                </div>
               </div>
             </div>
 
