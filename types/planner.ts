@@ -33,6 +33,8 @@ export type ItineraryBlock = {
   description?: string;
   bookingUrl?: string;
   priceHint?: string;
+  durationMinutes?: number;
+  timingNote?: string;
 };
 
 export type ItineraryDay = {

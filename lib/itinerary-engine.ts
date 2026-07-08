@@ -191,6 +191,57 @@ function priceHint(event: VegasEvent) {
   return event.priceMax ? `$${event.priceMin}-${event.priceMax}` : `From $${event.priceMin}`;
 }
 
+function timeLabelFromMinutes(totalMinutes: number) {
+  const normalized = ((totalMinutes % 1440) + 1440) % 1440;
+  const hour24 = Math.floor(normalized / 60);
+  const minute = normalized % 60;
+  const period = hour24 >= 12 ? "PM" : "AM";
+  const hour12 = hour24 % 12 || 12;
+
+  return `${hour12}:${minute.toString().padStart(2, "0")} ${period}`;
+}
+
+function defaultDuration(block: ItineraryBlock) {
+  if (block.durationMinutes) return block.durationMinutes;
+  if (block.category === "meal") return 90;
+  if (block.category === "event") return 120;
+  if (block.category === "attraction") return 90;
+  if (block.category === "casino") return 75;
+  if (block.category === "shopping") return 75;
+  return 60;
+}
+
+function bufferAfter(block: ItineraryBlock) {
+  if (block.category === "event") return 30;
+  if (block.category === "meal") return 20;
+  return 15;
+}
+
+function sanitizeSchedule(blocks: ItineraryBlock[]) {
+  const sorted = [...blocks].sort((a, b) => timeSortValue(a.time) - timeSortValue(b.time));
+  let previousEnd = 0;
+
+  return sorted.map((block) => {
+    const originalStart = timeSortValue(block.time);
+    const durationMinutes = defaultDuration(block);
+    const isFixedStart = block.category === "event" && originalStart < 9999;
+    const nextStart = isFixedStart ? originalStart : Math.max(originalStart, previousEnd);
+    const adjustedBlock: ItineraryBlock = {
+      ...block,
+      time: timeLabelFromMinutes(nextStart),
+      durationMinutes,
+    };
+
+    if (nextStart > originalStart && originalStart < 9999) {
+      adjustedBlock.timingNote = `Shifted from ${block.time} to keep the day realistic.`;
+    }
+
+    previousEnd = nextStart + durationMinutes + bufferAfter(adjustedBlock);
+
+    return adjustedBlock;
+  });
+}
+
 function buildBlocks(date: string, dayIndex: number, input: PlannerInput, events: VegasEvent[]): ItineraryBlock[] {
   const attraction = pickStop(attractionStops, input, dayIndex);
   const freeExperience = pickStop(freeExperienceStops, input, dayIndex);
@@ -216,6 +267,7 @@ function buildBlocks(date: string, dayIndex: number, input: PlannerInput, events
       location: lunchRestaurant.venue || lunchRestaurant.area,
       description: lunchRestaurant.description,
       bookingUrl: lunchRestaurant.reservationUrl,
+      durationMinutes: 90,
     },
     {
       time: slowMorning ? "2:00 PM" : "1:00 PM",
@@ -223,6 +275,7 @@ function buildBlocks(date: string, dayIndex: number, input: PlannerInput, events
       category: shoppingFocused ? "shopping" : shoppingFocused || freeFocused ? "free" : "attraction",
       location: shoppingFocused || freeFocused ? freeExperience.area : attraction.area,
       description: shoppingFocused || freeFocused ? freeExperience.description : attraction.description,
+      durationMinutes: shoppingFocused || freeFocused ? 75 : 90,
     },
     noGambling
       ? {
@@ -231,6 +284,7 @@ function buildBlocks(date: string, dayIndex: number, input: PlannerInput, events
           category: secondFreeExperience.tags.includes("shopping") ? "shopping" : "free",
           location: secondFreeExperience.area,
           description: "Keeps the plan Vegas-feeling without forcing casino time. " + secondFreeExperience.description,
+          durationMinutes: 75,
         }
       : {
           time: "4:00 PM",
@@ -238,6 +292,7 @@ function buildBlocks(date: string, dayIndex: number, input: PlannerInput, events
           category: "casino",
           location: casino.area,
           description: casino.description,
+          durationMinutes: 75,
         },
     {
       time: "6:00 PM",
@@ -246,6 +301,7 @@ function buildBlocks(date: string, dayIndex: number, input: PlannerInput, events
       location: dinner.venue || dinner.area,
       description: dinner.description,
       bookingUrl: dinner.reservationUrl,
+      durationMinutes: 90,
     },
   ];
 
@@ -256,6 +312,7 @@ function buildBlocks(date: string, dayIndex: number, input: PlannerInput, events
       category: "free",
       location: mainEvent?.venueName || freeExperience.area,
       description: lodgingRecommendation(input, mainEvent),
+      durationMinutes: 45,
     });
   }
 
@@ -268,6 +325,7 @@ function buildBlocks(date: string, dayIndex: number, input: PlannerInput, events
       description: mainEvent.quickVerdict,
       bookingUrl: mainEvent.affiliateUrl,
       priceHint: priceHint(mainEvent),
+      durationMinutes: mainEvent.runtimeMinutes || (mainEvent.category === "sports" || mainEvent.category === "concerts" ? 180 : 120),
     });
   } else {
     blocks.push({
@@ -275,6 +333,7 @@ function buildBlocks(date: string, dayIndex: number, input: PlannerInput, events
       title: "Open evening for a last-minute show or lounge",
       category: "free",
       description: "Keep this block flexible until live inventory or group energy makes the best choice obvious.",
+      durationMinutes: 120,
     });
   }
 
@@ -286,6 +345,7 @@ function buildBlocks(date: string, dayIndex: number, input: PlannerInput, events
     description: noGambling
       ? "Keep the final stop close to avoid long rides after the main event."
       : `Use this as a flexible, non-ticketed decompression stop. ${secondFreeExperience.description}`,
+    durationMinutes: 60,
   });
 
   if (packed) {
@@ -295,10 +355,11 @@ function buildBlocks(date: string, dayIndex: number, input: PlannerInput, events
       category: freeExperience.tags.includes("shopping") ? "shopping" : "free",
       location: freeExperience.area,
       description: "A short, no-ticket bonus stop added because you asked for a fuller schedule. " + freeExperience.description,
+      durationMinutes: 60,
     });
   }
 
-  return blocks.sort((a, b) => timeSortValue(a.time) - timeSortValue(b.time));
+  return sanitizeSchedule(blocks);
 }
 
 function timeSortValue(time: string) {

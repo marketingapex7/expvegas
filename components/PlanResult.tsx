@@ -126,6 +126,8 @@ export function PlanResult({
                     <p className="mt-1 font-bold text-white">{block.title}</p>
                     {block.location ? <p className="mt-1 text-xs font-bold uppercase tracking-[0.16em] text-white/40">{block.location}</p> : null}
                     {block.description ? <p className="mt-2 text-sm leading-6 text-white/60">{block.description}</p> : null}
+                    {block.durationMinutes ? <p className="mt-2 text-xs font-bold uppercase tracking-[0.16em] text-white/40">Plan for about {Math.round(block.durationMinutes / 15) * 15} min</p> : null}
+                    {block.timingNote ? <p className="mt-2 text-xs font-bold text-amber-100">{block.timingNote}</p> : null}
                     {block.priceHint ? <p className="mt-2 text-sm font-bold text-white/70">{block.priceHint}</p> : null}
                     <div className="mt-3 flex flex-wrap gap-2">
                       {block.bookingUrl ? (
