@@ -67,9 +67,36 @@ export function PlannerForm() {
         <select name="groupType" className="rounded-2xl border border-white/10 bg-black/25 px-4 py-4 text-white outline-none">
           <option>Couple</option><option>Family</option><option>Friends trip</option><option>Bachelor party</option><option>Bachelorette party</option><option>Solo</option>
         </select>
-        <select name="budget" className="rounded-2xl border border-white/10 bg-black/25 px-4 py-4 text-white outline-none">
-          <option>Under $50</option><option>$50-$100</option><option>$100-$200</option><option>Premium</option>
-        </select>
+        <label className="grid gap-2 text-xs font-bold uppercase tracking-[0.12em] text-white/45">
+          Event ticket budget per person
+          <select name="budget" className="rounded-2xl border border-white/10 bg-black/25 px-4 py-4 text-white outline-none">
+            <option>Event tickets under $100 per person</option>
+            <option>Event tickets $100-$200 per person</option>
+            <option>Premium event tickets are okay if worth it</option>
+            <option>Mostly free or low-cost experiences</option>
+          </select>
+        </label>
+        <label className="grid gap-2 text-xs font-bold uppercase tracking-[0.12em] text-white/45">
+          Food spend per person
+          <select name="mealBudget" className="rounded-2xl border border-white/10 bg-black/25 px-4 py-4 text-white outline-none">
+            <option>Mostly casual meals under $40 per person</option>
+            <option>Balanced meals around $40-$80 per person</option>
+            <option>Food is a big part at $80-$150 per person</option>
+            <option>One premium dinner over $100 per person</option>
+          </select>
+        </label>
+        <label className="grid gap-2 text-xs font-bold uppercase tracking-[0.12em] text-white/45">
+          Gambling bankroll
+          <select name="gamblingPreference" className="rounded-2xl border border-white/10 bg-black/25 px-4 py-4 text-white outline-none">
+            <option>No gambling</option>
+            <option>Casino atmosphere only</option>
+            <option>Light gambling under $100 total</option>
+            <option>Slots bankroll $100-$300 total</option>
+            <option>Table games bankroll $300+ total</option>
+            <option>Poker</option>
+            <option>Sportsbook</option>
+          </select>
+        </label>
         <select name="vibe" className="rounded-2xl border border-white/10 bg-black/25 px-4 py-4 text-white outline-none">
           <option>Funny</option><option>Romantic</option><option>Wild</option><option>Iconic</option><option>Family-friendly</option><option>Sports</option>
         </select>
@@ -190,8 +217,8 @@ export function PlannerForm() {
                 <p className="mt-2 text-sm text-white/65">{result.backupPickNames.join(" · ")}</p>
               </div>
               <div className="rounded-2xl bg-black/25 p-4">
-                <p className="font-black text-white">Budget / premium</p>
-                <p className="mt-2 text-sm text-white/65">Cheap: {result.cheaperVersion || "TBD"}</p>
+                <p className="font-black text-white">Ticket budget options</p>
+                <p className="mt-2 text-sm text-white/65">Lower-cost event: {result.cheaperVersion || "TBD"}</p>
                 <p className="mt-1 text-sm text-white/65">Premium: {result.premiumVersion || "TBD"}</p>
               </div>
             </div>

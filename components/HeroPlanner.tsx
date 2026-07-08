@@ -6,11 +6,11 @@ import { PlanResult } from "@/components/PlanResult";
 import { PlannerInput, PlannerResponse } from "@/types/planner";
 
 const tuneOptions = [
-  { label: "Make cheaper", updates: { mealBudget: "Save money for events", budget: "under $100 per person" } },
-  { label: "More premium", updates: { mealBudget: "One premium dinner", budget: "premium but worth it" } },
+  { label: "Make cheaper", updates: { mealBudget: "Mostly casual meals under $40 per person", budget: "event tickets under $100 per person" } },
+  { label: "More premium", updates: { mealBudget: "One premium dinner over $100 per person", budget: "premium event tickets are okay if worth it" } },
   { label: "Less walking", updates: { logistics: "Keep it walkable" } },
-  { label: "More food-focused", updates: { mealBudget: "Food is a big part" } },
-  { label: "More gambling", updates: { gamblingPreference: "Table games" } },
+  { label: "More food-focused", updates: { mealBudget: "Food is a big part at $80-$150 per person" } },
+  { label: "More gambling", updates: { gamblingPreference: "Table games bankroll $300+ total" } },
   { label: "No gambling", updates: { gamblingPreference: "No gambling" } },
   { label: "Family-friendly", updates: { pace: "Family-friendly pace", groupType: "family with teens" } },
 ];
@@ -23,16 +23,16 @@ const refinementGroups = [
     options: ["Steakhouse", "Buffet", "Celebrity chef", "Casual and fast", "Italian", "Asian", "Mexican", "Cheap eats", "Surprise me"],
   },
   {
-    label: "Meal budget",
+    label: "Food spend",
     key: "mealBudget",
     multi: false,
-    options: ["Save money for events", "Balanced meals and tickets", "Food is a big part", "One premium dinner"],
+    options: ["Mostly casual meals under $40 per person", "Balanced meals around $40-$80 per person", "Food is a big part at $80-$150 per person", "One premium dinner over $100 per person"],
   },
   {
-    label: "Gambling",
+    label: "Gambling bankroll",
     key: "gamblingPreference",
     multi: false,
-    options: ["No gambling", "Light casino time", "Slots", "Table games", "Poker", "Sportsbook", "Casino atmosphere"],
+    options: ["No gambling", "Casino atmosphere only", "Light gambling under $100 total", "Slots bankroll $100-$300 total", "Table games bankroll $300+ total", "Poker", "Sportsbook"],
   },
   {
     label: "Pace",
@@ -50,9 +50,9 @@ const refinementGroups = [
 
 const helperGroups = [
   {
-    label: "Budget",
+    label: "Ticket budget",
     icon: WalletCards,
-    options: ["under $100 per person", "$100-$200 per person", "premium but worth it"],
+    options: ["event tickets under $100 per person", "event tickets $100-$200 per person", "premium event tickets are okay if worth it"],
   },
   {
     label: "Group",
@@ -83,7 +83,7 @@ function formatTravelDate(value: string) {
 }
 
 function sentenceFor(group: string, option: string) {
-  if (group === "Budget") return `Budget: ${option}.`;
+  if (group === "Ticket budget") return `Ticket budget: ${option}.`;
   if (group === "Group") return `Group: ${option}.`;
   if (group === "Lodging") {
     return option.includes("haven't booked") ? "Lodging: not booked yet." : `Staying near ${option}.`;
@@ -122,7 +122,7 @@ export function HeroPlanner() {
   const [saveStatus, setSaveStatus] = useState("");
 
   const helperSummary = useMemo(() => {
-    if (selectedHelpers.length === 0) return "Add dates, budget, group, area, and vibe when you know them.";
+    if (selectedHelpers.length === 0) return "Add dates, ticket budget, group, lodging, and vibe when you know them.";
     return `${selectedHelpers.length} detail${selectedHelpers.length === 1 ? "" : "s"} added to your request.`;
   }, [selectedHelpers.length]);
 
@@ -195,7 +195,7 @@ export function HeroPlanner() {
     return {
       prompt,
       travelDates,
-      budget: overrides.budget || selectedValue("Budget"),
+      budget: overrides.budget || selectedValue("Ticket budget"),
       groupType: overrides.groupType || selectedValue("Group"),
       stayingNear: overrides.stayingNear || selectedValue("Lodging"),
       vibe: overrides.vibe || selectedValue("Vibe") || prompt,
@@ -336,7 +336,7 @@ export function HeroPlanner() {
             Build your Vegas game plan.
           </h1>
           <p className="mx-auto mt-5 max-w-2xl text-lg leading-8 text-white/72 sm:text-xl sm:leading-9">
-            Tell ExperienceVegas the dates, budget, group, location, and vibe. We will turn the messy ticket search into a timed plan for events, food, casino time, and places worth seeing.
+            Tell ExperienceVegas the dates, ticket budget, food spend, group, lodging, and vibe. We will turn the messy ticket search into a timed plan for events, food, casino time, and places worth seeing.
           </p>
           <div className="mx-auto mt-6 grid max-w-2xl gap-2 text-left sm:grid-cols-3">
             {["Tell us the trip", "Tune the plan", "Get the game plan"].map((step, index) => {
@@ -512,7 +512,7 @@ export function HeroPlanner() {
               <Loader2 className="h-4 w-4 animate-spin" /> Planning your experience
             </p>
             <div className="mt-4 grid gap-3 text-sm leading-6 text-white/68 sm:grid-cols-3">
-              <p className="rounded-lg bg-black/25 p-4">Reading your dates, budget, group, area, and vibe.</p>
+              <p className="rounded-lg bg-black/25 p-4">Reading your dates, ticket budget, food spend, group, lodging, and vibe.</p>
               <p className="rounded-lg bg-black/25 p-4">Scoring shows, comedy, sports, concerts, and attractions for fit.</p>
               <p className="rounded-lg bg-black/25 p-4">Building your Vegas game plan with strong nearby options.</p>
             </div>

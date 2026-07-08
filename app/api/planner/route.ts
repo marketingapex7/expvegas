@@ -40,7 +40,7 @@ function formatTimelineTime(event: VegasEvent) {
 
 function buildWhyItFits(best: VegasEvent, input: PlannerInput, liveEventCount: number) {
   const group = input.groupType || "your group";
-  const budget = input.budget || "your budget";
+  const budget = input.budget || "your event ticket budget";
   const vibe = input.vibe || input.prompt || "the night you described";
   const sourceNote =
     best.id.startsWith("ticketmaster-") && liveEventCount > 0
@@ -84,7 +84,8 @@ function buildTripSummary(input: PlannerInput, itineraryDays: ItineraryDay[], be
   const bestLodgingZone = lodgingBlock?.description;
   const tripStyle = [
     input.groupType,
-    input.budget,
+    input.budget ? `Tickets: ${input.budget}` : undefined,
+    input.mealBudget ? `Food: ${input.mealBudget}` : undefined,
     input.vibe,
     input.foodPreference,
     input.gamblingPreference,
