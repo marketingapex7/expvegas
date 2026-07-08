@@ -1,6 +1,6 @@
 "use client";
 
-import { FormEvent, useEffect, useMemo, useState } from "react";
+import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
 import { ArrowRight, CalendarDays, Loader2, MapPin, Sparkles, Users, WalletCards } from "lucide-react";
 import { PlanResult } from "@/components/PlanResult";
 import { PlannerInput, PlannerResponse } from "@/types/planner";
@@ -124,6 +124,7 @@ export function HeroPlanner() {
   const [buildProgress, setBuildProgress] = useState(8);
   const [buildStepIndex, setBuildStepIndex] = useState(0);
   const [dateError, setDateError] = useState("");
+  const buildPanelRef = useRef<HTMLDivElement>(null);
   const datesAreSet = Boolean(arrivalDate && departureDate);
 
   const helperSummary = useMemo(() => {
@@ -215,6 +216,16 @@ export function HeroPlanner() {
     return () => window.clearInterval(progressTimer);
   }, [buildSteps.length, loading]);
 
+  useEffect(() => {
+    if (!loading) return;
+
+    const scrollTimer = window.setTimeout(() => {
+      buildPanelRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+    }, 50);
+
+    return () => window.clearTimeout(scrollTimer);
+  }, [loading]);
+
   function setRefinement(key: string, value: string) {
     setRefinements((current) => ({ ...current, [key]: value }));
   }
@@ -261,7 +272,12 @@ export function HeroPlanner() {
 
       if (!response.ok) {
         const data = (await response.json().catch(() => null)) as { error?: string; code?: string } | null;
-        const errorText = data?.error ? `${data.error}${data.code ? ` (${data.code})` : ""}` : "Could not save this plan yet.";
+        const invalidKey = data?.error?.toLowerCase().includes("invalid api key");
+        const errorText = invalidKey
+          ? "Supabase rejected the API key. In Vercel, verify NEXT_PUBLIC_SUPABASE_URL and set SUPABASE_SECRET_KEY to this project's full sb_secret_ key, then redeploy."
+          : data?.error
+            ? `${data.error}${data.code ? ` (${data.code})` : ""}`
+            : "Could not save this plan yet.";
         setSaveStatus(`Could not save plan: ${errorText}`);
         setSavingPlan(false);
         return "";
@@ -598,7 +614,10 @@ export function HeroPlanner() {
         ) : null}
 
         {loading ? (
-          <div className="mx-auto mt-8 min-h-[32rem] overflow-hidden rounded-lg border border-amber-100/20 bg-amber-100/[0.08] p-5 shadow-2xl shadow-black/30 sm:p-7">
+          <div
+            ref={buildPanelRef}
+            className="mx-auto mt-8 min-h-[32rem] scroll-mt-24 overflow-hidden rounded-lg border border-amber-100/20 bg-amber-100/[0.08] p-5 shadow-2xl shadow-black/30 sm:p-7"
+          >
             <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
               <div>
                 <p className="inline-flex items-center gap-2 text-sm font-black text-amber-100">
