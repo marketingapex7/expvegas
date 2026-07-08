@@ -118,6 +118,7 @@ export function HeroPlanner() {
   const [planInput, setPlanInput] = useState<PlannerInput | null>(null);
   const [email, setEmail] = useState("");
   const [savingEmail, setSavingEmail] = useState(false);
+  const [savingPlan, setSavingPlan] = useState(false);
   const [emailMessage, setEmailMessage] = useState("");
   const [saveStatus, setSaveStatus] = useState("");
   const [buildProgress, setBuildProgress] = useState(8);
@@ -248,32 +249,53 @@ export function HeroPlanner() {
   }
 
   async function savePlan(input: PlannerInput, nextResult: PlannerResponse) {
+    setSavingPlan(true);
     setSaveStatus("Saving this game plan...");
 
-    const response = await fetch("/api/plans", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ input, result: nextResult }),
-    });
+    try {
+      const response = await fetch("/api/plans", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ input, result: nextResult }),
+      });
 
-    if (!response.ok) {
-      const data = (await response.json().catch(() => null)) as { error?: string } | null;
-      setSaveStatus(data?.error ? `Could not save plan: ${data.error}` : "Could not save this plan yet.");
+      if (!response.ok) {
+        const data = (await response.json().catch(() => null)) as { error?: string; code?: string } | null;
+        const errorText = data?.error ? `${data.error}${data.code ? ` (${data.code})` : ""}` : "Could not save this plan yet.";
+        setSaveStatus(`Could not save plan: ${errorText}`);
+        setSavingPlan(false);
+        return "";
+      }
+
+      const data = (await response.json()) as { shareToken?: string };
+
+      if (data.shareToken) {
+        setSavedPlanToken(data.shareToken);
+        setSavedPlanFound(false);
+        setSaveStatus("");
+        window.localStorage.setItem("experiencevegas:lastPlanToken", data.shareToken);
+        setSavingPlan(false);
+        return data.shareToken;
+      }
+
+      setSaveStatus("Plan built, but no saved link was returned.");
+      setSavingPlan(false);
+      return "";
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Unknown save error.";
+      setSaveStatus(`Could not save plan: ${message}`);
+      setSavingPlan(false);
       return "";
     }
+  }
 
-    const data = (await response.json()) as { shareToken?: string };
-
-    if (data.shareToken) {
-      setSavedPlanToken(data.shareToken);
-      setSavedPlanFound(false);
-      setSaveStatus("");
-      window.localStorage.setItem("experiencevegas:lastPlanToken", data.shareToken);
-      return data.shareToken;
+  async function retrySavePlan() {
+    if (!planInput || !result) {
+      setSaveStatus("Build a plan first, then save it.");
+      return;
     }
 
-    setSaveStatus("Plan built, but no saved link was returned.");
-    return "";
+    await savePlan(planInput, result);
   }
 
   async function loadSavedPlan() {
@@ -653,6 +675,8 @@ export function HeroPlanner() {
             onTune={(updates) => buildPlan(updates)}
             loading={loading}
             saveStatus={saveStatus}
+            savingPlan={savingPlan}
+            onSaveRetry={retrySavePlan}
           />
         ) : null}
       </div>

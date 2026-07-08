@@ -21,6 +21,8 @@ type PlanResultProps = {
   onTune?: (updates: Partial<Record<string, string>>) => void;
   loading?: boolean;
   saveStatus?: string;
+  savingPlan?: boolean;
+  onSaveRetry?: () => void;
 };
 
 function actionForCategory(category: string, bookingUrl?: string) {
@@ -45,26 +47,41 @@ export function PlanResult({
   onTune,
   loading = false,
   saveStatus,
+  savingPlan = false,
+  onSaveRetry,
 }: PlanResultProps) {
   return (
     <div className="mx-auto mt-5 rounded-lg border border-amber-100/20 bg-white/[0.07] p-5">
+      <div className="mb-5 rounded-lg border border-amber-100/25 bg-black/25 p-4">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <p className="text-sm font-black text-white">{shareUrl ? "Your game plan is saved" : "Save this itinerary"}</p>
+            {shareUrl ? (
+              <a href={shareUrl} className="mt-2 block break-all text-sm font-bold text-amber-100 hover:text-white">
+                {shareUrl}
+              </a>
+            ) : (
+              <p className="mt-2 text-sm font-bold text-white/58">
+                {saveStatus || "We will create a private return link so the itinerary survives clicks away from this page."}
+              </p>
+            )}
+          </div>
+          {!shareUrl && onSaveRetry ? (
+            <button
+              type="button"
+              onClick={onSaveRetry}
+              disabled={savingPlan}
+              className="inline-flex min-h-11 items-center justify-center rounded-lg bg-amber-200 px-4 py-3 text-sm font-black text-black transition hover:bg-amber-100 disabled:cursor-wait disabled:opacity-70"
+            >
+              {savingPlan ? "Saving..." : "Save Link"}
+            </button>
+          ) : null}
+        </div>
+      </div>
       <p className="text-xs font-black uppercase tracking-[0.22em] text-amber-100">{result.headline}</p>
       <h2 className="mt-3 text-3xl font-black leading-tight text-white">{result.bestPickName}</h2>
       <p className="mt-3 leading-7 text-white/70">{result.whyItFits}</p>
       {result.sourceSummary ? <p className="mt-3 text-sm font-bold text-white/45">{result.sourceSummary}</p> : null}
-      {shareUrl ? (
-        <div className="mt-4 rounded-lg border border-white/10 bg-black/20 p-4">
-          <p className="text-sm font-black text-white">Saved plan link</p>
-          <a href={shareUrl} className="mt-2 block break-all text-sm font-bold text-amber-100 hover:text-white">
-            {shareUrl}
-          </a>
-        </div>
-      ) : saveStatus ? (
-        <div className="mt-4 rounded-lg border border-white/10 bg-black/20 p-4">
-          <p className="text-sm font-black text-white">Plan save status</p>
-          <p className="mt-2 text-sm font-bold text-amber-100">{saveStatus}</p>
-        </div>
-      ) : null}
       {result.tripSummary ? (
         <section className="mt-5 rounded-lg border border-white/10 bg-black/20 p-4">
           <div className="grid gap-4 lg:grid-cols-[1.15fr_0.85fr]">
