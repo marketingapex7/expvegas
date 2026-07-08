@@ -120,6 +120,8 @@ export function HeroPlanner() {
   const [savingEmail, setSavingEmail] = useState(false);
   const [emailMessage, setEmailMessage] = useState("");
   const [saveStatus, setSaveStatus] = useState("");
+  const [buildProgress, setBuildProgress] = useState(8);
+  const [buildStepIndex, setBuildStepIndex] = useState(0);
 
   const helperSummary = useMemo(() => {
     if (selectedHelpers.length === 0) return "Add dates, ticket budget, group, lodging, and vibe when you know them.";
@@ -162,6 +164,27 @@ export function HeroPlanner() {
   const shareUrl =
     savedPlanToken && typeof window !== "undefined" ? `${window.location.origin}/plan/${savedPlanToken}` : undefined;
 
+  const loadingPayload = planInput || buildPlannerPayload();
+  const loadingDates = loadingPayload.travelDates || "dates flexible";
+  const loadingSelections = [
+    loadingPayload.groupType ? `Group: ${loadingPayload.groupType}` : undefined,
+    loadingPayload.stayingNear ? `Lodging: ${loadingPayload.stayingNear}` : undefined,
+    loadingPayload.budget ? `Tickets: ${loadingPayload.budget}` : undefined,
+    loadingPayload.mealBudget ? `Food: ${loadingPayload.mealBudget}` : undefined,
+    loadingPayload.gamblingPreference ? `Gambling: ${loadingPayload.gamblingPreference}` : undefined,
+    loadingPayload.pace ? `Pace: ${loadingPayload.pace}` : undefined,
+    loadingPayload.logistics ? `Logistics: ${loadingPayload.logistics}` : undefined,
+    loadingPayload.vibe ? `Vibe: ${loadingPayload.vibe}` : undefined,
+  ].filter(Boolean) as string[];
+  const buildSteps = [
+    "Reading trip basics",
+    "Checking live event inventory",
+    "Scoring restaurants and free stops",
+    "Balancing timing, buffers, and walking",
+    "Running itinerary sanity check",
+    "Saving your game plan",
+  ];
+
   useEffect(() => {
     const restoreTimer = window.setTimeout(() => {
       const token = window.localStorage.getItem("experiencevegas:lastPlanToken");
@@ -174,6 +197,19 @@ export function HeroPlanner() {
 
     return () => window.clearTimeout(restoreTimer);
   }, []);
+
+  useEffect(() => {
+    if (!loading) {
+      return;
+    }
+
+    const progressTimer = window.setInterval(() => {
+      setBuildProgress((current) => Math.min(current + 9, 94));
+      setBuildStepIndex((current) => Math.min(current + 1, buildSteps.length - 1));
+    }, 700);
+
+    return () => window.clearInterval(progressTimer);
+  }, [buildSteps.length, loading]);
 
   function setRefinement(key: string, value: string) {
     setRefinements((current) => ({ ...current, [key]: value }));
@@ -256,12 +292,15 @@ export function HeroPlanner() {
   }
 
   async function buildPlan(overrides: Partial<Record<string, string>> = {}) {
+    setBuildProgress(8);
+    setBuildStepIndex(0);
     setLoading(true);
     setResult(null);
     setEmailMessage("");
     setSaveStatus("");
 
     const payload = buildPlannerPayload(overrides);
+    setPlanInput(payload);
 
     const response = await fetch("/api/planner", {
       method: "POST",
@@ -270,7 +309,6 @@ export function HeroPlanner() {
     });
 
     const nextResult = (await response.json()) as PlannerResponse;
-    setPlanInput(payload);
     setResult(nextResult);
     setLoading(false);
     await savePlan(payload, nextResult);
@@ -507,14 +545,66 @@ export function HeroPlanner() {
         </form>
 
         {loading ? (
-          <div className="mx-auto mt-5 rounded-lg border border-amber-100/20 bg-amber-100/[0.08] p-5">
-            <p className="inline-flex items-center gap-2 text-sm font-black text-amber-100">
-              <Loader2 className="h-4 w-4 animate-spin" /> Planning your experience
-            </p>
-            <div className="mt-4 grid gap-3 text-sm leading-6 text-white/68 sm:grid-cols-3">
-              <p className="rounded-lg bg-black/25 p-4">Reading your dates, ticket budget, food spend, group, lodging, and vibe.</p>
-              <p className="rounded-lg bg-black/25 p-4">Scoring shows, comedy, sports, concerts, and attractions for fit.</p>
-              <p className="rounded-lg bg-black/25 p-4">Building your Vegas game plan with strong nearby options.</p>
+          <div className="mx-auto mt-5 overflow-hidden rounded-lg border border-amber-100/20 bg-amber-100/[0.08] p-5">
+            <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+              <div>
+                <p className="inline-flex items-center gap-2 text-sm font-black text-amber-100">
+                  <Loader2 className="h-4 w-4 animate-spin" /> Building your Vegas game plan
+                </p>
+                <h3 className="mt-3 text-2xl font-black text-white">Trip dates locked: {loadingDates}</h3>
+                <p className="mt-2 max-w-2xl text-sm leading-6 text-white/60">
+                  We are turning your trip inputs into a timed plan with live events, food, free stops, timing buffers, and booking priorities.
+                </p>
+              </div>
+              <div className="rounded-lg border border-white/10 bg-black/25 px-4 py-3 text-right">
+                <p className="text-xs font-black uppercase tracking-[0.16em] text-white/40">Progress</p>
+                <p className="mt-1 text-2xl font-black text-white">{buildProgress}%</p>
+              </div>
+            </div>
+
+            <div className="mt-5 h-2 overflow-hidden rounded-full bg-black/35">
+              <div
+                className="h-full rounded-full bg-amber-200 transition-all duration-500"
+                style={{ width: `${buildProgress}%` }}
+              />
+            </div>
+
+            <div className="mt-5 grid gap-3 lg:grid-cols-[0.9fr_1.1fr]">
+              <div className="rounded-lg bg-black/25 p-4">
+                <p className="text-xs font-black uppercase tracking-[0.16em] text-amber-100">Analyzing selections</p>
+                <div className="mt-3 flex max-h-36 flex-wrap gap-2 overflow-hidden">
+                  {(loadingSelections.length > 0 ? loadingSelections : ["Flexible trip details", "Balanced Vegas pace", "Worth-booking anchor"]).map((selection, index) => (
+                    <span
+                      key={selection}
+                      className={`rounded-full px-3 py-2 text-xs font-bold transition ${
+                        index === buildStepIndex % Math.max(loadingSelections.length, 1)
+                          ? "bg-amber-200 text-black"
+                          : "bg-white/10 text-white/62"
+                      }`}
+                    >
+                      {selection}
+                    </span>
+                  ))}
+                </div>
+              </div>
+              <div className="rounded-lg bg-black/25 p-4">
+                <p className="text-xs font-black uppercase tracking-[0.16em] text-amber-100">Planner actions</p>
+                <div className="mt-3 grid gap-2">
+                  {buildSteps.map((step, index) => (
+                    <div
+                      key={step}
+                      className={`flex items-center gap-3 rounded-lg border px-3 py-2 text-sm font-bold transition ${
+                        index <= buildStepIndex
+                          ? "border-amber-100/25 bg-amber-100/[0.08] text-white"
+                          : "border-white/10 bg-white/[0.03] text-white/40"
+                      }`}
+                    >
+                      <span className={`h-2.5 w-2.5 rounded-full ${index <= buildStepIndex ? "bg-amber-200" : "bg-white/20"}`} />
+                      {step}
+                    </div>
+                  ))}
+                </div>
+              </div>
             </div>
           </div>
         ) : null}
