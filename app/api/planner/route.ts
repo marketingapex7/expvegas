@@ -128,6 +128,11 @@ export async function POST(request: Request) {
 
   const ranked = rankEvents([...liveEvents, ...seedEvents], input);
   const best = ranked[0];
+
+  if (!best) {
+    return NextResponse.json({ error: "No Vegas events are available to build a plan right now." }, { status: 503 });
+  }
+
   const backups = ranked.slice(1, 4);
   const itineraryDays = buildItinerary({ plannerInput: input, startDate, endDate, rankedEvents: ranked });
   const tripSummary = buildTripSummary(input, itineraryDays, best);

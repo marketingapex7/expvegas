@@ -1,6 +1,7 @@
 "use client";
 
 import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
+import { useRouter } from "next/navigation";
 import { ArrowRight, CalendarDays, Loader2, MapPin, Sparkles, Users, WalletCards } from "lucide-react";
 import { PlanResult } from "@/components/PlanResult";
 import { PlannerInput, PlannerResponse } from "@/types/planner";
@@ -86,7 +87,7 @@ function sentenceFor(group: string, option: string) {
   if (group === "Ticket budget") return `Ticket budget: ${option}.`;
   if (group === "Group") return `Group: ${option}.`;
   if (group === "Lodging") {
-    return option.includes("haven't booked") ? "Lodging: not booked yet." : `Staying near ${option}.`;
+    return option.includes("haven't booked") ? "Lodging: not booked yet." : `Lodging: near ${option}.`;
   }
   return `Vibe: ${option}.`;
 }
@@ -103,6 +104,7 @@ function upsertPromptSentence(current: string, label: string, sentence: string) 
 }
 
 export function HeroPlanner() {
+  const router = useRouter();
   const [prompt, setPrompt] = useState("");
   const [selectedHelpers, setSelectedHelpers] = useState<string[]>([]);
   const [arrivalDate, setArrivalDate] = useState("");
@@ -134,12 +136,11 @@ export function HeroPlanner() {
 
   function addHelper(group: string, option: string) {
     const key = `${group}:${option}`;
-    if (selectedHelpers.includes(key)) return;
 
-    setSelectedHelpers((current) => [...current, key]);
+    setSelectedHelpers((current) => [...current.filter((helper) => !helper.startsWith(`${group}:`)), key]);
     setPrompt((current) => {
       const nextSentence = sentenceFor(group, option);
-      return current.trim().length > 0 ? `${current.trim()} ${nextSentence}` : nextSentence;
+      return upsertPromptSentence(current, group === "Ticket budget" ? "Ticket budget" : group, nextSentence);
     });
   }
 
@@ -349,20 +350,37 @@ export function HeroPlanner() {
     setPlanInput(payload);
     const minimumBuildTime = new Promise((resolve) => window.setTimeout(resolve, 6000));
 
-    const response = await fetch("/api/planner", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload),
-    });
+    try {
+      const response = await fetch("/api/planner", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
 
-    const nextResult = (await response.json()) as PlannerResponse;
-    await savePlan(payload, nextResult);
-    await minimumBuildTime;
-    setBuildStepIndex(buildSteps.length - 1);
-    setBuildProgress(100);
-    await new Promise((resolve) => window.setTimeout(resolve, 650));
-    setResult(nextResult);
-    setLoading(false);
+      if (!response.ok) {
+        const data = (await response.json().catch(() => null)) as { error?: string } | null;
+        throw new Error(data?.error || "The planner could not build this trip yet.");
+      }
+
+      const nextResult = (await response.json()) as PlannerResponse;
+      const nextToken = await savePlan(payload, nextResult);
+      await minimumBuildTime;
+      setBuildStepIndex(buildSteps.length - 1);
+      setBuildProgress(100);
+      await new Promise((resolve) => window.setTimeout(resolve, 650));
+
+      if (nextToken) {
+        router.replace(`/plan/${nextToken}`);
+        return;
+      }
+
+      setResult(nextResult);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "The planner could not build this trip yet.";
+      setSaveStatus(message);
+    } finally {
+      setLoading(false);
+    }
   }
 
   async function handleEmailSubmit(event: FormEvent<HTMLFormElement>) {
@@ -419,7 +437,7 @@ export function HeroPlanner() {
   }
 
   return (
-    <section className="relative overflow-hidden px-4 pb-10 pt-8 sm:px-5 sm:pt-12 md:pb-16 lg:pt-16">
+    <section id="trip-builder" className="relative overflow-hidden px-4 pb-10 pt-8 sm:px-5 sm:pt-12 md:pb-16 lg:pt-16">
       <div className="absolute inset-x-0 top-0 -z-10 h-[34rem] bg-[radial-gradient(circle_at_18%_8%,rgba(245,158,11,0.2),transparent_32%),radial-gradient(circle_at_78%_0%,rgba(217,70,239,0.18),transparent_34%),linear-gradient(180deg,rgba(255,255,255,0.06),transparent_72%)]" />
       <div className="mx-auto max-w-5xl">
         <div className="mx-auto max-w-3xl text-center">
@@ -609,6 +627,7 @@ export function HeroPlanner() {
                 {loading ? "Building..." : showRefinements ? "Build My Game Plan" : "Build My Experience"} {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <ArrowRight className="h-4 w-4" />}
               </button>
             </div>
+            {saveStatus ? <p className="mt-3 text-sm font-bold text-amber-100">{saveStatus}</p> : null}
           </div>
           </form>
         ) : null}

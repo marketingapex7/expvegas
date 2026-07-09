@@ -42,7 +42,7 @@ export default async function SavedPlanPage({ params }: SavedPlanPageProps) {
           Back to ExperienceVegas
         </Link>
         {savedPlan ? (
-          <PlanResult result={savedPlan.result_json} />
+          <PlanResult result={savedPlan.result_json} shareUrl={`/plan/${savedPlan.share_token}`} />
         ) : (
           <div className="mt-8 rounded-lg border border-white/10 bg-white/[0.06] p-6">
             <p className="text-sm font-black uppercase tracking-[0.22em] text-amber-100">Plan not found</p>

@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { ArrowRight, Mail, MapPin, Users } from "lucide-react";
+import { ArrowRight, CalendarDays, MapPin, Users } from "lucide-react";
 import { HeroPlanner } from "@/components/HeroPlanner";
 import { CategoryGrid } from "@/components/CategoryGrid";
 import { EventCard } from "@/components/EventCard";
@@ -74,18 +74,21 @@ export default function HomePage() {
         <div className="mx-auto max-w-7xl rounded-lg border border-amber-100/20 bg-[linear-gradient(135deg,rgba(245,158,11,0.16),rgba(217,70,239,0.12)_48%,rgba(255,255,255,0.06))] p-5 sm:p-8 md:p-10">
           <div className="grid gap-7 md:grid-cols-[minmax(0,1fr)_minmax(280px,0.8fr)] md:items-center">
             <div>
-              <p className="inline-flex items-center gap-2 text-sm font-black uppercase tracking-[0.25em] text-amber-100"><Mail className="h-4 w-4" /> Get Vegas picks</p>
-              <h2 className="mt-3 text-3xl font-black leading-tight text-white md:text-5xl">Save the shortlist before prices or seats move.</h2>
-              <p className="mt-4 text-lg leading-8 text-white/70">Get a tight set of picks for your travel window, group, budget, and area. Useful now for booking, useful later when the plan changes.</p>
+              <p className="inline-flex items-center gap-2 text-sm font-black uppercase tracking-[0.25em] text-amber-100"><CalendarDays className="h-4 w-4" /> Trip-aware picks</p>
+              <h2 className="mt-3 text-3xl font-black leading-tight text-white md:text-5xl">Turn your dates into a saved Vegas game plan.</h2>
+              <p className="mt-4 text-lg leading-8 text-white/70">Start with when you are going, then tune the plan by food, budget, lodging, group, and vibe. You will get a private return link after the itinerary builds.</p>
             </div>
-            <form className="grid gap-3">
-              <input type="email" placeholder="Email address" className="min-h-12 rounded-lg border border-white/10 bg-black/25 px-4 py-4 text-white outline-none transition placeholder:text-white/35 focus:border-amber-100/70" />
-              <input placeholder="Travel dates or weekend" className="min-h-12 rounded-lg border border-white/10 bg-black/25 px-4 py-4 text-white outline-none transition placeholder:text-white/35 focus:border-amber-100/70" />
-              <button className="inline-flex min-h-12 items-center justify-center gap-2 rounded-lg bg-white px-5 py-4 font-black text-black transition hover:bg-amber-100">
-                Send My Vegas Shortlist <ArrowRight className="h-4 w-4" />
-              </button>
-              <p className="text-center text-xs font-bold text-white/45">No generic blasts. Just trip-aware picks and useful booking reminders.</p>
-            </form>
+            <div className="grid gap-3 rounded-lg border border-white/10 bg-black/20 p-4">
+              {["Pick travel dates", "Choose food, budget, lodging, and vibe", "Save the finished itinerary link"].map((item, index) => (
+                <div key={item} className="flex items-center gap-3 rounded-lg bg-white/[0.06] px-4 py-3 text-sm font-black text-white">
+                  <span className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-amber-200 text-xs text-black">{index + 1}</span>
+                  {item}
+                </div>
+              ))}
+              <Link href="#trip-builder" className="inline-flex min-h-12 items-center justify-center gap-2 rounded-lg bg-white px-5 py-4 font-black text-black transition hover:bg-amber-100">
+                Build My Experience <ArrowRight className="h-4 w-4" />
+              </Link>
+            </div>
           </div>
         </div>
       </section>

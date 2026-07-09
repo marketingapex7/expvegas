@@ -1,8 +1,11 @@
 "use client";
 
 import { Mail, RefreshCw, Ticket } from "lucide-react";
-import { FormEvent } from "react";
-import { PlannerResponse } from "@/types/planner";
+import { FormEvent, useMemo, useState } from "react";
+import { attractionStops, casinoStops, freeExperienceStops, PlanningStop } from "@/data/planning-stops";
+import { restaurants, VegasRestaurant } from "@/data/restaurants";
+import { seedEvents } from "@/data/seed-events";
+import { ItineraryBlock, ItineraryDay, PlannerResponse } from "@/types/planner";
 
 type TuneOption = {
   label: string;
@@ -26,13 +29,109 @@ type PlanResultProps = {
 };
 
 function actionForCategory(category: string, bookingUrl?: string) {
-  if (category === "event" && bookingUrl) return "Check Tickets";
+  if (category === "event" && bookingUrl && bookingUrl !== "#") return "Check Tickets";
   if (category === "meal") return "Reserve Table";
   if (category === "attraction") return "View Nearby";
   if (category === "casino") return "Map It";
   if (category === "shopping") return "Window Shop";
   if (category === "free") return "Explore";
-  return "Swap Pick";
+  return "Explore";
+}
+
+function fallbackExploreUrl(title: string, location?: string) {
+  return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(`${title} ${location || "Las Vegas"}`)}`;
+}
+
+function validBookingUrl(url?: string) {
+  return Boolean(url && url !== "#");
+}
+
+function blockKey(planId: string, day: ItineraryDay, block: ItineraryBlock, index: number) {
+  return `${planId}-${day.date}-${index}-${block.category}-${block.time}`;
+}
+
+function restaurantToBlock(restaurant: VegasRestaurant, current: ItineraryBlock): ItineraryBlock {
+  return {
+    ...current,
+    title: restaurant.name,
+    location: restaurant.venue || restaurant.area,
+    description: restaurant.description,
+    bookingUrl: restaurant.reservationUrl,
+    priceHint: undefined,
+  };
+}
+
+function stopToBlock(stop: PlanningStop, current: ItineraryBlock): ItineraryBlock {
+  return {
+    ...current,
+    title: stop.name,
+    location: stop.area,
+    description: stop.description,
+    bookingUrl: undefined,
+    priceHint: undefined,
+  };
+}
+
+function eventToBlock(eventName: string, current: ItineraryBlock): ItineraryBlock {
+  const event = seedEvents.find((item) => item.name === eventName);
+
+  if (!event) {
+    return {
+      ...current,
+      title: eventName,
+      description: "A backup event pick that keeps this time slot bookable if the original choice is not right.",
+      bookingUrl: undefined,
+      priceHint: undefined,
+    };
+  }
+
+  return {
+    ...current,
+    title: event.name,
+    location: event.venueName,
+    description: event.quickVerdict,
+    bookingUrl: validBookingUrl(event.affiliateUrl) ? event.affiliateUrl : undefined,
+    priceHint: event.priceMin ? (event.priceMax ? `$${event.priceMin}-${event.priceMax}` : `From $${event.priceMin}`) : undefined,
+    durationMinutes: event.runtimeMinutes || current.durationMinutes,
+  };
+}
+
+function pickNext<T extends { name: string }>(items: T[], currentName: string, count: number) {
+  const options = items.filter((item) => item.name !== currentName);
+  if (options.length === 0) return undefined;
+  return options[(count - 1) % options.length];
+}
+
+function swapBlock(block: ItineraryBlock, count: number, result: PlannerResponse): ItineraryBlock {
+  if (count < 1) return block;
+
+  if (block.category === "meal") {
+    const next = pickNext(restaurants, block.title, count);
+    return next ? restaurantToBlock(next, block) : block;
+  }
+
+  if (block.category === "casino") {
+    const next = pickNext(casinoStops, block.title, count);
+    return next ? stopToBlock(next, block) : block;
+  }
+
+  if (block.category === "attraction") {
+    const next = pickNext(attractionStops, block.title, count);
+    return next ? stopToBlock(next, block) : block;
+  }
+
+  if (block.category === "free" || block.category === "shopping") {
+    const next = pickNext(freeExperienceStops, block.title, count);
+    return next ? stopToBlock(next, block) : block;
+  }
+
+  if (block.category === "event") {
+    const eventNames = [result.bestPickName, ...result.backupPickNames].filter((name) => name !== block.title);
+    const nextName = eventNames[(count - 1) % eventNames.length];
+    return nextName ? eventToBlock(nextName, block) : block;
+  }
+
+  return block;
 }
 
 export function PlanResult({
@@ -50,6 +149,23 @@ export function PlanResult({
   savingPlan = false,
   onSaveRetry,
 }: PlanResultProps) {
+  const [swapCounts, setSwapCounts] = useState<Record<string, number>>({});
+  const planId = result.bestPickId || result.bestPickName;
+
+  const itineraryDays = useMemo(
+    () =>
+      result.itineraryDays?.map((day) => ({
+        ...day,
+        blocks: day.blocks.map((block, index) => swapBlock(block, swapCounts[blockKey(planId, day, block, index)] || 0, result)),
+      })),
+    [planId, result, swapCounts],
+  );
+
+  function handleSwap(day: ItineraryDay, block: ItineraryBlock, index: number) {
+    const key = blockKey(planId, day, block, index);
+    setSwapCounts((current) => ({ ...current, [key]: (current[key] || 0) + 1 }));
+  }
+
   return (
     <div className="mx-auto mt-5 rounded-lg border border-amber-100/20 bg-white/[0.07] p-5">
       <div className="mb-5 rounded-lg border border-amber-100/25 bg-black/25 p-4">
@@ -130,14 +246,14 @@ export function PlanResult({
           </div>
         </section>
       ) : null}
-      {result.itineraryDays?.length ? (
+      {itineraryDays?.length ? (
         <div className="mt-5 grid gap-4">
-          {result.itineraryDays.map((day) => (
+          {itineraryDays.map((day) => (
             <section key={day.date} className="rounded-lg bg-black/20 p-4">
               <p className="text-sm font-black text-amber-100">{day.label}</p>
               <h3 className="mt-1 text-xl font-black text-white">{day.theme}</h3>
               <div className="mt-4 grid gap-3 md:grid-cols-2">
-                {day.blocks.map((block) => (
+                {day.blocks.map((block, index) => (
                   <div key={`${day.date}-${block.time}-${block.title}`} className="rounded-lg bg-black/25 p-4">
                     <p className="text-sm font-black text-amber-100">{block.time}</p>
                     <p className="mt-1 font-bold text-white">{block.title}</p>
@@ -147,17 +263,25 @@ export function PlanResult({
                     {block.timingNote ? <p className="mt-2 text-xs font-bold text-amber-100">{block.timingNote}</p> : null}
                     {block.priceHint ? <p className="mt-2 text-sm font-bold text-white/70">{block.priceHint}</p> : null}
                     <div className="mt-3 flex flex-wrap gap-2">
-                      {block.bookingUrl ? (
-                        <a href={block.bookingUrl} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 rounded-full bg-white px-3 py-2 text-xs font-black text-black transition hover:bg-amber-100">
-                          <Ticket className="h-3.5 w-3.5" /> {actionForCategory(block.category, block.bookingUrl)}
-                        </a>
-                      ) : (
-                        <button type="button" className="rounded-full border border-white/15 px-3 py-2 text-xs font-bold text-white/72 transition hover:bg-white/10">
-                          {actionForCategory(block.category)}
-                        </button>
-                      )}
-                      <button type="button" className="rounded-full border border-white/15 px-3 py-2 text-xs font-bold text-white/72 transition hover:bg-white/10">
-                        Swap Pick
+                      <a
+                        href={validBookingUrl(block.bookingUrl) ? block.bookingUrl : fallbackExploreUrl(block.title, block.location)}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className={`inline-flex items-center gap-1 rounded-full px-3 py-2 text-xs font-black transition ${
+                          validBookingUrl(block.bookingUrl)
+                            ? "bg-white text-black hover:bg-amber-100"
+                            : "border border-white/15 text-white/72 hover:bg-white/10"
+                        }`}
+                      >
+                        {validBookingUrl(block.bookingUrl) ? <Ticket className="h-3.5 w-3.5" /> : null}
+                        {actionForCategory(block.category, block.bookingUrl)}
+                      </a>
+                      <button
+                        type="button"
+                        onClick={() => handleSwap(day, block, index)}
+                        className="inline-flex items-center gap-1 rounded-full border border-white/15 px-3 py-2 text-xs font-bold text-white/72 transition hover:bg-white/10"
+                      >
+                        <RefreshCw className="h-3.5 w-3.5" /> Swap Pick
                       </button>
                     </div>
                   </div>
@@ -203,7 +327,7 @@ export function PlanResult({
       {onEmailSubmit && onEmailChange ? (
         <form onSubmit={onEmailSubmit} className="mt-4 grid gap-3 rounded-lg border border-amber-100/20 bg-amber-100/[0.07] p-4 sm:grid-cols-[1fr_auto]">
           <label className="grid gap-2 text-sm font-bold text-white/70">
-            Send this game plan
+            Save email for this plan
             <input
               type="email"
               value={email}
@@ -213,7 +337,7 @@ export function PlanResult({
             />
           </label>
           <button disabled={savingEmail} className="inline-flex min-h-11 items-center justify-center gap-2 self-end rounded-lg bg-white px-4 py-3 text-sm font-black text-black transition hover:bg-amber-100 disabled:cursor-wait disabled:opacity-70">
-            <Mail className="h-4 w-4" /> {savingEmail ? "Saving..." : "Save Plan"}
+            <Mail className="h-4 w-4" /> {savingEmail ? "Saving..." : "Attach Email"}
           </button>
           {emailMessage ? <p className="text-sm font-bold text-amber-100 sm:col-span-2">{emailMessage}</p> : null}
         </form>
