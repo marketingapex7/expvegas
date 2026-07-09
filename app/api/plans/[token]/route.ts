@@ -47,17 +47,23 @@ export async function GET(_request: Request, context: RouteContext) {
 
 export async function PATCH(request: Request, context: RouteContext) {
   const { token } = await context.params;
-  const body = (await request.json()) as { email?: string };
+  const body = (await request.json()) as { email?: string; result?: PlannerResponse };
 
-  if (!body.email) {
-    return NextResponse.json({ error: "Email is required." }, { status: 400 });
+  if (!body.email && !body.result) {
+    return NextResponse.json({ error: "An email or updated plan is required." }, { status: 400 });
   }
 
   try {
     const supabase = getSupabaseAdmin();
+    const updates: { email?: string; result_json?: PlannerResponse; updated_at: string } = {
+      updated_at: new Date().toISOString(),
+    };
+    if (body.email) updates.email = body.email.trim();
+    if (body.result) updates.result_json = body.result;
+
     const { error } = await supabase
       .from("plans")
-      .update({ email: body.email, updated_at: new Date().toISOString() })
+      .update(updates)
       .eq("share_token", token)
       .eq("status", "active")
       .gt("expires_at", new Date().toISOString());

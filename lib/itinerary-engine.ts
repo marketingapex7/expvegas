@@ -201,6 +201,12 @@ function timeLabelFromMinutes(totalMinutes: number) {
   return `${hour12}:${minute.toString().padStart(2, "0")} ${period}`;
 }
 
+function eventStartMinutes(event?: VegasEvent) {
+  if (!event?.localTime) return undefined;
+  const [hour, minute] = event.localTime.split(":").map(Number);
+  return (hour || 0) * 60 + (minute || 0);
+}
+
 function defaultDuration(block: ItineraryBlock) {
   if (block.durationMinutes) return block.durationMinutes;
   if (block.category === "meal") return 90;
@@ -258,6 +264,8 @@ function buildBlocks(date: string, dayIndex: number, input: PlannerInput, events
   const shoppingFocused = text.includes("shopping") || text.includes("shop");
   const freeFocused = text.includes("free") || text.includes("cheap") || text.includes("budget") || text.includes("under");
   const flexibleLodging = lodgingIsFlexible(input);
+  const mainEventStart = eventStartMinutes(mainEvent);
+  const dinnerTime = mainEventStart && mainEventStart >= 18 * 60 ? timeLabelFromMinutes(Math.max(16 * 60 + 30, mainEventStart - 150)) : "6:00 PM";
 
   const blocks: ItineraryBlock[] = [
     {
@@ -295,7 +303,7 @@ function buildBlocks(date: string, dayIndex: number, input: PlannerInput, events
           durationMinutes: 75,
         },
     {
-      time: "6:00 PM",
+      time: dinnerTime,
       title: dinner.name,
       category: "meal",
       location: dinner.venue || dinner.area,

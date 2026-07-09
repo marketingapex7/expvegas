@@ -91,6 +91,13 @@ function buildTripSummary(input: PlannerInput, itineraryDays: ItineraryDay[], be
     input.gamblingPreference,
     input.pace,
   ].filter(Boolean).slice(0, 5) as string[];
+  const assumptions = [
+    input.groupType ? `Built for ${input.groupType}` : undefined,
+    input.budget ? `Ticket budget: ${input.budget}` : undefined,
+    input.mealBudget ? `Food spend: ${input.mealBudget}` : undefined,
+    input.stayingNear ? `Lodging: ${input.stayingNear}` : "Lodging zone still flexible",
+    input.pace ? `Pace: ${input.pace}` : undefined,
+  ].filter(Boolean).slice(0, 5) as string[];
   const bookNow = bookable.slice(0, 5).map((block) => block.title);
   const keepFlexible = flexible.slice(0, 5).map((block) => block.title);
   const eventVenue = best.venueName ? ` around ${best.venueName}` : "";
@@ -102,6 +109,7 @@ function buildTripSummary(input: PlannerInput, itineraryDays: ItineraryDay[], be
     lodging,
     bestLodgingZone,
     tripStyle: tripStyle.length > 0 ? tripStyle : ["Flexible Vegas trip"],
+    assumptions: assumptions.length > 0 ? assumptions : ["Balanced schedule with one main anchor"],
     estimatedSpend: estimateSpend(itineraryDays),
     bookNow: bookNow.length > 0 ? bookNow : ["Choose the main event once dates are firm"],
     keepFlexible: keepFlexible.length > 0 ? keepFlexible : ["Leave one open block for group energy"],
@@ -154,7 +162,7 @@ export async function POST(request: Request) {
     avoid: input.dealbreakers ? [`Avoid anything matching: ${input.dealbreakers}`] : [],
     sourceSummary:
       liveEvents.length > 0
-        ? `Included ${liveEvents.length} live Ticketmaster event${liveEvents.length === 1 ? "" : "s"} for the selected dates.`
+        ? `Live schedule checked for your dates. Included ${liveEvents.length} Ticketmaster event${liveEvents.length === 1 ? "" : "s"} to compare.`
         : "No live Ticketmaster events were available, so this used curated ExperienceVegas picks.",
     itineraryDays,
     tripSummary,

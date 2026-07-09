@@ -1,6 +1,6 @@
 "use client";
 
-import { Mail, RefreshCw, Ticket } from "lucide-react";
+import { CalendarPlus, Check, Copy, Mail, MapPin, RefreshCw, Ticket } from "lucide-react";
 import { FormEvent, useMemo, useState } from "react";
 import { attractionStops, casinoStops, freeExperienceStops, PlanningStop } from "@/data/planning-stops";
 import { restaurants, VegasRestaurant } from "@/data/restaurants";
@@ -46,8 +46,53 @@ function validBookingUrl(url?: string) {
   return Boolean(url && url !== "#");
 }
 
-function blockKey(planId: string, day: ItineraryDay, block: ItineraryBlock, index: number) {
-  return `${planId}-${day.date}-${index}-${block.category}-${block.time}`;
+function travelContext(previous?: ItineraryBlock, current?: ItineraryBlock) {
+  if (!previous || !current) return "Start from your hotel or arrival point";
+  if (!previous.location || !current.location) return "Allow a short buffer between stops";
+
+  const previousLocation = previous.location.toLowerCase();
+  const currentLocation = current.location.toLowerCase();
+  if (previousLocation.includes(currentLocation) || currentLocation.includes(previousLocation)) {
+    return "Same-area stop, so this should be an easy walk";
+  }
+
+  return "Allow roughly 15-25 min by rideshare between areas";
+}
+
+function planningLabel(category: ItineraryBlock["category"]) {
+  if (category === "free") return "Free / flexible";
+  if (category === "shopping") return "No ticket needed";
+  if (category === "casino") return "Optional casino time";
+  return "";
+}
+
+function icsEscape(value: string) {
+  return value.replace(/[\\;,]/g, (character) => `\\${character}`).replace(/\r?\n/g, "\\n");
+}
+
+function timeParts(time: string) {
+  const match = time.match(/^(\d{1,2}):(\d{2})\s*(AM|PM)$/i);
+  if (!match) return { hour: 12, minute: 0 };
+
+  let hour = Number(match[1]);
+  const minute = Number(match[2]);
+  const period = match[3].toUpperCase();
+  if (period === "PM" && hour !== 12) hour += 12;
+  if (period === "AM" && hour === 12) hour = 0;
+  return { hour, minute };
+}
+
+function icsDate(value: Date) {
+  return `${value.getFullYear()}${String(value.getMonth() + 1).padStart(2, "0")}${String(value.getDate()).padStart(2, "0")}T${String(value.getHours()).padStart(2, "0")}${String(value.getMinutes()).padStart(2, "0")}00`;
+}
+
+function icsUtcDate(value: Date) {
+  return value.toISOString().replace(/[-:]/g, "").replace(/\.\d{3}Z$/, "Z");
+}
+
+function blockKey(planId: string, day: ItineraryDay, _block: ItineraryBlock, index: number) {
+  // Keep the identity tied to the slot, so a second swap still advances the same pick.
+  return `${planId}-${day.date}-${index}`;
 }
 
 function restaurantToBlock(restaurant: VegasRestaurant, current: ItineraryBlock): ItineraryBlock {
@@ -150,6 +195,9 @@ export function PlanResult({
   onSaveRetry,
 }: PlanResultProps) {
   const [swapCounts, setSwapCounts] = useState<Record<string, number>>({});
+  const [copyStatus, setCopyStatus] = useState("");
+  const [swapStatus, setSwapStatus] = useState("");
+  const [calendarStatus, setCalendarStatus] = useState("");
   const planId = result.bestPickId || result.bestPickName;
 
   const itineraryDays = useMemo(
@@ -161,9 +209,88 @@ export function PlanResult({
     [planId, result, swapCounts],
   );
 
+  async function persistSwap(nextResult: PlannerResponse) {
+    const token = shareUrl?.split("/").filter(Boolean).pop();
+    if (!token) return;
+
+    setSwapStatus("Saving change...");
+    const response = await fetch(`/api/plans/${token}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ result: nextResult }),
+    });
+
+    setSwapStatus(response.ok ? "Saved" : "Could not save this swap");
+    window.setTimeout(() => setSwapStatus(""), 2200);
+  }
+
   function handleSwap(day: ItineraryDay, block: ItineraryBlock, index: number) {
     const key = blockKey(planId, day, block, index);
-    setSwapCounts((current) => ({ ...current, [key]: (current[key] || 0) + 1 }));
+    const nextCounts = { ...swapCounts, [key]: (swapCounts[key] || 0) + 1 };
+    setSwapCounts(nextCounts);
+
+    const nextItineraryDays = result.itineraryDays?.map((itineraryDay) => ({
+      ...itineraryDay,
+      blocks: itineraryDay.blocks.map((itineraryBlock, itineraryIndex) =>
+        swapBlock(itineraryBlock, nextCounts[blockKey(planId, itineraryDay, itineraryBlock, itineraryIndex)] || 0, result),
+      ),
+    }));
+
+    if (nextItineraryDays) {
+      void persistSwap({ ...result, itineraryDays: nextItineraryDays });
+    }
+  }
+
+  async function copyShareLink() {
+    if (!shareUrl) return;
+
+    try {
+      await navigator.clipboard.writeText(new URL(shareUrl, window.location.origin).toString());
+      setCopyStatus("Copied");
+    } catch {
+      setCopyStatus("Copy unavailable");
+    }
+
+    window.setTimeout(() => setCopyStatus(""), 2200);
+  }
+
+  function downloadCalendar() {
+    if (!itineraryDays?.length) return;
+
+    const events = itineraryDays.flatMap((day) =>
+      day.blocks.map((block, index) => {
+        const { hour, minute } = timeParts(block.time);
+        const start = new Date(`${day.date}T${String(hour).padStart(2, "0")}:${String(minute).padStart(2, "0")}:00`);
+        const end = new Date(start.getTime() + (block.durationMinutes || 60) * 60 * 1000);
+        return [
+          "BEGIN:VEVENT",
+          `UID:experiencevegas-${day.date}-${index}-${encodeURIComponent(block.title)}@experiencevegas.com`,
+          `DTSTAMP:${icsUtcDate(new Date())}`,
+          `DTSTART;TZID=America/Los_Angeles:${icsDate(start)}`,
+          `DTEND;TZID=America/Los_Angeles:${icsDate(end)}`,
+          `SUMMARY:${icsEscape(block.title)}`,
+          block.location ? `LOCATION:${icsEscape(block.location)}` : "",
+          block.description ? `DESCRIPTION:${icsEscape(block.description)}` : "",
+          "END:VEVENT",
+        ].filter(Boolean).join("\r\n");
+      }),
+    );
+    const calendar = [
+      "BEGIN:VCALENDAR",
+      "VERSION:2.0",
+      "PRODID:-//ExperienceVegas//Vegas Game Plan//EN",
+      "CALSCALE:GREGORIAN",
+      ...events,
+      "END:VCALENDAR",
+    ].join("\r\n");
+    const url = URL.createObjectURL(new Blob([calendar], { type: "text/calendar;charset=utf-8" }));
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = "experiencevegas-game-plan.ics";
+    link.click();
+    URL.revokeObjectURL(url);
+    setCalendarStatus("Calendar downloaded");
+    window.setTimeout(() => setCalendarStatus(""), 2200);
   }
 
   return (
@@ -182,17 +309,39 @@ export function PlanResult({
               </p>
             )}
           </div>
-          {!shareUrl && onSaveRetry ? (
-            <button
-              type="button"
-              onClick={onSaveRetry}
-              disabled={savingPlan}
-              className="inline-flex min-h-11 items-center justify-center rounded-lg bg-amber-200 px-4 py-3 text-sm font-black text-black transition hover:bg-amber-100 disabled:cursor-wait disabled:opacity-70"
-            >
-              {savingPlan ? "Saving..." : "Save Link"}
-            </button>
-          ) : null}
+          <div className="flex flex-wrap gap-2 sm:shrink-0">
+            {itineraryDays?.length ? (
+              <button
+                type="button"
+                onClick={downloadCalendar}
+                className="inline-flex min-h-11 items-center justify-center gap-2 rounded-lg border border-white/15 px-4 py-3 text-sm font-black text-white transition hover:bg-white/10"
+              >
+                <CalendarPlus className="h-4 w-4" /> Add to calendar
+              </button>
+            ) : null}
+            {shareUrl ? (
+              <button
+                type="button"
+                onClick={copyShareLink}
+                className="inline-flex min-h-11 shrink-0 items-center justify-center gap-2 rounded-lg bg-amber-200 px-4 py-3 text-sm font-black text-black transition hover:bg-amber-100"
+              >
+                {copyStatus === "Copied" ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
+                {copyStatus || "Copy link"}
+              </button>
+            ) : onSaveRetry ? (
+              <button
+                type="button"
+                onClick={onSaveRetry}
+                disabled={savingPlan}
+                className="inline-flex min-h-11 items-center justify-center rounded-lg bg-amber-200 px-4 py-3 text-sm font-black text-black transition hover:bg-amber-100 disabled:cursor-wait disabled:opacity-70"
+              >
+                {savingPlan ? "Saving..." : "Save Link"}
+              </button>
+            ) : null}
+          </div>
         </div>
+        {swapStatus ? <p className="mt-3 text-xs font-bold text-amber-100">{swapStatus}</p> : null}
+        {calendarStatus ? <p className="mt-3 text-xs font-bold text-amber-100">{calendarStatus}</p> : null}
       </div>
       <p className="text-xs font-black uppercase tracking-[0.22em] text-amber-100">{result.headline}</p>
       <h2 className="mt-3 text-3xl font-black leading-tight text-white">{result.bestPickName}</h2>
@@ -224,6 +373,18 @@ export function PlanResult({
                   <p className="mt-2 text-sm leading-6 text-white/72">{result.tripSummary.bestLodgingZone}</p>
                 </div>
               ) : null}
+              {result.tripSummary.assumptions?.length ? (
+                <div className="mt-3 rounded-lg border border-white/10 bg-white/[0.04] p-3">
+                  <p className="text-xs font-black uppercase tracking-[0.16em] text-white/45">Plan assumptions</p>
+                  <div className="mt-2 flex flex-wrap gap-2">
+                    {result.tripSummary.assumptions.map((assumption) => (
+                      <span key={assumption} className="rounded-full bg-white/10 px-3 py-1.5 text-xs font-bold text-white/65">
+                        {assumption}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              ) : null}
             </div>
             <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-1">
               <div className="rounded-lg bg-white/[0.06] p-4">
@@ -246,10 +407,25 @@ export function PlanResult({
           </div>
         </section>
       ) : null}
+      <div className="mt-5 rounded-lg border border-amber-100/15 bg-amber-100/[0.06] p-4">
+        <div className="flex items-start gap-3">
+          <MapPin className="mt-0.5 h-4 w-4 shrink-0 text-amber-100" />
+          <p className="text-sm leading-6 text-white/65">
+            Planning note: timing, prices, restaurant hours, and availability can change. Confirm the details with the venue before booking.
+          </p>
+        </div>
+      </div>
       {itineraryDays?.length ? (
         <div className="mt-5 grid gap-4">
+          <nav aria-label="Jump to itinerary day" className="sticky top-[4.5rem] z-10 -mx-1 flex gap-2 overflow-x-auto rounded-lg border border-white/10 bg-black/80 p-2 backdrop-blur-xl">
+            {itineraryDays.map((day, index) => (
+              <a key={day.date} href={`#itinerary-${day.date}`} className="shrink-0 rounded-lg bg-white/[0.08] px-3 py-2 text-xs font-black text-white/70 transition hover:bg-amber-200 hover:text-black">
+                Day {index + 1} · {day.label}
+              </a>
+            ))}
+          </nav>
           {itineraryDays.map((day) => (
-            <section key={day.date} className="rounded-lg bg-black/20 p-4">
+            <section key={day.date} id={`itinerary-${day.date}`} className="scroll-mt-24 rounded-lg bg-black/20 p-4">
               <p className="text-sm font-black text-amber-100">{day.label}</p>
               <h3 className="mt-1 text-xl font-black text-white">{day.theme}</h3>
               <div className="mt-4 grid gap-3 md:grid-cols-2">
@@ -257,10 +433,12 @@ export function PlanResult({
                   <div key={`${day.date}-${block.time}-${block.title}`} className="rounded-lg bg-black/25 p-4">
                     <p className="text-sm font-black text-amber-100">{block.time}</p>
                     <p className="mt-1 font-bold text-white">{block.title}</p>
+                    {planningLabel(block.category) ? <p className="mt-2 inline-flex rounded-full bg-amber-200/15 px-2.5 py-1 text-[11px] font-black uppercase tracking-[0.12em] text-amber-100">{planningLabel(block.category)}</p> : null}
                     {block.location ? <p className="mt-1 text-xs font-bold uppercase tracking-[0.16em] text-white/40">{block.location}</p> : null}
                     {block.description ? <p className="mt-2 text-sm leading-6 text-white/60">{block.description}</p> : null}
                     {block.durationMinutes ? <p className="mt-2 text-xs font-bold uppercase tracking-[0.16em] text-white/40">Plan for about {Math.round(block.durationMinutes / 15) * 15} min</p> : null}
                     {block.timingNote ? <p className="mt-2 text-xs font-bold text-amber-100">{block.timingNote}</p> : null}
+                    <p className="mt-2 inline-flex items-center gap-1 text-xs font-bold text-white/45"><MapPin className="h-3.5 w-3.5" /> {travelContext(day.blocks[index - 1], block)}</p>
                     {block.priceHint ? <p className="mt-2 text-sm font-bold text-white/70">{block.priceHint}</p> : null}
                     <div className="mt-3 flex flex-wrap gap-2">
                       <a

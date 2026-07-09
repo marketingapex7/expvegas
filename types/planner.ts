@@ -48,6 +48,7 @@ export type TripSummary = {
   lodging: string;
   bestLodgingZone?: string;
   tripStyle: string[];
+  assumptions?: string[];
   estimatedSpend: string;
   bookNow: string[];
   keepFlexible: string[];

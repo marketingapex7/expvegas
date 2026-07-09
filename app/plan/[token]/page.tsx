@@ -3,6 +3,8 @@ import { PlanResult } from "@/components/PlanResult";
 import { getSupabaseAdmin } from "@/lib/supabase-server";
 import { PlannerResponse } from "@/types/planner";
 
+export const dynamic = "force-dynamic";
+
 type SavedPlanPageProps = {
   params: Promise<{ token: string }>;
 };

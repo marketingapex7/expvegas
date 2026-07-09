@@ -128,6 +128,7 @@ export function HeroPlanner() {
   const [dateError, setDateError] = useState("");
   const buildPanelRef = useRef<HTMLDivElement>(null);
   const datesAreSet = Boolean(arrivalDate && departureDate);
+  const today = new Date().toISOString().slice(0, 10);
 
   const helperSummary = useMemo(() => {
     if (selectedHelpers.length === 0) return "Add dates, ticket budget, group, lodging, and vibe when you know them.";
@@ -147,7 +148,13 @@ export function HeroPlanner() {
   function updateTravelDates(nextArrivalDate: string, nextDepartureDate: string) {
     setArrivalDate(nextArrivalDate);
     setDepartureDate(nextDepartureDate);
-    setDateError("");
+    if (nextArrivalDate && nextDepartureDate && nextDepartureDate < nextArrivalDate) {
+      setDateError("Your departure date must be on or after your arrival date.");
+    } else if (nextArrivalDate && nextArrivalDate < today) {
+      setDateError("Choose an arrival date from today forward so we can use current schedules.");
+    } else {
+      setDateError("");
+    }
 
     const formattedArrival = formatTravelDate(nextArrivalDate);
     const formattedDeparture = formatTravelDate(nextDepartureDate);
@@ -339,6 +346,16 @@ export function HeroPlanner() {
       return;
     }
 
+    if (arrivalDate < today) {
+      setDateError("Choose an arrival date from today forward so we can use current schedules.");
+      return;
+    }
+
+    if (departureDate < arrivalDate) {
+      setDateError("Your departure date must be on or after your arrival date.");
+      return;
+    }
+
     setBuildProgress(8);
     setBuildStepIndex(0);
     setLoading(true);
@@ -470,7 +487,7 @@ export function HeroPlanner() {
               <p className="text-sm font-black text-white">Continue your last Vegas game plan?</p>
               <p className="mt-1 text-sm text-white/55">We saved it privately on this browser.</p>
             </div>
-            <button
+                   <button
               type="button"
               onClick={loadSavedPlan}
               disabled={loading}
@@ -490,17 +507,18 @@ export function HeroPlanner() {
               </p>
               <div className="grid gap-3 sm:grid-cols-[1fr_1fr_auto] sm:items-end">
                 <label className="grid gap-1 text-xs font-bold text-white/65">
-                  Arrive
+                  Arrival
                   <input
                     type="date"
                     required
+                    min={today}
                     value={arrivalDate}
                     onChange={(event) => updateTravelDates(event.target.value, departureDate)}
                     className="min-h-11 rounded-lg border border-white/10 bg-black/35 px-3 py-2 text-sm text-white [color-scheme:dark] outline-none transition focus:border-amber-100/70"
                   />
                 </label>
                 <label className="grid gap-1 text-xs font-bold text-white/65">
-                  Leave
+                  Departure
                   <input
                     type="date"
                     required
@@ -579,9 +597,17 @@ export function HeroPlanner() {
                     disabled={loading}
                     className="inline-flex min-h-11 items-center justify-center gap-2 rounded-lg bg-amber-200 px-4 py-3 text-sm font-black text-black transition hover:bg-amber-100 disabled:cursor-wait disabled:opacity-70"
                   >
-                    {loading ? "Building..." : "Build My Game Plan"} {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <ArrowRight className="h-4 w-4" />}
-                  </button>
-                </div>
+                     {loading ? "Building..." : "Build My Game Plan"} {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <ArrowRight className="h-4 w-4" />}
+                   </button>
+                   <button
+                     type="button"
+                     onClick={() => buildPlan()}
+                     disabled={loading}
+                     className="inline-flex min-h-11 items-center justify-center rounded-lg border border-white/15 px-4 py-3 text-sm font-bold text-white/70 transition hover:bg-white/10 disabled:cursor-wait disabled:opacity-60"
+                   >
+                     Skip tuning
+                   </button>
+                 </div>
                 <div className="mt-5 grid gap-3 lg:grid-cols-5">
                   {refinementGroups.map((group) => (
                     <div key={group.key} className="rounded-lg border border-white/10 bg-white/[0.04] p-3">
