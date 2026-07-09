@@ -274,7 +274,7 @@ export function HeroPlanner() {
         const data = (await response.json().catch(() => null)) as { error?: string; code?: string } | null;
         const invalidKey = data?.error?.toLowerCase().includes("invalid api key");
         const errorText = invalidKey
-          ? "Supabase rejected the API key. In Vercel, verify NEXT_PUBLIC_SUPABASE_URL and set SUPABASE_SECRET_KEY to this project's full sb_secret_ key, then redeploy."
+          ? "Supabase rejected the API key. Verify that NEXT_PUBLIC_SUPABASE_URL and the full SUPABASE_SECRET_KEY belong to the same Supabase project, then redeploy."
           : data?.error
             ? `${data.error}${data.code ? ` (${data.code})` : ""}`
             : "Could not save this plan yet.";
