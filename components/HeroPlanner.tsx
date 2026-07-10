@@ -83,6 +83,18 @@ function formatTravelDate(value: string) {
   );
 }
 
+function addDays(value: string, days: number) {
+  if (!value) return undefined;
+  const date = new Date(`${value}T00:00:00Z`);
+  date.setUTCDate(date.getUTCDate() + days);
+  return date.toISOString().slice(0, 10);
+}
+
+function tripLengthInDays(arrival: string, departure: string) {
+  if (!arrival || !departure) return 0;
+  return Math.round((Date.parse(`${departure}T00:00:00Z`) - Date.parse(`${arrival}T00:00:00Z`)) / 86_400_000);
+}
+
 function sentenceFor(group: string, option: string) {
   if (group === "Ticket budget") return `Ticket budget: ${option}.`;
   if (group === "Group") return `Group: ${option}.`;
@@ -116,6 +128,7 @@ export function HeroPlanner() {
   const [multiRefinements, setMultiRefinements] = useState<Record<string, string[]>>({});
   const [additionalDetails, setAdditionalDetails] = useState("");
   const [savedPlanToken, setSavedPlanToken] = useState("");
+  const [savedPlanExpiresAt, setSavedPlanExpiresAt] = useState("");
   const [savedPlanFound, setSavedPlanFound] = useState(false);
   const [planInput, setPlanInput] = useState<PlannerInput | null>(null);
   const [email, setEmail] = useState("");
@@ -129,6 +142,7 @@ export function HeroPlanner() {
   const buildPanelRef = useRef<HTMLDivElement>(null);
   const datesAreSet = Boolean(arrivalDate && departureDate);
   const today = new Date().toISOString().slice(0, 10);
+  const maxDepartureDate = addDays(arrivalDate, 7);
 
   const helperSummary = useMemo(() => {
     if (selectedHelpers.length === 0) return "Add dates, ticket budget, group, lodging, and vibe when you know them.";
@@ -150,6 +164,8 @@ export function HeroPlanner() {
     setDepartureDate(nextDepartureDate);
     if (nextArrivalDate && nextDepartureDate && nextDepartureDate < nextArrivalDate) {
       setDateError("Your departure date must be on or after your arrival date.");
+    } else if (tripLengthInDays(nextArrivalDate, nextDepartureDate) > 7) {
+      setDateError("Choose a trip of 7 planning days or fewer.");
     } else if (nextArrivalDate && nextArrivalDate < today) {
       setDateError("Choose an arrival date from today forward so we can use current schedules.");
     } else {
@@ -291,10 +307,11 @@ export function HeroPlanner() {
         return "";
       }
 
-      const data = (await response.json()) as { shareToken?: string };
+      const data = (await response.json()) as { shareToken?: string; expiresAt?: string };
 
       if (data.shareToken) {
         setSavedPlanToken(data.shareToken);
+        setSavedPlanExpiresAt(data.expiresAt || "");
         setSavedPlanFound(false);
         setSaveStatus("");
         window.localStorage.setItem("experiencevegas:lastPlanToken", data.shareToken);
@@ -329,10 +346,11 @@ export function HeroPlanner() {
     const response = await fetch(`/api/plans/${savedPlanToken}`);
 
     if (response.ok) {
-      const data = (await response.json()) as { input: PlannerInput; result: PlannerResponse; email?: string };
+      const data = (await response.json()) as { input: PlannerInput; result: PlannerResponse; email?: string; expiresAt?: string };
       setPlanInput(data.input);
       setResult(data.result);
       setEmail(data.email || "");
+      setSavedPlanExpiresAt(data.expiresAt || "");
       setSavedPlanFound(false);
       setShowRefinements(true);
     }
@@ -353,6 +371,11 @@ export function HeroPlanner() {
 
     if (departureDate < arrivalDate) {
       setDateError("Your departure date must be on or after your arrival date.");
+      return;
+    }
+
+    if (tripLengthInDays(arrivalDate, departureDate) > 7) {
+      setDateError("Choose a trip of 7 planning days or fewer.");
       return;
     }
 
@@ -523,6 +546,7 @@ export function HeroPlanner() {
                     type="date"
                     required
                     min={arrivalDate || undefined}
+                    max={maxDepartureDate}
                     value={departureDate}
                     onChange={(event) => updateTravelDates(arrivalDate, event.target.value)}
                     className="min-h-11 rounded-lg border border-white/10 bg-black/35 px-3 py-2 text-sm text-white [color-scheme:dark] outline-none transition focus:border-amber-100/70"
@@ -532,6 +556,9 @@ export function HeroPlanner() {
                   {datesAreSet ? `${formatTravelDate(arrivalDate)} to ${formatTravelDate(departureDate)}` : "Dates required"}
                 </div>
               </div>
+              <p className="mt-3 text-xs leading-5 text-white/45">
+                Plans cover arrival through the day before departure, up to 7 days. Same-day trips receive a one-day plan.
+              </p>
               {dateError ? <p className="mt-3 text-sm font-bold text-amber-100">{dateError}</p> : null}
             </div>
 
@@ -730,6 +757,7 @@ export function HeroPlanner() {
           <PlanResult
             result={result}
             shareUrl={shareUrl}
+            expiresAt={savedPlanExpiresAt}
             email={email}
             savingEmail={savingEmail}
             emailMessage={emailMessage}

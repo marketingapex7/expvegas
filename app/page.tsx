@@ -9,6 +9,13 @@ import { seedEvents } from "@/data/seed-events";
 import { rankEvents } from "@/lib/scoring";
 
 const topTonight = rankEvents(seedEvents).slice(0, 3);
+const planningGuides = [
+  { href: "/things-to-do-las-vegas", label: "Things to do" },
+  { href: "/las-vegas-shows", label: "Shows" },
+  { href: "/las-vegas-restaurants", label: "Restaurants" },
+  { href: "/las-vegas-hotels", label: "Hotels" },
+  { href: "/las-vegas-first-time-visitors", label: "First-time guide" },
+];
 
 export default function HomePage() {
   return (
@@ -33,6 +40,22 @@ export default function HomePage() {
               See Tonight&apos;s Picks <ArrowRight className="h-4 w-4" />
             </Link>
           </div>
+        </div>
+      </section>
+
+      <section className="border-y border-white/10 px-4 py-8 sm:px-5">
+        <div className="mx-auto flex max-w-7xl flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
+          <div className="max-w-xl">
+            <p className="text-xs font-black uppercase tracking-[0.22em] text-amber-100">Plan with context</p>
+            <h2 className="mt-2 text-2xl font-black text-white">Explore the Vegas guides behind the planner.</h2>
+          </div>
+          <nav aria-label="Vegas planning guides" className="flex flex-wrap gap-x-5 gap-y-3">
+            {planningGuides.map((guide) => (
+              <Link key={guide.href} href={guide.href} className="inline-flex items-center gap-1 text-sm font-black text-white/70 transition hover:text-white">
+                {guide.label} <ArrowRight className="h-3.5 w-3.5" />
+              </Link>
+            ))}
+          </nav>
         </div>
       </section>
 

@@ -5,7 +5,7 @@ import { seedEvents } from "@/data/seed-events";
 import { rankEvents } from "@/lib/scoring";
 
 export function generateStaticParams() {
-  return bestForLinks.map((link) => ({ slug: link.href.split("/").pop() }));
+  return bestForLinks.filter((link) => link.href.startsWith("/best/")).map((link) => ({ slug: link.href.split("/").pop() }));
 }
 
 export default async function BestForPage({ params }: { params: Promise<{ slug: string }> }) {

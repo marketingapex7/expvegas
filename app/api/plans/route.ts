@@ -1,22 +1,22 @@
 import { NextResponse } from "next/server";
 import { randomBytes } from "node:crypto";
 import { getSupabaseAdmin } from "@/lib/supabase-server";
-import { PlannerInput, PlannerResponse } from "@/types/planner";
-
-type SavePlanRequest = {
-  input: PlannerInput;
-  result: PlannerResponse;
-  email?: string;
-};
+import { apiErrorResponse, rateLimit, readValidatedJson } from "@/lib/api-security";
+import { savePlanRequestSchema } from "@/lib/planner-validation";
 
 export async function POST(request: Request) {
-  const body = (await request.json()) as SavePlanRequest;
+  const limited = rateLimit(request, "plans:create", 30, 10 * 60 * 1_000);
+  if (limited) return limited;
+
+  let body;
+  try {
+    body = await readValidatedJson(request, savePlanRequestSchema, 262_144);
+  } catch (error) {
+    return apiErrorResponse(error);
+  }
+
   const shareToken = randomBytes(18).toString("hex");
   const expiresAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString();
-
-  if (!body.input || !body.result) {
-    return NextResponse.json({ error: "Plan input and result are required." }, { status: 400 });
-  }
 
   try {
     const supabase = getSupabaseAdmin();

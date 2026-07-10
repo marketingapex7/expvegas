@@ -5,7 +5,8 @@ import { FormEvent, useMemo, useState } from "react";
 import { attractionStops, casinoStops, freeExperienceStops, PlanningStop } from "@/data/planning-stops";
 import { restaurants, VegasRestaurant } from "@/data/restaurants";
 import { seedEvents } from "@/data/seed-events";
-import { ItineraryBlock, ItineraryDay, PlannerResponse } from "@/types/planner";
+import { sanitizeSchedule } from "@/lib/itinerary-engine";
+import { ItineraryBlock, ItineraryDay, PlannerEventOption, PlannerResponse } from "@/types/planner";
 
 type TuneOption = {
   label: string;
@@ -15,6 +16,7 @@ type TuneOption = {
 type PlanResultProps = {
   result: PlannerResponse;
   shareUrl?: string;
+  expiresAt?: string;
   email?: string;
   savingEmail?: boolean;
   emailMessage?: string;
@@ -117,21 +119,49 @@ function stopToBlock(stop: PlanningStop, current: ItineraryBlock): ItineraryBloc
   };
 }
 
-function eventToBlock(eventName: string, current: ItineraryBlock): ItineraryBlock {
-  const event = seedEvents.find((item) => item.name === eventName);
+function formatEventTime(localTime?: string) {
+  if (!localTime) return undefined;
+  const [rawHour, rawMinute] = localTime.split(":").map(Number);
+  if (!Number.isFinite(rawHour) || !Number.isFinite(rawMinute)) return undefined;
+  const period = rawHour >= 12 ? "PM" : "AM";
+  return `${rawHour % 12 || 12}:${String(rawMinute).padStart(2, "0")} ${period}`;
+}
 
-  if (!event) {
-    return {
-      ...current,
-      title: eventName,
-      description: "A backup event pick that keeps this time slot bookable if the original choice is not right.",
-      bookingUrl: undefined,
-      priceHint: undefined,
-    };
-  }
+function eventOptionsForResult(result: PlannerResponse): PlannerEventOption[] {
+  if (result.eventOptions?.length) return result.eventOptions;
+
+  return [result.bestPickName, ...result.backupPickNames].map((name) => {
+    const event = seedEvents.find((item) => item.name === name);
+    return event
+      ? {
+          id: event.id,
+          name: event.name,
+          category: event.category,
+          venueName: event.venueName,
+          quickVerdict: event.quickVerdict,
+          affiliateUrl: event.affiliateUrl,
+          priceMin: event.priceMin,
+          priceMax: event.priceMax,
+          runtimeMinutes: event.runtimeMinutes,
+          localDate: event.localDate,
+          localTime: event.localTime,
+        }
+      : {
+          id: name,
+          name,
+          category: "shows" as const,
+          venueName: "Las Vegas",
+          quickVerdict: "A backup event pick for this part of the trip.",
+        };
+  });
+}
+
+function eventToBlock(event: PlannerEventOption, current: ItineraryBlock): ItineraryBlock {
+  const actualTime = formatEventTime(event.localTime);
 
   return {
     ...current,
+    time: actualTime || current.time,
     title: event.name,
     location: event.venueName,
     description: event.quickVerdict,
@@ -147,7 +177,7 @@ function pickNext<T extends { name: string }>(items: T[], currentName: string, c
   return options[(count - 1) % options.length];
 }
 
-function swapBlock(block: ItineraryBlock, count: number, result: PlannerResponse): ItineraryBlock {
+function swapBlock(block: ItineraryBlock, count: number, result: PlannerResponse, dayDate: string): ItineraryBlock {
   if (count < 1) return block;
 
   if (block.category === "meal") {
@@ -171,9 +201,11 @@ function swapBlock(block: ItineraryBlock, count: number, result: PlannerResponse
   }
 
   if (block.category === "event") {
-    const eventNames = [result.bestPickName, ...result.backupPickNames].filter((name) => name !== block.title);
-    const nextName = eventNames[(count - 1) % eventNames.length];
-    return nextName ? eventToBlock(nextName, block) : block;
+    const eventOptions = eventOptionsForResult(result).filter(
+      (event) => event.name !== block.title && (!event.localDate || event.localDate === dayDate),
+    );
+    const nextEvent = eventOptions[(count - 1) % eventOptions.length];
+    return nextEvent ? eventToBlock(nextEvent, block) : block;
   }
 
   return block;
@@ -182,6 +214,7 @@ function swapBlock(block: ItineraryBlock, count: number, result: PlannerResponse
 export function PlanResult({
   result,
   shareUrl,
+  expiresAt,
   email = "",
   savingEmail = false,
   emailMessage,
@@ -204,7 +237,11 @@ export function PlanResult({
     () =>
       result.itineraryDays?.map((day) => ({
         ...day,
-        blocks: day.blocks.map((block, index) => swapBlock(block, swapCounts[blockKey(planId, day, block, index)] || 0, result)),
+        blocks: sanitizeSchedule(
+          day.blocks.map((block, index) =>
+            swapBlock(block, swapCounts[blockKey(planId, day, block, index)] || 0, result, day.date),
+          ),
+        ),
       })),
     [planId, result, swapCounts],
   );
@@ -231,8 +268,15 @@ export function PlanResult({
 
     const nextItineraryDays = result.itineraryDays?.map((itineraryDay) => ({
       ...itineraryDay,
-      blocks: itineraryDay.blocks.map((itineraryBlock, itineraryIndex) =>
-        swapBlock(itineraryBlock, nextCounts[blockKey(planId, itineraryDay, itineraryBlock, itineraryIndex)] || 0, result),
+      blocks: sanitizeSchedule(
+        itineraryDay.blocks.map((itineraryBlock, itineraryIndex) =>
+          swapBlock(
+            itineraryBlock,
+            nextCounts[blockKey(planId, itineraryDay, itineraryBlock, itineraryIndex)] || 0,
+            result,
+            itineraryDay.date,
+          ),
+        ),
       ),
     }));
 
@@ -300,9 +344,16 @@ export function PlanResult({
           <div>
             <p className="text-sm font-black text-white">{shareUrl ? "Your game plan is saved" : "Save this itinerary"}</p>
             {shareUrl ? (
-              <a href={shareUrl} className="mt-2 block break-all text-sm font-bold text-amber-100 hover:text-white">
-                {shareUrl}
-              </a>
+              <>
+                <a href={shareUrl} className="mt-2 block break-all text-sm font-bold text-amber-100 hover:text-white">
+                  {shareUrl}
+                </a>
+                <p className="mt-2 text-xs font-bold text-white/45">
+                  {expiresAt
+                    ? `Private link available through ${new Intl.DateTimeFormat("en-US", { month: "long", day: "numeric", year: "numeric" }).format(new Date(expiresAt))}.`
+                    : "Private links are available for 30 days after the plan is created."}
+                </p>
+              </>
             ) : (
               <p className="mt-2 text-sm font-bold text-white/58">
                 {saveStatus || "We will create a private return link so the itinerary survives clicks away from this page."}

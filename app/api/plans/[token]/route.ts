@@ -1,5 +1,7 @@
 import { NextResponse } from "next/server";
 import { getSupabaseAdmin } from "@/lib/supabase-server";
+import { apiErrorResponse, rateLimit, readValidatedJson, validShareToken } from "@/lib/api-security";
+import { updatePlanRequestSchema } from "@/lib/planner-validation";
 import { PlannerInput, PlannerResponse } from "@/types/planner";
 
 type RouteContext = {
@@ -15,8 +17,11 @@ type StoredPlan = {
   result_json: PlannerResponse;
 };
 
-export async function GET(_request: Request, context: RouteContext) {
+export async function GET(request: Request, context: RouteContext) {
   const { token } = await context.params;
+  if (!validShareToken(token)) return NextResponse.json({ error: "Invalid plan link." }, { status: 400 });
+  const limited = rateLimit(request, "plans:read", 120, 10 * 60 * 1_000);
+  if (limited) return limited;
 
   try {
     const supabase = getSupabaseAdmin();
@@ -32,14 +37,17 @@ export async function GET(_request: Request, context: RouteContext) {
       return NextResponse.json({ error: "Plan not found." }, { status: 404 });
     }
 
-    return NextResponse.json({
-      shareToken: data.share_token,
-      createdAt: data.created_at,
-      expiresAt: data.expires_at,
-      email: data.email,
-      input: data.input_json,
-      result: data.result_json,
-    });
+    return NextResponse.json(
+      {
+        shareToken: data.share_token,
+        createdAt: data.created_at,
+        expiresAt: data.expires_at,
+        email: data.email,
+        input: data.input_json,
+        result: data.result_json,
+      },
+      { headers: { "Cache-Control": "private, no-store" } },
+    );
   } catch {
     return NextResponse.json({ error: "Supabase is not configured for loading plans." }, { status: 503 });
   }
@@ -47,10 +55,15 @@ export async function GET(_request: Request, context: RouteContext) {
 
 export async function PATCH(request: Request, context: RouteContext) {
   const { token } = await context.params;
-  const body = (await request.json()) as { email?: string; result?: PlannerResponse };
+  if (!validShareToken(token)) return NextResponse.json({ error: "Invalid plan link." }, { status: 400 });
+  const limited = rateLimit(request, "plans:update", 60, 10 * 60 * 1_000);
+  if (limited) return limited;
 
-  if (!body.email && !body.result) {
-    return NextResponse.json({ error: "An email or updated plan is required." }, { status: 400 });
+  let body;
+  try {
+    body = await readValidatedJson(request, updatePlanRequestSchema, 262_144);
+  } catch (error) {
+    return apiErrorResponse(error);
   }
 
   try {

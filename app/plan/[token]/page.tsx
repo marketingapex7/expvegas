@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { PlanResult } from "@/components/PlanResult";
 import { getSupabaseAdmin } from "@/lib/supabase-server";
+import { validShareToken } from "@/lib/api-security";
 import { PlannerResponse } from "@/types/planner";
 
 export const dynamic = "force-dynamic";
@@ -11,15 +12,17 @@ type SavedPlanPageProps = {
 
 type StoredPlan = {
   share_token: string;
+  expires_at: string;
   result_json: PlannerResponse;
 };
 
 async function getSavedPlan(token: string) {
+  if (!validShareToken(token)) return null;
   try {
     const supabase = getSupabaseAdmin();
     const { data, error } = await supabase
       .from("plans")
-      .select("share_token, result_json")
+      .select("share_token, expires_at, result_json")
       .eq("share_token", token)
       .eq("status", "active")
       .gt("expires_at", new Date().toISOString())
@@ -44,7 +47,7 @@ export default async function SavedPlanPage({ params }: SavedPlanPageProps) {
           Back to ExperienceVegas
         </Link>
         {savedPlan ? (
-          <PlanResult result={savedPlan.result_json} shareUrl={`/plan/${savedPlan.share_token}`} />
+          <PlanResult result={savedPlan.result_json} shareUrl={`/plan/${savedPlan.share_token}`} expiresAt={savedPlan.expires_at} />
         ) : (
           <div className="mt-8 rounded-lg border border-white/10 bg-white/[0.06] p-6">
             <p className="text-sm font-black uppercase tracking-[0.22em] text-amber-100">Plan not found</p>

@@ -55,10 +55,25 @@ export type TripSummary = {
   whyThisPlanWorks: string;
 };
 
+export type PlannerEventOption = {
+  id: string;
+  name: string;
+  category: "shows" | "comedy" | "sports" | "concerts" | "attractions";
+  venueName: string;
+  quickVerdict: string;
+  affiliateUrl?: string;
+  priceMin?: number;
+  priceMax?: number;
+  runtimeMinutes?: number;
+  localDate?: string;
+  localTime?: string;
+};
+
 export type PlannerResponse = PlannerOutput & {
   bestPickName: string;
   backupPickNames: string[];
   sourceSummary?: string;
+  eventOptions?: PlannerEventOption[];
   itineraryDays?: ItineraryDay[];
   tripSummary?: TripSummary;
 };

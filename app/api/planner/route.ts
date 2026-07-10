@@ -3,6 +3,8 @@ import { seedEvents } from "@/data/seed-events";
 import { buildItinerary } from "@/lib/itinerary-engine";
 import { rankEvents } from "@/lib/scoring";
 import { searchTicketmasterEvents } from "@/lib/ticketmaster";
+import { apiErrorResponse, rateLimit, readValidatedJson } from "@/lib/api-security";
+import { plannerInputSchema } from "@/lib/planner-validation";
 import { EventCategory, VegasEvent } from "@/types/event";
 import { ItineraryDay, PlannerInput, PlannerResponse, TripSummary } from "@/types/planner";
 
@@ -118,7 +120,15 @@ function buildTripSummary(input: PlannerInput, itineraryDays: ItineraryDay[], be
 }
 
 export async function POST(request: Request) {
-  const input = (await request.json()) as PlannerInput;
+  const limited = rateLimit(request, "planner", 30, 10 * 60 * 1_000);
+  if (limited) return limited;
+
+  let input: PlannerInput;
+  try {
+    input = await readValidatedJson(request, plannerInputSchema, 16_384);
+  } catch (error) {
+    return apiErrorResponse(error);
+  }
   const { startDate, endDate } = parseTravelDates(input.travelDates);
   const category = inferCategory(input);
   let liveEvents: VegasEvent[] = [];
@@ -135,14 +145,16 @@ export async function POST(request: Request) {
   }
 
   const ranked = rankEvents([...liveEvents, ...seedEvents], input);
-  const best = ranked[0];
+  const fallbackBest = ranked[0];
 
-  if (!best) {
+  if (!fallbackBest) {
     return NextResponse.json({ error: "No Vegas events are available to build a plan right now." }, { status: 503 });
   }
 
-  const backups = ranked.slice(1, 4);
   const itineraryDays = buildItinerary({ plannerInput: input, startDate, endDate, rankedEvents: ranked });
+  const firstScheduledEvent = itineraryDays.flatMap((day) => day.blocks).find((block) => block.category === "event");
+  const best = ranked.find((event) => event.name === firstScheduledEvent?.title) || fallbackBest;
+  const backups = ranked.filter((event) => event.id !== best.id).slice(0, 3);
   const tripSummary = buildTripSummary(input, itineraryDays, best);
 
   const output: PlannerResponse = {
@@ -164,6 +176,19 @@ export async function POST(request: Request) {
       liveEvents.length > 0
         ? `Live schedule checked for your dates. Included ${liveEvents.length} Ticketmaster event${liveEvents.length === 1 ? "" : "s"} to compare.`
         : "No live Ticketmaster events were available, so this used curated ExperienceVegas picks.",
+    eventOptions: ranked.slice(0, 20).map((event) => ({
+      id: event.id,
+      name: event.name,
+      category: event.category,
+      venueName: event.venueName,
+      quickVerdict: event.quickVerdict,
+      affiliateUrl: event.affiliateUrl,
+      priceMin: event.priceMin,
+      priceMax: event.priceMax,
+      runtimeMinutes: event.runtimeMinutes,
+      localDate: event.localDate,
+      localTime: event.localTime,
+    })),
     itineraryDays,
     tripSummary,
   };

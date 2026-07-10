@@ -14,10 +14,11 @@ function dateRange(startDate?: string, endDate?: string) {
   if (!startDate) return [];
 
   const dates: string[] = [];
-  const start = new Date(`${startDate}T00:00:00`);
-  const end = new Date(`${endDate || startDate}T00:00:00`);
+  const start = new Date(`${startDate}T00:00:00Z`);
+  const end = new Date(`${endDate || startDate}T00:00:00Z`);
+  const exclusiveEnd = end > start ? end : new Date(start.getTime() + 24 * 60 * 60 * 1000);
 
-  for (const cursor = new Date(start); cursor <= end && dates.length < 7; cursor.setDate(cursor.getDate() + 1)) {
+  for (const cursor = new Date(start); cursor < exclusiveEnd && dates.length < 7; cursor.setUTCDate(cursor.getUTCDate() + 1)) {
     dates.push(cursor.toISOString().slice(0, 10));
   }
 
@@ -223,15 +224,43 @@ function bufferAfter(block: ItineraryBlock) {
   return 15;
 }
 
-function sanitizeSchedule(blocks: ItineraryBlock[]) {
+export function sanitizeSchedule(blocks: ItineraryBlock[]) {
   const sorted = [...blocks].sort((a, b) => timeSortValue(a.time) - timeSortValue(b.time));
-  let previousEnd = 0;
+  const scheduled: Array<{ block: ItineraryBlock; start: number; duration: number }> = [];
 
-  return sorted.map((block) => {
+  for (const block of sorted) {
     const originalStart = timeSortValue(block.time);
     const durationMinutes = defaultDuration(block);
     const isFixedStart = block.category === "event" && originalStart < 9999;
-    const nextStart = isFixedStart ? originalStart : Math.max(originalStart, previousEnd);
+    const previous = scheduled.at(-1);
+    const previousEnd = previous ? previous.start + previous.duration + bufferAfter(previous.block) : 0;
+
+    if (isFixedStart && previousEnd > originalStart) {
+      let cursor = originalStart;
+
+      for (let index = scheduled.length - 1; index >= 0; index -= 1) {
+        const prior = scheduled[index];
+        if (prior.block.category === "event") break;
+
+        const latestStart = cursor - prior.duration - bufferAfter(prior.block);
+        if (prior.start > latestStart) {
+          const oldTime = prior.block.time;
+          prior.start = latestStart;
+          prior.block = {
+            ...prior.block,
+            time: timeLabelFromMinutes(latestStart),
+            timingNote: `Moved earlier from ${oldTime} to protect the fixed event start.`,
+          };
+        }
+        cursor = prior.start;
+      }
+    }
+
+    const updatedPrevious = scheduled.at(-1);
+    const updatedPreviousEnd = updatedPrevious
+      ? updatedPrevious.start + updatedPrevious.duration + bufferAfter(updatedPrevious.block)
+      : 0;
+    const nextStart = isFixedStart ? originalStart : Math.max(originalStart, updatedPreviousEnd);
     const adjustedBlock: ItineraryBlock = {
       ...block,
       time: timeLabelFromMinutes(nextStart),
@@ -242,10 +271,12 @@ function sanitizeSchedule(blocks: ItineraryBlock[]) {
       adjustedBlock.timingNote = `Shifted from ${block.time} to keep the day realistic.`;
     }
 
-    previousEnd = nextStart + durationMinutes + bufferAfter(adjustedBlock);
+    scheduled.push({ block: adjustedBlock, start: nextStart, duration: durationMinutes });
+  }
 
-    return adjustedBlock;
-  });
+  return scheduled
+    .sort((a, b) => a.start - b.start)
+    .map(({ block, start, duration }) => ({ ...block, time: timeLabelFromMinutes(start), durationMinutes: duration }));
 }
 
 function buildBlocks(date: string, dayIndex: number, input: PlannerInput, events: VegasEvent[]): ItineraryBlock[] {
