@@ -1,16 +1,29 @@
 import { EventGrid } from "@/components/EventGrid";
 import { SectionHeader } from "@/components/SectionHeader";
-import { seedEvents } from "@/data/seed-events";
-import { rankEvents } from "@/lib/scoring";
+import { getLiveVegasEvents, getVegasWeekend } from "@/lib/live-events";
 
-export const metadata = { title: "Best Things To Do in Vegas This Weekend | ExperienceVegas" };
+export const revalidate = 1800;
 
-export default function ThisWeekendPage() {
+export const metadata = {
+  title: "Things To Do in Las Vegas This Weekend",
+  description: "Compare live Las Vegas shows, concerts, comedy, sports, and attractions scheduled this weekend.",
+  alternates: { canonical: "/this-weekend" },
+};
+
+export default async function ThisWeekendPage() {
+  const weekend = getVegasWeekend();
+  const result = await getLiveVegasEvents(weekend.startDate, weekend.endDate, 30);
   return (
     <section className="px-5 py-16">
       <div className="mx-auto max-w-7xl">
-        <SectionHeader eyebrow="This Weekend" title="Best Vegas picks for this weekend" description="The weekly money page for shows, comedy, concerts, sports, attractions, and value picks." />
-        <EventGrid events={rankEvents(seedEvents)} />
+        <SectionHeader
+          eyebrow={result.isLive ? "Live weekend schedule" : "Curated fallback"}
+          title="Best Vegas picks for this weekend"
+          description={result.isLive
+            ? "Scheduled events from Friday through Sunday, ranked to make shows, comedy, concerts, sports, attractions, and value picks easier to compare."
+            : "Live inventory is temporarily unavailable. Browse these editorial recommendations, then confirm the event date before booking."}
+        />
+        <EventGrid events={result.events} />
       </div>
     </section>
   );

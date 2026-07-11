@@ -4,14 +4,26 @@ import { VegasEvent } from "@/types/event";
 import { formatPrice } from "@/lib/utils";
 
 export function EventCard({ event, badge }: { event: VegasEvent; badge?: string }) {
-  const eventPath = `/${event.category}/${event.slug}`;
+  const ticketmasterId = event.id.startsWith("ticketmaster-") ? event.id.slice("ticketmaster-".length) : null;
+  const eventPath = ticketmasterId ? `/events/${ticketmasterId}` : `/${event.category}/${event.slug}`;
   const hasTicketUrl = Boolean(event.affiliateUrl && event.affiliateUrl !== "#");
+  const schedule = event.localDate
+    ? new Intl.DateTimeFormat("en-US", {
+        weekday: "short",
+        month: "short",
+        day: "numeric",
+        ...(event.localTime ? { hour: "numeric", minute: "2-digit" } : {}),
+      }).format(new Date(`${event.localDate}T${event.localTime || "12:00:00"}`))
+    : null;
 
   return (
     <article className="group overflow-hidden rounded-lg border border-white/10 bg-white/[0.06] shadow-2xl shadow-black/20 transition hover:-translate-y-1 hover:border-amber-100/25 hover:bg-white/[0.09]">
       <div className="flex min-h-36 items-start justify-between bg-[linear-gradient(135deg,rgba(245,158,11,0.22),rgba(217,70,239,0.16)_48%,rgba(14,165,233,0.1))] p-5">
         <div>
-          {badge ? <span className="rounded-full bg-black/30 px-3 py-1 text-xs font-bold text-white">{badge}</span> : null}
+          <div className="flex flex-wrap gap-2">
+            {badge ? <span className="rounded-full bg-black/30 px-3 py-1 text-xs font-bold text-white">{badge}</span> : null}
+            <span className="rounded-full bg-black/30 px-3 py-1 text-xs font-bold text-white/75">{ticketmasterId ? "Live schedule" : "Curated pick"}</span>
+          </div>
           <p className="mt-3 text-xs uppercase tracking-[0.25em] text-white/55">{event.subcategory || event.category}</p>
           <h3 className="mt-2 text-2xl font-black leading-tight text-white">{event.name}</h3>
         </div>
@@ -20,6 +32,7 @@ export function EventCard({ event, badge }: { event: VegasEvent; badge?: string 
         <div className="flex flex-wrap gap-2 text-xs">
           <span className="rounded-full bg-white/10 px-3 py-1 text-white/75">{event.venueName}</span>
           <span className="rounded-full bg-white/10 px-3 py-1 text-white/75">{formatPrice(event.priceMin)}</span>
+          {schedule ? <span className="rounded-full bg-white/10 px-3 py-1 text-white/75">{schedule}</span> : null}
           {event.ageRestriction ? <span className="rounded-full bg-white/10 px-3 py-1 text-white/75">{event.ageRestriction}</span> : null}
         </div>
         <p className="text-sm leading-6 text-white/72">{event.quickVerdict}</p>

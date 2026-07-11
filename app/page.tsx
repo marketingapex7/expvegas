@@ -5,10 +5,14 @@ import { CategoryGrid } from "@/components/CategoryGrid";
 import { EventCard } from "@/components/EventCard";
 import { SectionHeader } from "@/components/SectionHeader";
 import { bestForLinks, nearLinks } from "@/data/nav";
-import { seedEvents } from "@/data/seed-events";
-import { rankEvents } from "@/lib/scoring";
+import { getLiveVegasEvents, getVegasToday } from "@/lib/live-events";
 
-const topTonight = rankEvents(seedEvents).slice(0, 3);
+export const metadata = {
+  title: { absolute: "ExperienceVegas | Build a Better Vegas Trip" },
+  description: "Turn your dates, budget, group, lodging, food preferences, and vibe into a practical Las Vegas itinerary.",
+  alternates: { canonical: "/" },
+};
+
 const planningGuides = [
   { href: "/things-to-do-las-vegas", label: "Things to do" },
   { href: "/las-vegas-shows", label: "Shows" },
@@ -17,7 +21,11 @@ const planningGuides = [
   { href: "/las-vegas-first-time-visitors", label: "First-time guide" },
 ];
 
-export default function HomePage() {
+export const revalidate = 1800;
+
+export default async function HomePage() {
+  const tonight = await getLiveVegasEvents(getVegasToday(), undefined, 12);
+  const topTonight = tonight.events.slice(0, 3);
   return (
     <>
       <HeroPlanner />
@@ -25,7 +33,13 @@ export default function HomePage() {
       <section className="px-4 py-10 sm:px-5 sm:py-12">
         <div className="mx-auto max-w-7xl">
           <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
-            <SectionHeader eyebrow="Tonight" title="Strong picks when the night is already moving." description="Skip the endless ticket scroll. These are high-confidence options when you need a show, laugh, view, game, or spectacle that still makes sense for tonight." />
+            <SectionHeader
+              eyebrow={tonight.isLive ? "Live tonight" : "Curated Vegas picks"}
+              title={tonight.isLive ? "Strong picks that are actually on tonight." : "Strong picks while live inventory refreshes."}
+              description={tonight.isLive
+                ? "Skip the endless ticket scroll. These scheduled Vegas events are ranked to help you decide quickly."
+                : "Ticketmaster inventory is temporarily unavailable, so these are clearly labeled editorial recommendations instead of pretending to be tonight's schedule."}
+            />
             <p className="max-w-sm pb-4 text-sm font-bold leading-6 text-white/52 lg:pb-8 lg:text-right">
               Ranked for wow factor, value, group fit, location friction, and Vegas-only appeal.
             </p>

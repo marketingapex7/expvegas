@@ -1,10 +1,15 @@
 "use client";
 
 import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
+import dynamic from "next/dynamic";
 import { useRouter } from "next/navigation";
 import { ArrowRight, CalendarDays, Loader2, MapPin, Sparkles, Users, WalletCards } from "lucide-react";
-import { PlanResult } from "@/components/PlanResult";
 import { PlannerInput, PlannerResponse } from "@/types/planner";
+
+const PlanResult = dynamic(
+  () => import("@/components/PlanResult").then((module) => module.PlanResult),
+  { ssr: false },
+);
 
 const tuneOptions = [
   { label: "Make cheaper", updates: { mealBudget: "Mostly casual meals under $40 per person", budget: "event tickets under $100 per person" } },

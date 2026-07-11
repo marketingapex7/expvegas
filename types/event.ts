@@ -15,6 +15,14 @@ export type VegasEvent = {
   startDateTime?: string;
   localDate?: string;
   localTime?: string;
+  currency?: string;
+  venueAddress?: {
+    streetAddress?: string;
+    addressLocality?: string;
+    addressRegion?: string;
+    postalCode?: string;
+    addressCountry?: string;
+  };
   tags: string[];
   bestFor: string[];
   skipIf: string[];

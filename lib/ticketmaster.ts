@@ -1,6 +1,6 @@
 import { EventCategory, VegasEvent } from "@/types/event";
 
-const TICKETMASTER_BASE_URL = "https://app.ticketmaster.com/discovery/v2/events.json";
+const TICKETMASTER_BASE_URL = "https://app.ticketmaster.com/discovery/v2";
 
 type TicketmasterImage = {
   url?: string;
@@ -12,6 +12,7 @@ type TicketmasterImage = {
 type TicketmasterPriceRange = {
   min?: number;
   max?: number;
+  currency?: string;
 };
 
 type TicketmasterClassification = {
@@ -25,6 +26,8 @@ type TicketmasterVenue = {
   city?: { name?: string };
   state?: { stateCode?: string; name?: string };
   address?: { line1?: string };
+  postalCode?: string;
+  country?: { countryCode?: string; name?: string };
 };
 
 type TicketmasterEvent = {
@@ -60,10 +63,6 @@ type TicketmasterSearchInput = {
   category?: EventCategory;
   size?: number;
 };
-
-function toTicketmasterDate(date: string, endOfDay = false) {
-  return `${date}T${endOfDay ? "23:59:59" : "00:00:00"}Z`;
-}
 
 function slugify(value: string) {
   return value
@@ -116,7 +115,7 @@ function formatEventDate(localDate?: string, localTime?: string) {
   return `${formattedDate} at ${formattedTime}`;
 }
 
-function normalizeTicketmasterEvent(event: TicketmasterEvent): VegasEvent {
+export function normalizeTicketmasterEvent(event: TicketmasterEvent): VegasEvent {
   const classification = event.classifications?.[0];
   const venue = event._embedded?.venues?.[0];
   const category = classificationToCategory(classification);
@@ -137,6 +136,14 @@ function normalizeTicketmasterEvent(event: TicketmasterEvent): VegasEvent {
     startDateTime: event.dates?.start?.dateTime,
     localDate: event.dates?.start?.localDate,
     localTime: event.dates?.start?.localTime,
+    currency: priceRange?.currency || "USD",
+    venueAddress: {
+      streetAddress: venue?.address?.line1,
+      addressLocality: venue?.city?.name,
+      addressRegion: venue?.state?.stateCode || venue?.state?.name,
+      postalCode: venue?.postalCode,
+      addressCountry: venue?.country?.countryCode || venue?.country?.name || "US",
+    },
     tags: [category, subcategory, venue?.name].filter(Boolean).map((tag) => String(tag).toLowerCase()),
     bestFor: ["Date-specific plans", "Visitors comparing live events"],
     skipIf: ["You only want curated editorial picks"],
@@ -170,10 +177,13 @@ export async function searchTicketmasterEvents(input: TicketmasterSearchInput = 
 
   const classificationName = categoryToClassification(input.category);
   if (classificationName) params.set("classificationName", classificationName);
-  if (input.startDate) params.set("startDateTime", toTicketmasterDate(input.startDate));
-  if (input.endDate) params.set("endDateTime", toTicketmasterDate(input.endDate, true));
+  if (input.startDate || input.endDate) {
+    const startDate = input.startDate || input.endDate;
+    const endDate = input.endDate || input.startDate;
+    params.set("localStartDateTime", `${startDate}T00:00:00,${endDate}T23:59:59`);
+  }
 
-  const response = await fetch(`${TICKETMASTER_BASE_URL}?${params.toString()}`, {
+  const response = await fetch(`${TICKETMASTER_BASE_URL}/events.json?${params.toString()}`, {
     next: { revalidate: 60 * 30 },
   });
 
@@ -183,4 +193,23 @@ export async function searchTicketmasterEvents(input: TicketmasterSearchInput = 
 
   const data = (await response.json()) as TicketmasterResponse;
   return (data._embedded?.events || []).map(normalizeTicketmasterEvent);
+}
+
+export async function getTicketmasterEvent(eventId: string) {
+  const apiKey = process.env.TICKETMASTER_API_KEY;
+  if (!apiKey) {
+    throw new Error("Missing TICKETMASTER_API_KEY");
+  }
+
+  const response = await fetch(
+    `${TICKETMASTER_BASE_URL}/events/${encodeURIComponent(eventId)}.json?apikey=${encodeURIComponent(apiKey)}`,
+    { next: { revalidate: 60 * 30 } },
+  );
+
+  if (response.status === 404) return null;
+  if (!response.ok) {
+    throw new Error(`Ticketmaster event request failed with ${response.status}`);
+  }
+
+  return normalizeTicketmasterEvent((await response.json()) as TicketmasterEvent);
 }

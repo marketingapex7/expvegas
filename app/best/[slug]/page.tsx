@@ -1,22 +1,28 @@
-import { EventGrid } from "@/components/EventGrid";
-import { SectionHeader } from "@/components/SectionHeader";
-import { bestForLinks } from "@/data/nav";
-import { seedEvents } from "@/data/seed-events";
-import { rankEvents } from "@/lib/scoring";
+import type { Metadata } from "next";
+import { notFound } from "next/navigation";
+import { IntentLandingPage } from "@/components/IntentLandingPage";
+import { bestIntentPages } from "@/data/intent-pages";
+import { getEventBySlug } from "@/data/seed-events";
 
 export function generateStaticParams() {
-  return bestForLinks.filter((link) => link.href.startsWith("/best/")).map((link) => ({ slug: link.href.split("/").pop() }));
+  return Object.keys(bestIntentPages).map((slug) => ({ slug }));
+}
+
+export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }): Promise<Metadata> {
+  const { slug } = await params;
+  const content = bestIntentPages[slug];
+  if (!content) return {};
+  return {
+    title: content.title,
+    description: content.description,
+    alternates: { canonical: `/best/${slug}` },
+  };
 }
 
 export default async function BestForPage({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;
-  const label = slug.split("-").map((part) => part[0].toUpperCase() + part.slice(1)).join(" ");
-  return (
-    <section className="px-5 py-16">
-      <div className="mx-auto max-w-7xl">
-        <SectionHeader eyebrow="Best For" title={`Best Vegas picks for ${label}`} description="These pages are designed around the visitor's trip intent instead of only the ticket category." />
-        <EventGrid events={rankEvents(seedEvents)} />
-      </div>
-    </section>
-  );
+  const content = bestIntentPages[slug];
+  if (!content) notFound();
+  const events = content.eventSlugs.map(getEventBySlug).filter((event) => event !== undefined);
+  return <IntentLandingPage eyebrow="Best for" content={content} events={events} />;
 }

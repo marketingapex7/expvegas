@@ -106,7 +106,7 @@ for (const [cluster, clusterSeeds] of seedsByCluster) {
       competition: item.competition ?? null,
       competitionIndex: item.competition_index ?? null,
       cpc: item.cpc ?? null,
-      pageSlug: source.pageSlug,
+      pageSlug: source.slug,
       cluster: source.cluster,
       pageType: source.pageType,
       intent: source.intent,
