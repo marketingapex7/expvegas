@@ -7,6 +7,124 @@ export const primaryNav = [
   { href: "/tonight", label: "Tonight" },
 ];
 
+export const directoryNav = [
+  {
+    label: "Hotels",
+    href: "/las-vegas-hotels",
+    columns: [
+      {
+        label: "Browse stays",
+        links: [
+          { href: "/las-vegas-hotels", label: "All Las Vegas hotels" },
+          { href: "/best-hotels-on-the-las-vegas-strip", label: "Hotels on the Strip" },
+          { href: "/downtown-las-vegas-hotels", label: "Downtown hotels" },
+        ],
+      },
+      {
+        label: "Plan by trip",
+        links: [
+          { href: "/las-vegas-for-couples", label: "Couples trips" },
+          { href: "/las-vegas-for-families", label: "Family trips" },
+          { href: "/near/allegiant-stadium", label: "Near Allegiant Stadium" },
+        ],
+      },
+    ],
+  },
+  {
+    label: "Shows & Events",
+    href: "/las-vegas-shows",
+    columns: [
+      {
+        label: "Entertainment",
+        links: [
+          { href: "/las-vegas-shows", label: "Shows" },
+          { href: "/las-vegas-comedy", label: "Comedy" },
+          { href: "/las-vegas-concerts", label: "Concerts" },
+          { href: "/las-vegas-sports", label: "Sports" },
+        ],
+      },
+      {
+        label: "Plan by date",
+        links: [
+          { href: "/tonight", label: "Tonight" },
+          { href: "/this-weekend", label: "This weekend" },
+          { href: "/sphere-las-vegas-events", label: "Sphere events" },
+          { href: "/las-vegas-shows-under-100", label: "Shows under $100" },
+        ],
+      },
+    ],
+  },
+  {
+    label: "Restaurants",
+    href: "/las-vegas-restaurants",
+    columns: [
+      {
+        label: "Find a meal",
+        links: [
+          { href: "/las-vegas-restaurants", label: "All restaurants" },
+          { href: "/las-vegas-steakhouses", label: "Steakhouses" },
+          { href: "/las-vegas-buffets", label: "Buffets" },
+          { href: "/cheap-eats-las-vegas", label: "Cheap eats" },
+        ],
+      },
+      {
+        label: "Plan by location",
+        links: [
+          { href: "/restaurants-near-sphere-las-vegas", label: "Near Sphere" },
+          { href: "/near/bellagio", label: "Near Bellagio" },
+          { href: "/near/t-mobile-arena", label: "Near T-Mobile Arena" },
+        ],
+      },
+    ],
+  },
+  {
+    label: "Things to Do",
+    href: "/things-to-do-las-vegas",
+    columns: [
+      {
+        label: "Explore",
+        links: [
+          { href: "/las-vegas-attractions", label: "Attractions" },
+          { href: "/free-things-to-do-las-vegas", label: "Free things to do" },
+          { href: "/las-vegas-shopping", label: "Shopping" },
+          { href: "/las-vegas-day-trips", label: "Day trips" },
+        ],
+      },
+      {
+        label: "Best for",
+        links: [
+          { href: "/las-vegas-family-activities", label: "Families" },
+          { href: "/best/people-who-dont-gamble", label: "Non-gamblers" },
+          { href: "/best/after-dinner", label: "After dinner" },
+          { href: "/cheap-things-to-do", label: "Lower-budget picks" },
+        ],
+      },
+    ],
+  },
+  {
+    label: "Plan Your Trip",
+    href: "/planner",
+    columns: [
+      {
+        label: "Trip guides",
+        links: [
+          { href: "/las-vegas-first-time-visitors", label: "First-time visitors" },
+          { href: "/3-day-las-vegas-itinerary", label: "3-day itinerary" },
+          { href: "/las-vegas-weekend-itinerary", label: "Weekend itinerary" },
+        ],
+      },
+      {
+        label: "Build a plan",
+        links: [
+          { href: "/planner", label: "Start the planner" },
+          { href: "/best/bachelor-party", label: "Bachelor party" },
+          { href: "/best/bachelorette-party", label: "Bachelorette party" },
+        ],
+      },
+    ],
+  },
+];
+
 export const categories = [
   { href: "/las-vegas-shows", title: "Shows", description: "Production shows, magic, Cirque, adult shows, and iconic Vegas nights." },
   { href: "/las-vegas-comedy", title: "Comedy", description: "Stand-up, adult comedy, group-friendly laughs, and cheap night-out picks." },

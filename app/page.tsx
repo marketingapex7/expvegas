@@ -1,131 +1,141 @@
 import Link from "next/link";
-import { ArrowRight, CalendarDays, MapPin, Users } from "lucide-react";
-import { HeroPlanner } from "@/components/HeroPlanner";
-import { CategoryGrid } from "@/components/CategoryGrid";
+import { ArrowRight, Building2, CalendarDays, Drama, MapPin, ShoppingBag, Sparkles, Ticket, Utensils, Users } from "lucide-react";
+import { DirectorySection } from "@/components/DirectorySection";
 import { EventCard } from "@/components/EventCard";
+import { HeroPlanner } from "@/components/HeroPlanner";
 import { SectionHeader } from "@/components/SectionHeader";
 import { bestForLinks, nearLinks } from "@/data/nav";
+import { experienceListings, hotelListings, restaurantListings } from "@/lib/directory-data";
 import { getLiveVegasEvents, getVegasToday } from "@/lib/live-events";
 
 export const metadata = {
-  title: { absolute: "ExperienceVegas | Build a Better Vegas Trip" },
-  description: "Turn your dates, budget, group, lodging, food preferences, and vibe into a practical Las Vegas itinerary.",
+  title: { absolute: "ExperienceVegas | Build and Browse a Better Vegas Trip" },
+  description: "Build a timed Las Vegas itinerary, then browse hotels, events, restaurants, attractions, and free experiences worth adding to your trip.",
   alternates: { canonical: "/" },
 };
 
-const planningGuides = [
-  { href: "/things-to-do-las-vegas", label: "Things to do" },
-  { href: "/las-vegas-shows", label: "Shows" },
-  { href: "/las-vegas-restaurants", label: "Restaurants" },
-  { href: "/las-vegas-hotels", label: "Hotels" },
-  { href: "/las-vegas-first-time-visitors", label: "First-time guide" },
+export const revalidate = 1800;
+
+const browseLanes = [
+  { href: "/las-vegas-hotels", label: "Hotels", Icon: Building2 },
+  { href: "/las-vegas-shows", label: "Shows", Icon: Drama },
+  { href: "/tonight", label: "Events", Icon: Ticket },
+  { href: "/las-vegas-restaurants", label: "Restaurants", Icon: Utensils },
+  { href: "/las-vegas-attractions", label: "Attractions", Icon: Sparkles },
+  { href: "/las-vegas-shopping", label: "Shopping", Icon: ShoppingBag },
 ];
 
-export const revalidate = 1800;
+function selectListings(slugs: string[], source: typeof restaurantListings) {
+  return slugs.map((slug) => source.find((listing) => listing.slug === slug)).filter((listing) => listing !== undefined);
+}
 
 export default async function HomePage() {
   const tonight = await getLiveVegasEvents(getVegasToday(), undefined, 12);
   const topTonight = tonight.events.slice(0, 3);
+  const featuredRestaurants = selectListings(
+    ["golden-steer-steakhouse", "best-friend", "bacchanal-buffet", "tacos-el-gordo"],
+    restaurantListings,
+  );
+  const featuredExperiences = experienceListings.slice(0, 4);
+
   return (
     <>
       <HeroPlanner />
 
-      <section className="px-4 py-10 sm:px-5 sm:py-12">
+      <section className="border-y border-white/10 bg-black/20 px-4 py-7 sm:px-5">
+        <div className="mx-auto max-w-7xl">
+          <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+            <div>
+              <p className="text-xs font-black uppercase tracking-[0.22em] text-amber-100">Browse Vegas</p>
+              <h2 className="mt-1 text-xl font-black text-white">Find ideas first. Add the good ones to your trip.</h2>
+            </div>
+            <nav aria-label="Browse Vegas categories" className="grid grid-cols-3 gap-2 sm:grid-cols-6">
+              {browseLanes.map(({ href, label, Icon }) => (
+                <Link key={href} href={href} className="flex min-h-20 min-w-0 flex-col items-center justify-center gap-2 rounded-lg border border-white/10 bg-white/[0.045] px-3 py-3 text-center text-xs font-black text-white/68 transition hover:border-amber-100/25 hover:bg-white/[0.08] hover:text-white sm:min-w-24">
+                  <Icon className="h-5 w-5 text-amber-100" />
+                  <span className="max-w-full break-words">{label}</span>
+                </Link>
+              ))}
+            </nav>
+          </div>
+        </div>
+      </section>
+
+      <DirectorySection
+        eyebrow="Where to stay"
+        title="Choose a hotel that makes the rest of the trip easier."
+        description="The right base is about more than room rate. Compare the neighborhood, event access, group fit, and the experiences already on your list."
+        listings={hotelListings.slice(0, 4)}
+        viewAllHref="/las-vegas-hotels"
+        viewAllLabel="Browse Hotels"
+      />
+
+      <section className="border-t border-white/10 px-4 py-10 sm:px-5 sm:py-14">
         <div className="mx-auto max-w-7xl">
           <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
             <SectionHeader
               eyebrow={tonight.isLive ? "Live tonight" : "Curated Vegas picks"}
-              title={tonight.isLive ? "Strong picks that are actually on tonight." : "Strong picks while live inventory refreshes."}
+              title={tonight.isLive ? "Events that are actually on tonight." : "Strong event picks while live inventory refreshes."}
               description={tonight.isLive
-                ? "Skip the endless ticket scroll. These scheduled Vegas events are ranked to help you decide quickly."
-                : "Ticketmaster inventory is temporarily unavailable, so these are clearly labeled editorial recommendations instead of pretending to be tonight's schedule."}
+                ? "Compare the schedule, save interesting events to My Trip, or open the ticket provider only when you are ready to book."
+                : "Ticketmaster inventory is temporarily unavailable, so these recommendations are clearly marked as curated rather than tonight's confirmed schedule."}
             />
-            <p className="max-w-sm pb-4 text-sm font-bold leading-6 text-white/52 lg:pb-8 lg:text-right">
-              Ranked for wow factor, value, group fit, location friction, and Vegas-only appeal.
-            </p>
-          </div>
-          <div className="grid gap-6 md:grid-cols-3">
-            {topTonight.map((event, index) => (
-              <EventCard key={event.id} event={event} badge={["Best first click", "Most iconic", "Smart value"][index]} />
-            ))}
-          </div>
-          <div className="mt-8 flex">
-            <Link href="/tonight" className="inline-flex w-full items-center justify-center gap-2 rounded-full border border-white/15 px-5 py-3 text-center font-bold text-white transition hover:bg-white/10 sm:w-auto">
-              See Tonight&apos;s Picks <ArrowRight className="h-4 w-4" />
+            <Link href="/tonight" className="mb-8 inline-flex min-h-11 items-center gap-2 self-start rounded-lg border border-white/15 px-4 py-2 text-sm font-black text-white transition hover:bg-white/10 lg:self-auto">
+              See Tonight&apos;s Schedule <ArrowRight className="h-4 w-4" />
             </Link>
           </div>
-        </div>
-      </section>
-
-      <section className="border-y border-white/10 px-4 py-8 sm:px-5">
-        <div className="mx-auto flex max-w-7xl flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
-          <div className="max-w-xl">
-            <p className="text-xs font-black uppercase tracking-[0.22em] text-amber-100">Plan with context</p>
-            <h2 className="mt-2 text-2xl font-black text-white">Explore the Vegas guides behind the planner.</h2>
-          </div>
-          <nav aria-label="Vegas planning guides" className="flex flex-wrap gap-x-5 gap-y-3">
-            {planningGuides.map((guide) => (
-              <Link key={guide.href} href={guide.href} className="inline-flex items-center gap-1 text-sm font-black text-white/70 transition hover:text-white">
-                {guide.label} <ArrowRight className="h-3.5 w-3.5" />
-              </Link>
-            ))}
-          </nav>
-        </div>
-      </section>
-
-      <section className="px-4 py-10 sm:px-5 sm:py-12">
-        <div className="mx-auto max-w-7xl">
-          <SectionHeader eyebrow="Browse by lane" title="Choose the kind of night first." description="Each category is built for fast comparison, not endless inventory: production shows, comedy rooms, sports weekends, headline concerts, flexible attractions, and lower-budget wins." />
-          <CategoryGrid />
-        </div>
-      </section>
-
-      <section className="px-4 py-10 sm:px-5 sm:py-12">
-        <div className="mx-auto grid max-w-7xl gap-5 lg:grid-cols-2">
-          <div className="rounded-lg border border-white/10 bg-white/[0.06] p-5 sm:p-7">
-            <div className="mb-5 inline-flex h-11 w-11 items-center justify-center rounded-lg border border-white/10 bg-black/25 text-amber-100">
-              <Users className="h-5 w-5" />
-            </div>
-            <SectionHeader eyebrow="Best for" title="Start with who is going." description="First trip, date night, family, bachelor group, tight budget, or post-dinner plan: these pages turn intent into a manageable shortlist." />
-            <div className="flex flex-wrap gap-3">
-              {bestForLinks.map((link) => (
-                <Link key={link.href} href={link.href} className="rounded-full bg-white/10 px-4 py-2 text-sm font-bold text-white/80 transition hover:bg-white/15 sm:text-base">{link.label}</Link>
-              ))}
-            </div>
-          </div>
-          <div className="rounded-lg border border-white/10 bg-white/[0.06] p-5 sm:p-7">
-            <div className="mb-5 inline-flex h-11 w-11 items-center justify-center rounded-lg border border-white/10 bg-black/25 text-amber-100">
-              <MapPin className="h-5 w-5" />
-            </div>
-            <SectionHeader eyebrow="Near" title="Book around where you already are." description="Filter the night by Strip anchors, arenas, hotels, and venues so the plan feels easy before and after the main event." />
-            <div className="flex flex-wrap gap-3">
-              {nearLinks.map((link) => (
-                <Link key={link.href} href={link.href} className="rounded-full bg-white/10 px-4 py-2 text-sm font-bold text-white/80 transition hover:bg-white/15 sm:text-base">{link.label}</Link>
-              ))}
-            </div>
+          <div className="grid gap-6 md:grid-cols-3">
+            {topTonight.map((event, index) => <EventCard key={event.id} event={event} badge={["Best first click", "Big Vegas energy", "Smart alternative"][index]} />)}
           </div>
         </div>
       </section>
 
-      <section className="px-4 py-10 pb-16 sm:px-5 sm:py-12 sm:pb-20">
-        <div className="mx-auto max-w-7xl rounded-lg border border-amber-100/20 bg-[linear-gradient(135deg,rgba(245,158,11,0.16),rgba(217,70,239,0.12)_48%,rgba(255,255,255,0.06))] p-5 sm:p-8 md:p-10">
-          <div className="grid gap-7 md:grid-cols-[minmax(0,1fr)_minmax(280px,0.8fr)] md:items-center">
+      <DirectorySection
+        eyebrow="Where to eat"
+        title="Pick the meal that fits the night around it."
+        description="Browse a useful mix of splurge dinners, group-friendly restaurants, buffets, and cheap eats. The planner will place them near the rest of your itinerary."
+        listings={featuredRestaurants}
+        viewAllHref="/las-vegas-restaurants"
+        viewAllLabel="Browse Restaurants"
+      />
+
+      <DirectorySection
+        eyebrow="Free and flexible"
+        title="Leave room for Vegas that does not need a ticket."
+        description="Shopping walks, fountains, resort interiors, and neighborhood wandering give the itinerary breathing room without turning every hour into another purchase."
+        listings={featuredExperiences}
+        viewAllHref="/free-things-to-do-las-vegas"
+        viewAllLabel="Browse Free Things"
+      />
+
+      <section className="border-t border-white/10 px-4 py-10 sm:px-5 sm:py-14">
+        <div className="mx-auto grid max-w-7xl gap-10 lg:grid-cols-2">
+          <div>
+            <Users className="h-6 w-6 text-amber-100" />
+            <h2 className="mt-4 text-3xl font-black text-white">Browse by who is going.</h2>
+            <p className="mt-3 max-w-xl leading-7 text-white/62">Start with the group when a category alone is not enough: couples, families, party weekends, first trips, and visitors who do not gamble.</p>
+            <div className="mt-6 flex flex-wrap gap-2">{bestForLinks.map((link) => <Link key={link.href} href={link.href} className="rounded-full border border-white/10 bg-white/[0.05] px-4 py-2 text-sm font-bold text-white/70 transition hover:bg-white/10 hover:text-white">{link.label}</Link>)}</div>
+          </div>
+          <div>
+            <MapPin className="h-6 w-6 text-amber-100" />
+            <h2 className="mt-4 text-3xl font-black text-white">Browse near the night&apos;s anchor.</h2>
+            <p className="mt-3 max-w-xl leading-7 text-white/62">Find dinner, drinks, attractions, and flexible stops around the resort, arena, or venue you already plan to visit.</p>
+            <div className="mt-6 flex flex-wrap gap-2">{nearLinks.map((link) => <Link key={link.href} href={link.href} className="rounded-full border border-white/10 bg-white/[0.05] px-4 py-2 text-sm font-bold text-white/70 transition hover:bg-white/10 hover:text-white">{link.label}</Link>)}</div>
+          </div>
+        </div>
+      </section>
+
+      <section className="border-t border-white/10 px-4 py-10 pb-16 sm:px-5 sm:py-14 sm:pb-20">
+        <div className="mx-auto max-w-7xl border-y border-amber-100/20 py-8 sm:py-10">
+          <div className="grid gap-7 md:grid-cols-[minmax(0,1fr)_auto] md:items-center">
             <div>
-              <p className="inline-flex items-center gap-2 text-sm font-black uppercase tracking-[0.25em] text-amber-100"><CalendarDays className="h-4 w-4" /> Trip-aware picks</p>
-              <h2 className="mt-3 text-3xl font-black leading-tight text-white md:text-5xl">Turn your dates into a saved Vegas game plan.</h2>
-              <p className="mt-4 text-lg leading-8 text-white/70">Start with when you are going, then tune the plan by food, budget, lodging, group, and vibe. You will get a private return link after the itinerary builds.</p>
+              <p className="inline-flex items-center gap-2 text-xs font-black uppercase tracking-[0.22em] text-amber-100"><CalendarDays className="h-4 w-4" /> Bring the shortlist together</p>
+              <h2 className="mt-3 text-3xl font-black leading-tight text-white md:text-4xl">Turn saved picks into a timed Vegas game plan.</h2>
+              <p className="mt-3 max-w-3xl text-base leading-7 text-white/65">Add places as you browse. The planner will use your dates, budget, lodging, travel time, and must-do selections to build the route.</p>
             </div>
-            <div className="grid gap-3 rounded-lg border border-white/10 bg-black/20 p-4">
-              {["Pick travel dates", "Choose food, budget, lodging, and vibe", "Save the finished itinerary link"].map((item, index) => (
-                <div key={item} className="flex items-center gap-3 rounded-lg bg-white/[0.06] px-4 py-3 text-sm font-black text-white">
-                  <span className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-amber-200 text-xs text-black">{index + 1}</span>
-                  {item}
-                </div>
-              ))}
-              <Link href="#trip-builder" className="inline-flex min-h-12 items-center justify-center gap-2 rounded-lg bg-white px-5 py-4 font-black text-black transition hover:bg-amber-100">
-                Build My Experience <ArrowRight className="h-4 w-4" />
-              </Link>
-            </div>
+            <Link href="#trip-builder" className="inline-flex min-h-12 items-center justify-center gap-2 rounded-lg bg-white px-5 py-3 font-black text-black transition hover:bg-amber-100">
+              Build My Experience <ArrowRight className="h-4 w-4" />
+            </Link>
           </div>
         </div>
       </section>

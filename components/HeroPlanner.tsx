@@ -5,6 +5,7 @@ import dynamic from "next/dynamic";
 import { useRouter } from "next/navigation";
 import { ArrowRight, CalendarDays, Loader2, MapPin, Sparkles, Users, WalletCards } from "lucide-react";
 import { PlannerInput, PlannerResponse } from "@/types/planner";
+import { useTripSelections } from "@/components/TripSelectionProvider";
 
 const PlanResult = dynamic(
   () => import("@/components/PlanResult").then((module) => module.PlanResult),
@@ -122,6 +123,7 @@ function upsertPromptSentence(current: string, label: string, sentence: string) 
 
 export function HeroPlanner() {
   const router = useRouter();
+  const { items: tripPicks } = useTripSelections();
   const [prompt, setPrompt] = useState("");
   const [selectedHelpers, setSelectedHelpers] = useState<string[]>([]);
   const [arrivalDate, setArrivalDate] = useState("");
@@ -272,6 +274,10 @@ export function HeroPlanner() {
     const travelDates =
       arrivalDate && departureDate ? `${arrivalDate} to ${departureDate}` : arrivalDate || departureDate;
 
+    const selectedPlaces = tripPicks.length
+      ? `Requested trip picks: ${tripPicks.map((item) => `${item.name} (${item.category}, ${item.area})`).join("; ")}. Prioritize these when they fit the dates, timing, budget, and route; explain or replace any that do not fit.`
+      : "";
+
     return {
       prompt,
       travelDates,
@@ -284,7 +290,7 @@ export function HeroPlanner() {
       gamblingPreference: overrides.gamblingPreference || refinements.gamblingPreference,
       pace: overrides.pace || refinements.pace,
       logistics: overrides.logistics || refinements.logistics,
-      additionalDetails,
+      additionalDetails: [additionalDetails, selectedPlaces].filter(Boolean).join(" ").slice(0, 1_500),
     };
   }
 
@@ -526,6 +532,13 @@ export function HeroPlanner() {
           </div>
         ) : null}
 
+        {tripPicks.length && !loading && !result ? (
+          <div className="mx-auto mt-6 rounded-lg border border-fuchsia-200/20 bg-fuchsia-200/[0.07] px-4 py-3 text-sm leading-6 text-white/70">
+            <span className="font-black text-white">{tripPicks.length} saved trip pick{tripPicks.length === 1 ? "" : "s"} will be considered:</span>{" "}
+            {tripPicks.slice(0, 4).map((item) => item.name).join(", ")}{tripPicks.length > 4 ? `, and ${tripPicks.length - 4} more` : ""}.
+          </div>
+        ) : null}
+
         {!loading && !result ? (
           <form onSubmit={handleSubmit} className="mx-auto mt-8 rounded-lg border border-white/10 bg-white/[0.08] p-3 shadow-2xl shadow-black/30 backdrop-blur sm:p-4">
           <div className="rounded-lg border border-white/10 bg-black/35 p-3 sm:p-4">
@@ -567,7 +580,8 @@ export function HeroPlanner() {
               {dateError ? <p className="mt-3 text-sm font-bold text-amber-100">{dateError}</p> : null}
             </div>
 
-            <div className={`mt-4 transition ${datesAreSet ? "opacity-100" : "pointer-events-none opacity-45"}`}>
+            {datesAreSet ? (
+            <div className="mt-4">
               <label className="sr-only" htmlFor="experience-prompt">
                 Describe your perfect Vegas experience
               </label>
@@ -615,6 +629,7 @@ export function HeroPlanner() {
                 </div>
               </div>
             </div>
+            ) : null}
 
             {showRefinements ? (
               <div className="mt-4 border-t border-white/10 pt-4">
@@ -681,8 +696,8 @@ export function HeroPlanner() {
 
             <div className="mt-4 flex flex-col gap-3 border-t border-white/10 pt-4 sm:flex-row sm:items-center sm:justify-between">
               <p className="text-sm font-bold text-white/45">{helperSummary}</p>
-              <button disabled={loading} className="inline-flex min-h-12 items-center justify-center gap-2 rounded-lg bg-white px-5 py-3 font-black text-black transition hover:bg-amber-100 disabled:cursor-wait disabled:opacity-70 sm:min-w-56">
-                {loading ? "Building..." : showRefinements ? "Build My Game Plan" : "Build My Experience"} {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <ArrowRight className="h-4 w-4" />}
+              <button disabled={loading || !datesAreSet} className="inline-flex min-h-12 items-center justify-center gap-2 rounded-lg bg-white px-5 py-3 font-black text-black transition hover:bg-amber-100 disabled:cursor-not-allowed disabled:opacity-45 sm:min-w-56">
+                {loading ? "Building..." : !datesAreSet ? "Choose Dates First" : showRefinements ? "Build My Game Plan" : "Build My Experience"} {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <ArrowRight className="h-4 w-4" />}
               </button>
             </div>
             {saveStatus ? <p className="mt-3 text-sm font-bold text-amber-100">{saveStatus}</p> : null}

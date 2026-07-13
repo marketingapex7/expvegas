@@ -2,6 +2,8 @@ import type { Metadata } from "next";
 import "./globals.css";
 import { Header } from "@/components/Header";
 import { Footer } from "@/components/Footer";
+import { TripSelectionProvider } from "@/components/TripSelectionProvider";
+import { TripTray } from "@/components/TripTray";
 
 export const metadata: Metadata = {
   metadataBase: new URL(process.env.NEXT_PUBLIC_SITE_URL || "https://experiencevegas.com"),
@@ -29,10 +31,13 @@ export const metadata: Metadata = {
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   return (
     <html lang="en">
-      <body className="min-h-screen antialiased">
-        <Header />
-        <main>{children}</main>
-        <Footer />
+      <body className="min-h-screen pb-20 antialiased md:pb-0">
+        <TripSelectionProvider>
+          <Header />
+          <main>{children}</main>
+          <Footer />
+          <TripTray />
+        </TripSelectionProvider>
       </body>
     </html>
   );

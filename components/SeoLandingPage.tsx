@@ -1,9 +1,12 @@
 import Link from "next/link";
-import { ArrowRight, CalendarDays, Check, ChevronRight, MapPin, Sparkles, Utensils } from "lucide-react";
-import { restaurants } from "@/data/restaurants";
+import { ArrowRight, CalendarDays, Check, ChevronRight, MapPin, Sparkles } from "lucide-react";
 import { seedEvents } from "@/data/seed-events";
 import { seoPillarContent } from "@/data/seo-pillar-content";
+import { DirectoryCard } from "@/components/DirectoryCard";
+import { EventCard } from "@/components/EventCard";
+import { experienceListings, hotelListings, restaurantListings } from "@/lib/directory-data";
 import { rankEvents } from "@/lib/scoring";
+import { DirectoryListing } from "@/types/directory";
 
 export type SeoTopic = {
   slug: string;
@@ -53,27 +56,36 @@ function eventMatchesTopic(event: (typeof seedEvents)[number], topic: SeoTopic) 
   return true;
 }
 
-function HotelBaseCards() {
-  return (
-    <div className="grid gap-4 md:grid-cols-3">
-      {[
-        ["Center Strip", "Best for first-timers who want the easiest mix of shows, restaurants, and classic Vegas sights."],
-        ["North Strip", "Useful for Sphere, Wynn, Venetian, and newer resort plans with shorter north-end transfers."],
-        ["Downtown", "A stronger fit for Fremont Street energy, lower-friction casino time, and a different pace from the Strip."],
-      ].map(([title, description]) => (
-        <div key={title} className="rounded-lg border border-white/10 bg-white/[0.06] p-5">
-          <p className="text-sm font-black text-amber-100">{title}</p>
-          <p className="mt-3 text-sm leading-6 text-white/65">{description}</p>
-        </div>
-      ))}
-    </div>
-  );
+function listingsForTopic(topic: SeoTopic): DirectoryListing[] {
+  const text = `${topic.slug} ${topic.primaryKeyword}`.toLowerCase();
+  let source: DirectoryListing[] = [];
+
+  if (topic.cluster === "lodging") source = hotelListings;
+  if (topic.cluster === "dining") source = restaurantListings;
+  if (topic.cluster === "attractions" || topic.cluster === "experiences") source = experienceListings;
+  if (!source.length) return [];
+
+  const filtered = source.filter((listing) => {
+    const listingText = `${listing.name} ${listing.area} ${listing.category} ${listing.tags.join(" ")}`.toLowerCase();
+    if (text.includes("downtown")) return listingText.includes("downtown");
+    if (text.includes("strip") && topic.cluster === "lodging") return !listingText.includes("downtown");
+    if (text.includes("steakhouse")) return listingText.includes("steak");
+    if (text.includes("buffet")) return listingText.includes("buffet");
+    if (text.includes("cheap eat")) return listing.priceLabel === "$";
+    if (text.includes("sphere") && topic.cluster === "dining") return listingText.includes("sphere") || listingText.includes("venetian");
+    if (text.includes("free")) return listing.category === "free" || listing.category === "shopping";
+    if (text.includes("shopping")) return listing.category === "shopping";
+    if (text.includes("family")) return listingText.includes("family");
+    return true;
+  });
+
+  return (filtered.length ? filtered : source).sort((a, b) => b.editorialScore - a.editorialScore).slice(0, 6);
 }
 
 export function SeoLandingPage({ topic, relatedTopics }: { topic: SeoTopic; relatedTopics: SeoTopic[] }) {
   const points = comparePoints(topic);
   const events = rankEvents(seedEvents.filter((event) => eventMatchesTopic(event, topic))).slice(0, 6);
-  const dining = topic.cluster === "dining" ? restaurants.slice(0, 6) : [];
+  const directory = listingsForTopic(topic);
   const pillarContent = seoPillarContent[topic.slug];
   const faqSchema = pillarContent
     ? {
@@ -181,23 +193,13 @@ export function SeoLandingPage({ topic, relatedTopics }: { topic: SeoTopic; rela
             </div>
             <p className="max-w-md text-sm leading-6 text-white/50">These are starting points for a plan, not an endless catalog. Dates, budgets, location, and group type can change the answer.</p>
           </div>
-          {topic.cluster === "lodging" ? (
-            <HotelBaseCards />
-          ) : topic.cluster === "dining" ? (
-            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-              {dining.map((restaurant) => (
-                <article key={restaurant.slug} className="rounded-lg border border-white/10 bg-white/[0.06] p-5">
-                  <p className="inline-flex items-center gap-2 text-xs font-black uppercase tracking-[0.18em] text-amber-100"><Utensils className="h-3.5 w-3.5" /> {restaurant.priceLevel} spend</p>
-                  <h3 className="mt-3 text-xl font-black text-white">{restaurant.name}</h3>
-                  <p className="mt-1 text-xs font-bold uppercase tracking-[0.15em] text-white/40">{restaurant.area}</p>
-                  <p className="mt-3 text-sm leading-6 text-white/65">{restaurant.description}</p>
-                  {restaurant.reservationUrl ? <a href={restaurant.reservationUrl} target="_blank" rel="noopener noreferrer" className="mt-4 inline-flex text-sm font-black text-amber-100 hover:text-white">Reserve table <ArrowRight className="ml-1 h-4 w-4" /></a> : null}
-                </article>
-              ))}
+          {directory.length ? (
+            <div className="grid gap-5 md:grid-cols-2 lg:grid-cols-3">
+              {directory.map((listing) => <DirectoryCard key={listing.id} listing={listing} />)}
             </div>
           ) : (
             <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-              {events.map((event) => <div key={event.id} className="rounded-lg border border-white/10 bg-white/[0.06] p-5"><p className="text-xs font-black uppercase tracking-[0.18em] text-amber-100">{event.category} · {event.venueName}</p><h3 className="mt-3 text-xl font-black text-white">{event.name}</h3><p className="mt-3 text-sm leading-6 text-white/65">{event.quickVerdict}</p><Link href={`/${event.category}/${event.slug}`} className="mt-4 inline-flex items-center text-sm font-black text-amber-100 hover:text-white">See details <ArrowRight className="ml-1 h-4 w-4" /></Link></div>)}
+              {events.map((event) => <EventCard key={event.id} event={event} />)}
             </div>
           )}
         </div>
