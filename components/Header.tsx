@@ -1,11 +1,13 @@
 "use client";
 
 import Link from "next/link";
-import { ChevronDown, Menu, X } from "lucide-react";
+import { CalendarDays, ChevronDown, ChevronRight, Menu, X } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { directoryNav } from "@/data/nav";
+import { useTripSelections } from "@/components/TripSelectionProvider";
 
 export function Header() {
+  const { items, hydrated } = useTripSelections();
   const headerRef = useRef<HTMLElement>(null);
   const [menuOpen, setMenuOpen] = useState(false);
   const [desktopMenu, setDesktopMenu] = useState("");
@@ -70,7 +72,7 @@ export function Header() {
                       ))}
                     </div>
                     <Link href={item.href} onClick={closeMenus} className="mt-5 flex min-h-11 items-center justify-between rounded-lg border border-white/10 bg-white/[0.05] px-4 py-3 text-sm font-black text-white transition hover:bg-white/10">
-                      View all {item.label.toLowerCase()} <span aria-hidden="true">→</span>
+                      View all {item.label.toLowerCase()} <ChevronRight className="h-4 w-4" />
                     </Link>
                   </div>
                 ) : null}
@@ -80,6 +82,10 @@ export function Header() {
         </nav>
 
         <div className="flex items-center gap-2">
+          <Link href="/my-trip" onClick={closeMenus} aria-label={`My Itinerary with ${items.length} saved picks`} className="relative inline-flex h-10 items-center gap-2 rounded-lg border border-white/15 px-3 text-sm font-black text-white transition hover:bg-white/10">
+            <CalendarDays className="h-4 w-4" /> <span className="hidden md:inline">My Itinerary</span>
+            {hydrated && items.length ? <span className="inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-amber-300 px-1 text-[11px] font-black text-black">{items.length}</span> : null}
+          </Link>
           <Link href="/planner" onClick={closeMenus} className="hidden min-h-10 items-center rounded-lg bg-white px-4 py-2 text-sm font-black text-black transition hover:bg-amber-100 sm:inline-flex">
             Build My Experience
           </Link>

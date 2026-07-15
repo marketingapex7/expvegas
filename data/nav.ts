@@ -117,6 +117,8 @@ export const directoryNav = [
         label: "Build a plan",
         links: [
           { href: "/planner", label: "Start the planner" },
+          { href: "/my-trip", label: "My itinerary" },
+          { href: "/now", label: "What should we do now?" },
           { href: "/best/bachelor-party", label: "Bachelor party" },
           { href: "/best/bachelorette-party", label: "Bachelorette party" },
         ],

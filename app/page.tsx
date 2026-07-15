@@ -42,17 +42,17 @@ export default async function HomePage() {
     <>
       <HeroPlanner />
 
-      <section className="border-y border-white/10 bg-black/20 px-4 py-7 sm:px-5">
+      <section className="border-y border-zinc-200 bg-white px-4 py-7 text-zinc-950 sm:px-5">
         <div className="mx-auto max-w-7xl">
           <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
             <div>
-              <p className="text-xs font-black uppercase tracking-[0.22em] text-amber-100">Browse Vegas</p>
-              <h2 className="mt-1 text-xl font-black text-white">Find ideas first. Add the good ones to your trip.</h2>
+              <p className="text-xs font-black uppercase tracking-[0.22em] text-fuchsia-700">Browse Vegas</p>
+              <h2 className="mt-1 text-xl font-black text-zinc-950">Find ideas first. Add the good ones to your itinerary.</h2>
             </div>
             <nav aria-label="Browse Vegas categories" className="grid grid-cols-3 gap-2 sm:grid-cols-6">
               {browseLanes.map(({ href, label, Icon }) => (
-                <Link key={href} href={href} className="flex min-h-20 min-w-0 flex-col items-center justify-center gap-2 rounded-lg border border-white/10 bg-white/[0.045] px-3 py-3 text-center text-xs font-black text-white/68 transition hover:border-amber-100/25 hover:bg-white/[0.08] hover:text-white sm:min-w-24">
-                  <Icon className="h-5 w-5 text-amber-100" />
+                <Link key={href} href={href} className="flex min-h-20 min-w-0 flex-col items-center justify-center gap-2 rounded-lg border border-zinc-200 bg-zinc-50 px-3 py-3 text-center text-xs font-black text-zinc-600 transition hover:border-fuchsia-200 hover:bg-fuchsia-50 hover:text-zinc-950 sm:min-w-24">
+                  <Icon className="h-5 w-5 text-fuchsia-700" />
                   <span className="max-w-full break-words">{label}</span>
                 </Link>
               ))}
@@ -70,17 +70,18 @@ export default async function HomePage() {
         viewAllLabel="Browse Hotels"
       />
 
-      <section className="border-t border-white/10 px-4 py-10 sm:px-5 sm:py-14">
+      <section className="border-t border-zinc-200 bg-white px-4 py-10 text-zinc-950 sm:px-5 sm:py-14">
         <div className="mx-auto max-w-7xl">
           <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
             <SectionHeader
+              theme="light"
               eyebrow={tonight.isLive ? "Live tonight" : "Curated Vegas picks"}
               title={tonight.isLive ? "Events that are actually on tonight." : "Strong event picks while live inventory refreshes."}
               description={tonight.isLive
                 ? "Compare the schedule, save interesting events to My Trip, or open the ticket provider only when you are ready to book."
                 : "Ticketmaster inventory is temporarily unavailable, so these recommendations are clearly marked as curated rather than tonight's confirmed schedule."}
             />
-            <Link href="/tonight" className="mb-8 inline-flex min-h-11 items-center gap-2 self-start rounded-lg border border-white/15 px-4 py-2 text-sm font-black text-white transition hover:bg-white/10 lg:self-auto">
+            <Link href="/tonight" className="mb-8 inline-flex min-h-11 items-center gap-2 self-start rounded-lg border border-zinc-300 px-4 py-2 text-sm font-black text-zinc-900 transition hover:bg-zinc-100 lg:self-auto">
               See Tonight&apos;s Schedule <ArrowRight className="h-4 w-4" />
             </Link>
           </div>
@@ -108,33 +109,33 @@ export default async function HomePage() {
         viewAllLabel="Browse Free Things"
       />
 
-      <section className="border-t border-white/10 px-4 py-10 sm:px-5 sm:py-14">
+      <section className="border-t border-zinc-200 bg-[#f7f7f8] px-4 py-10 text-zinc-950 sm:px-5 sm:py-14">
         <div className="mx-auto grid max-w-7xl gap-10 lg:grid-cols-2">
           <div>
-            <Users className="h-6 w-6 text-amber-100" />
-            <h2 className="mt-4 text-3xl font-black text-white">Browse by who is going.</h2>
-            <p className="mt-3 max-w-xl leading-7 text-white/62">Start with the group when a category alone is not enough: couples, families, party weekends, first trips, and visitors who do not gamble.</p>
-            <div className="mt-6 flex flex-wrap gap-2">{bestForLinks.map((link) => <Link key={link.href} href={link.href} className="rounded-full border border-white/10 bg-white/[0.05] px-4 py-2 text-sm font-bold text-white/70 transition hover:bg-white/10 hover:text-white">{link.label}</Link>)}</div>
+            <Users className="h-6 w-6 text-fuchsia-700" />
+            <h2 className="mt-4 text-3xl font-black text-zinc-950">Browse by who is going.</h2>
+            <p className="mt-3 max-w-xl leading-7 text-zinc-600">Start with the group when a category alone is not enough: couples, families, party weekends, first trips, and visitors who do not gamble.</p>
+            <div className="mt-6 flex flex-wrap gap-2">{bestForLinks.map((link) => <Link key={link.href} href={link.href} className="rounded-full border border-zinc-300 bg-white px-4 py-2 text-sm font-bold text-zinc-700 transition hover:bg-zinc-100 hover:text-zinc-950">{link.label}</Link>)}</div>
           </div>
           <div>
-            <MapPin className="h-6 w-6 text-amber-100" />
-            <h2 className="mt-4 text-3xl font-black text-white">Browse near the night&apos;s anchor.</h2>
-            <p className="mt-3 max-w-xl leading-7 text-white/62">Find dinner, drinks, attractions, and flexible stops around the resort, arena, or venue you already plan to visit.</p>
-            <div className="mt-6 flex flex-wrap gap-2">{nearLinks.map((link) => <Link key={link.href} href={link.href} className="rounded-full border border-white/10 bg-white/[0.05] px-4 py-2 text-sm font-bold text-white/70 transition hover:bg-white/10 hover:text-white">{link.label}</Link>)}</div>
+            <MapPin className="h-6 w-6 text-fuchsia-700" />
+            <h2 className="mt-4 text-3xl font-black text-zinc-950">Browse near the night&apos;s anchor.</h2>
+            <p className="mt-3 max-w-xl leading-7 text-zinc-600">Find dinner, drinks, attractions, and flexible stops around the resort, arena, or venue you already plan to visit.</p>
+            <div className="mt-6 flex flex-wrap gap-2">{nearLinks.map((link) => <Link key={link.href} href={link.href} className="rounded-full border border-zinc-300 bg-white px-4 py-2 text-sm font-bold text-zinc-700 transition hover:bg-zinc-100 hover:text-zinc-950">{link.label}</Link>)}</div>
           </div>
         </div>
       </section>
 
-      <section className="border-t border-white/10 px-4 py-10 pb-16 sm:px-5 sm:py-14 sm:pb-20">
-        <div className="mx-auto max-w-7xl border-y border-amber-100/20 py-8 sm:py-10">
+      <section className="border-t border-zinc-200 bg-white px-4 py-10 pb-16 text-zinc-950 sm:px-5 sm:py-14 sm:pb-20">
+        <div className="mx-auto max-w-7xl border-y border-zinc-200 py-8 sm:py-10">
           <div className="grid gap-7 md:grid-cols-[minmax(0,1fr)_auto] md:items-center">
             <div>
-              <p className="inline-flex items-center gap-2 text-xs font-black uppercase tracking-[0.22em] text-amber-100"><CalendarDays className="h-4 w-4" /> Bring the shortlist together</p>
-              <h2 className="mt-3 text-3xl font-black leading-tight text-white md:text-4xl">Turn saved picks into a timed Vegas game plan.</h2>
-              <p className="mt-3 max-w-3xl text-base leading-7 text-white/65">Add places as you browse. The planner will use your dates, budget, lodging, travel time, and must-do selections to build the route.</p>
+              <p className="inline-flex items-center gap-2 text-xs font-black uppercase tracking-[0.22em] text-fuchsia-700"><CalendarDays className="h-4 w-4" /> Bring the shortlist together</p>
+              <h2 className="mt-3 text-3xl font-black leading-tight text-zinc-950 md:text-4xl">Turn saved picks into a timed Vegas game plan.</h2>
+              <p className="mt-3 max-w-3xl text-base leading-7 text-zinc-600">Add places as you browse. The planner will use your dates, budget, lodging, travel time, and must-do selections to build the route.</p>
             </div>
-            <Link href="#trip-builder" className="inline-flex min-h-12 items-center justify-center gap-2 rounded-lg bg-white px-5 py-3 font-black text-black transition hover:bg-amber-100">
-              Build My Experience <ArrowRight className="h-4 w-4" />
+            <Link href="/my-trip" className="inline-flex min-h-12 items-center justify-center gap-2 rounded-lg bg-zinc-950 px-5 py-3 font-black text-white transition hover:bg-fuchsia-800">
+              Review My Itinerary <ArrowRight className="h-4 w-4" />
             </Link>
           </div>
         </div>

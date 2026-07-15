@@ -9,6 +9,7 @@ body {
   background: radial-gradient(circle at top left, rgba(124, 58, 237, 0.2), transparent 36%),
     radial-gradient(circle at top right, rgba(236, 72, 153, 0.14), transparent 32%), var(--background);
   color: var(--foreground);
+  overflow-x: clip;
 }
 
 a { text-decoration: none; }

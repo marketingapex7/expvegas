@@ -12,7 +12,6 @@ type StoredPlan = {
   share_token: string;
   created_at: string;
   expires_at: string;
-  email: string | null;
   input_json: PlannerInput;
   result_json: PlannerResponse;
 };
@@ -27,7 +26,7 @@ export async function GET(request: Request, context: RouteContext) {
     const supabase = getSupabaseAdmin();
     const { data, error } = await supabase
       .from("plans")
-      .select("share_token, created_at, expires_at, email, input_json, result_json")
+      .select("share_token, created_at, expires_at, input_json, result_json")
       .eq("share_token", token)
       .eq("status", "active")
       .gt("expires_at", new Date().toISOString())
@@ -42,7 +41,6 @@ export async function GET(request: Request, context: RouteContext) {
         shareToken: data.share_token,
         createdAt: data.created_at,
         expiresAt: data.expires_at,
-        email: data.email,
         input: data.input_json,
         result: data.result_json,
       },
@@ -82,7 +80,8 @@ export async function PATCH(request: Request, context: RouteContext) {
       .gt("expires_at", new Date().toISOString());
 
     if (error) {
-      return NextResponse.json({ error: error.message }, { status: 500 });
+      console.error("Plan update failed", error);
+      return NextResponse.json({ error: "The plan could not be updated right now." }, { status: 500, headers: { "Cache-Control": "no-store" } });
     }
 
     return NextResponse.json({ ok: true });

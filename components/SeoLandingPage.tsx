@@ -2,8 +2,7 @@ import Link from "next/link";
 import { ArrowRight, CalendarDays, Check, ChevronRight, MapPin, Sparkles } from "lucide-react";
 import { seedEvents } from "@/data/seed-events";
 import { seoPillarContent } from "@/data/seo-pillar-content";
-import { DirectoryCard } from "@/components/DirectoryCard";
-import { EventCard } from "@/components/EventCard";
+import { BrowseResults } from "@/components/BrowseResults";
 import { experienceListings, hotelListings, restaurantListings } from "@/lib/directory-data";
 import { rankEvents } from "@/lib/scoring";
 import { DirectoryListing } from "@/types/directory";
@@ -87,23 +86,24 @@ export function SeoLandingPage({ topic, relatedTopics }: { topic: SeoTopic; rela
   const events = rankEvents(seedEvents.filter((event) => eventMatchesTopic(event, topic))).slice(0, 6);
   const directory = listingsForTopic(topic);
   const pillarContent = seoPillarContent[topic.slug];
-  const faqSchema = pillarContent
+  const editorialContent = topic.cluster === "planning" ? pillarContent : undefined;
+  const faqSchema = editorialContent
     ? {
         "@context": "https://schema.org",
         "@type": "FAQPage",
-        mainEntity: pillarContent.faqs.map((faq) => ({
+        mainEntity: editorialContent.faqs.map((faq) => ({
           "@type": "Question",
           name: faq.question,
           acceptedAnswer: { "@type": "Answer", text: faq.answer },
         })),
       }
     : undefined;
-  const articleSchema = pillarContent
+  const articleSchema = editorialContent
     ? {
         "@context": "https://schema.org",
         "@type": "Article",
         headline: topic.title,
-        description: pillarContent.directAnswer,
+        description: editorialContent.directAnswer,
         dateModified: "2026-07-10",
         author: { "@type": "Organization", name: "ExperienceVegas" },
         publisher: { "@type": "Organization", name: "ExperienceVegas" },
@@ -124,7 +124,7 @@ export function SeoLandingPage({ topic, relatedTopics }: { topic: SeoTopic; rela
           <p className="text-xs font-black uppercase tracking-[0.3em] text-amber-100">{topic.pillar} · {topic.pageType}</p>
           <h1 className="mt-4 text-4xl font-black leading-tight text-white sm:text-6xl">{topic.title}</h1>
           <p className="mt-5 max-w-3xl text-lg leading-8 text-white/70">{clusterDescription(topic)}</p>
-          {pillarContent ? <p className="mt-3 text-xs font-bold uppercase tracking-[0.16em] text-white/40">Reviewed {pillarContent.reviewed}</p> : null}
+          {editorialContent ? <p className="mt-3 text-xs font-bold uppercase tracking-[0.16em] text-white/40">Reviewed {editorialContent.reviewed}</p> : null}
           <div className="mt-6 flex flex-wrap gap-3">
             <Link href="/planner" className="inline-flex min-h-11 items-center gap-2 rounded-lg bg-white px-5 py-3 text-sm font-black text-black transition hover:bg-amber-100">
               Build my Experience <ArrowRight className="h-4 w-4" />
@@ -135,16 +135,16 @@ export function SeoLandingPage({ topic, relatedTopics }: { topic: SeoTopic; rela
           </div>
         </div>
 
-        {pillarContent ? (
+        {editorialContent ? (
           <div className="mt-10 grid gap-5 lg:grid-cols-[1.15fr_0.85fr]">
             <div className="rounded-lg border border-amber-100/20 bg-amber-100/[0.07] p-5 sm:p-6">
               <p className="text-xs font-black uppercase tracking-[0.2em] text-amber-100">The short answer</p>
-              <p className="mt-3 text-lg font-bold leading-8 text-white/82">{pillarContent.directAnswer}</p>
+              <p className="mt-3 text-lg font-bold leading-8 text-white/82">{editorialContent.directAnswer}</p>
             </div>
             <nav aria-label="On this page" className="rounded-lg border border-white/10 bg-white/[0.05] p-5">
               <p className="text-xs font-black uppercase tracking-[0.2em] text-fuchsia-200">On this page</p>
               <div className="mt-3 grid gap-2">
-                {pillarContent.sections.map((section) => (
+                {editorialContent.sections.map((section) => (
                   <a key={section.id} href={`#${section.id}`} className="flex items-start gap-2 text-sm font-bold leading-6 text-white/65 transition hover:text-white">
                     <ChevronRight className="mt-1 h-4 w-4 shrink-0 text-amber-100" /> {section.heading}
                   </a>
@@ -154,18 +154,20 @@ export function SeoLandingPage({ topic, relatedTopics }: { topic: SeoTopic; rela
           </div>
         ) : null}
 
-        <div className="mt-10 grid gap-4 md:grid-cols-3">
-          {points.map((point, index) => (
-            <div key={point} className="rounded-lg border border-white/10 bg-white/[0.06] p-5">
-              <span className="inline-flex h-8 w-8 items-center justify-center rounded-full bg-amber-200 text-sm font-black text-black">{index + 1}</span>
-              <p className="mt-4 font-black text-white">{point}</p>
-            </div>
-          ))}
-        </div>
+        {editorialContent ? (
+          <div className="mt-10 grid gap-4 md:grid-cols-3">
+            {points.map((point, index) => (
+              <div key={point} className="rounded-lg border border-white/10 bg-white/[0.06] p-5">
+                <span className="inline-flex h-8 w-8 items-center justify-center rounded-full bg-amber-200 text-sm font-black text-black">{index + 1}</span>
+                <p className="mt-4 font-black text-white">{point}</p>
+              </div>
+            ))}
+          </div>
+        ) : null}
 
-        {pillarContent ? (
+        {editorialContent ? (
           <div className="mt-14 grid gap-10">
-            {pillarContent.sections.map((section) => (
+            {editorialContent.sections.map((section) => (
               <section key={section.id} id={section.id} className="scroll-mt-24 border-t border-white/10 pt-8">
                 <div className="grid gap-6 lg:grid-cols-[0.85fr_1.15fr]">
                   <h2 className="text-3xl font-black leading-tight text-white">{section.heading}</h2>
@@ -185,24 +187,18 @@ export function SeoLandingPage({ topic, relatedTopics }: { topic: SeoTopic; rela
           </div>
         ) : null}
 
-        <div className="mt-12">
-          <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
-            <div>
-              <p className="text-xs font-black uppercase tracking-[0.25em] text-fuchsia-200">Curated starting points</p>
-              <h2 className="mt-2 text-3xl font-black text-white">Shortlist the right first move.</h2>
+        <section className={`relative left-1/2 w-screen -translate-x-1/2 border-y border-zinc-200 bg-[#f7f7f8] px-4 py-10 text-zinc-950 sm:px-5 sm:py-14 ${editorialContent ? "mt-12" : "mt-8"}`}>
+          <div className="mx-auto max-w-7xl">
+            <div className="mb-7 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+              <div>
+                <p className="text-xs font-black uppercase tracking-[0.25em] text-fuchsia-700">Curated starting points</p>
+                <h2 className="mt-2 text-3xl font-black text-zinc-950">Compare {topic.title.toLowerCase()}.</h2>
+              </div>
+              <p className="max-w-md text-sm leading-6 text-zinc-600">Save the choices that fit. Your dates, budget, location, and group will decide what belongs in the final itinerary.</p>
             </div>
-            <p className="max-w-md text-sm leading-6 text-white/50">These are starting points for a plan, not an endless catalog. Dates, budgets, location, and group type can change the answer.</p>
+            <BrowseResults directory={directory} events={directory.length ? [] : events} title={topic.title} />
           </div>
-          {directory.length ? (
-            <div className="grid gap-5 md:grid-cols-2 lg:grid-cols-3">
-              {directory.map((listing) => <DirectoryCard key={listing.id} listing={listing} />)}
-            </div>
-          ) : (
-            <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-              {events.map((event) => <EventCard key={event.id} event={event} />)}
-            </div>
-          )}
-        </div>
+        </section>
 
         <div className="mt-12 grid gap-5 lg:grid-cols-[1.1fr_0.9fr]">
           <div className="rounded-lg border border-amber-100/20 bg-amber-100/[0.07] p-6">
@@ -219,12 +215,12 @@ export function SeoLandingPage({ topic, relatedTopics }: { topic: SeoTopic; rela
           </div>
         </div>
 
-        {pillarContent ? (
+        {editorialContent ? (
           <section className="mt-14 border-t border-white/10 pt-10">
             <p className="text-xs font-black uppercase tracking-[0.25em] text-fuchsia-200">Frequently asked questions</p>
             <h2 className="mt-3 text-3xl font-black text-white">Planning answers before you book.</h2>
             <div className="mt-6 grid gap-3">
-              {pillarContent.faqs.map((faq) => (
+              {editorialContent.faqs.map((faq) => (
                 <details key={faq.question} className="group rounded-lg border border-white/10 bg-white/[0.05] p-5">
                   <summary className="cursor-pointer list-none pr-6 font-black text-white marker:hidden">{faq.question}</summary>
                   <p className="mt-4 max-w-4xl text-sm leading-7 text-white/65">{faq.answer}</p>

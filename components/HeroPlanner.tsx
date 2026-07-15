@@ -123,11 +123,11 @@ function upsertPromptSentence(current: string, label: string, sentence: string) 
 
 export function HeroPlanner() {
   const router = useRouter();
-  const { items: tripPicks } = useTripSelections();
+  const { items: tripPicks, dates: savedTripDates, settings: tripSettings, setDates: setSavedTripDates } = useTripSelections();
+  const arrivalDate = savedTripDates.arrivalDate;
+  const departureDate = savedTripDates.departureDate;
   const [prompt, setPrompt] = useState("");
   const [selectedHelpers, setSelectedHelpers] = useState<string[]>([]);
-  const [arrivalDate, setArrivalDate] = useState("");
-  const [departureDate, setDepartureDate] = useState("");
   const [result, setResult] = useState<PlannerResponse | null>(null);
   const [loading, setLoading] = useState(false);
   const [showRefinements, setShowRefinements] = useState(false);
@@ -167,8 +167,7 @@ export function HeroPlanner() {
   }
 
   function updateTravelDates(nextArrivalDate: string, nextDepartureDate: string) {
-    setArrivalDate(nextArrivalDate);
-    setDepartureDate(nextDepartureDate);
+    setSavedTripDates({ arrivalDate: nextArrivalDate, departureDate: nextDepartureDate });
     if (nextArrivalDate && nextDepartureDate && nextDepartureDate < nextArrivalDate) {
       setDateError("Your departure date must be on or after your arrival date.");
     } else if (tripLengthInDays(nextArrivalDate, nextDepartureDate) > 7) {
@@ -275,8 +274,9 @@ export function HeroPlanner() {
       arrivalDate && departureDate ? `${arrivalDate} to ${departureDate}` : arrivalDate || departureDate;
 
     const selectedPlaces = tripPicks.length
-      ? `Requested trip picks: ${tripPicks.map((item) => `${item.name} (${item.category}, ${item.area})`).join("; ")}. Prioritize these when they fit the dates, timing, budget, and route; explain or replace any that do not fit.`
+      ? `Requested trip picks: ${tripPicks.map((item) => `${item.name} (${item.category}, ${item.area}, status: ${item.status || "considering"}${item.locked ? ", locked" : ""})`).join("; ")}. Locked and booked picks must remain fixed. Must-do picks take priority. Backup picks should only fill open time. Explain any choice that cannot fit.`
       : "";
+    const tripBudget = tripSettings.budgetCap > 0 ? `Target whole-trip activity budget: $${tripSettings.budgetCap} for ${tripSettings.partySize} travelers.` : `Party size: ${tripSettings.partySize} travelers.`;
 
     return {
       prompt,
@@ -290,7 +290,7 @@ export function HeroPlanner() {
       gamblingPreference: overrides.gamblingPreference || refinements.gamblingPreference,
       pace: overrides.pace || refinements.pace,
       logistics: overrides.logistics || refinements.logistics,
-      additionalDetails: [additionalDetails, selectedPlaces].filter(Boolean).join(" ").slice(0, 1_500),
+      additionalDetails: [additionalDetails, selectedPlaces, tripBudget].filter(Boolean).join(" ").slice(0, 1_500),
     };
   }
 
@@ -357,10 +357,9 @@ export function HeroPlanner() {
     const response = await fetch(`/api/plans/${savedPlanToken}`);
 
     if (response.ok) {
-      const data = (await response.json()) as { input: PlannerInput; result: PlannerResponse; email?: string; expiresAt?: string };
+      const data = (await response.json()) as { input: PlannerInput; result: PlannerResponse; expiresAt?: string };
       setPlanInput(data.input);
       setResult(data.result);
-      setEmail(data.email || "");
       setSavedPlanExpiresAt(data.expiresAt || "");
       setSavedPlanFound(false);
       setShowRefinements(true);

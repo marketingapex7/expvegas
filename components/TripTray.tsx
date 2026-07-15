@@ -34,10 +34,10 @@ export function TripTray() {
         type="button"
         onClick={() => setOpen(true)}
         className="fixed bottom-4 left-4 right-4 z-40 flex min-h-14 items-center justify-between rounded-lg border border-amber-100/25 bg-amber-200 px-4 py-3 text-left text-black shadow-2xl shadow-black/40 md:bottom-6 md:left-auto md:right-6 md:w-72"
-        aria-label={`Open My Trip with ${items.length} selections`}
+        aria-label={`Open My Itinerary with ${items.length} selections`}
       >
         <span>
-          <span className="block text-xs font-black uppercase tracking-[0.16em]">My Trip</span>
+          <span className="block text-xs font-black uppercase tracking-[0.16em]">My Itinerary</span>
           <span className="block text-sm font-bold">{items.length ? `${items.length} pick${items.length === 1 ? "" : "s"} saved` : "Start adding places"}</span>
         </span>
         <ChevronRight className="h-5 w-5" />
@@ -47,11 +47,11 @@ export function TripTray() {
         <div className="fixed inset-0 z-[70] bg-black/65" onMouseDown={(event) => {
           if (event.currentTarget === event.target) setOpen(false);
         }}>
-          <aside role="dialog" aria-modal="true" aria-label="My Trip selections" className="absolute inset-y-0 right-0 flex w-full max-w-md flex-col border-l border-white/10 bg-[#0d0b12] shadow-2xl shadow-black/60">
+          <aside role="dialog" aria-modal="true" aria-label="My Itinerary selections" className="absolute inset-y-0 right-0 flex w-full max-w-md flex-col border-l border-white/10 bg-[#0d0b12] shadow-2xl shadow-black/60">
             <div className="flex items-center justify-between border-b border-white/10 px-5 py-4">
               <div>
                 <p className="text-xs font-black uppercase tracking-[0.2em] text-amber-100">Build as you browse</p>
-                <h2 className="mt-1 text-2xl font-black text-white">My Trip <span className="text-white/45">({items.length})</span></h2>
+                <h2 className="mt-1 text-2xl font-black text-white">My Itinerary <span className="text-white/45">({items.length})</span></h2>
               </div>
               <button type="button" onClick={() => setOpen(false)} aria-label="Close My Trip" className="inline-flex h-10 w-10 items-center justify-center rounded-lg border border-white/15 text-white hover:bg-white/10">
                 <X className="h-5 w-5" />
@@ -80,15 +80,15 @@ export function TripTray() {
               ) : (
                 <div className="flex min-h-64 flex-col items-center justify-center px-6 text-center">
                   <CalendarPlus className="h-8 w-8 text-amber-100" />
-                  <h3 className="mt-4 text-xl font-black text-white">Your trip tray is empty</h3>
+                  <h3 className="mt-4 text-xl font-black text-white">Your itinerary is empty</h3>
                   <p className="mt-2 max-w-xs text-sm leading-6 text-white/60">Add hotels, restaurants, events, and flexible stops as you browse. We will use them when the itinerary builds.</p>
                 </div>
               )}
             </div>
 
             <div className="border-t border-white/10 p-4">
-              <Link href="/#trip-builder" onClick={() => setOpen(false)} className={`flex min-h-12 items-center justify-center gap-2 rounded-lg px-5 py-3 font-black transition ${items.length ? "bg-white text-black hover:bg-amber-100" : "pointer-events-none bg-white/10 text-white/35"}`}>
-                Build Around These Picks <ChevronRight className="h-4 w-4" />
+              <Link href="/my-trip" onClick={() => setOpen(false)} className={`flex min-h-12 items-center justify-center gap-2 rounded-lg px-5 py-3 font-black transition ${items.length ? "bg-white text-black hover:bg-amber-100" : "pointer-events-none bg-white/10 text-white/35"}`}>
+                Review My Itinerary <ChevronRight className="h-4 w-4" />
               </Link>
               <p className="mt-3 text-center text-xs leading-5 text-white/40">Your selections stay on this browser until you clear them.</p>
             </div>

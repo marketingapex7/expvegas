@@ -32,7 +32,7 @@ export async function POST(request: Request) {
 
     if (error) {
       console.error("Plan save failed", error);
-      return NextResponse.json({ error: error.message, code: error.code }, { status: 500 });
+      return NextResponse.json({ error: "The plan could not be saved right now." }, { status: 500, headers: { "Cache-Control": "no-store" } });
     }
 
     return NextResponse.json({
@@ -41,6 +41,6 @@ export async function POST(request: Request) {
     });
   } catch (error) {
     console.error("Plan save configuration failed", error);
-    return NextResponse.json({ error: "Supabase is not configured for saving plans." }, { status: 503 });
+    return NextResponse.json({ error: "Plan saving is temporarily unavailable." }, { status: 503, headers: { "Cache-Control": "no-store" } });
   }
 }

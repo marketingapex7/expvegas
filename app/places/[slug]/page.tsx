@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Image from "next/image";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ArrowLeft, ArrowUpRight, Clock, MapPin, Sparkles, WalletCards } from "lucide-react";
@@ -36,6 +37,7 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
     title: `${listing.name} in Las Vegas`,
     description: listing.description,
     alternates: { canonical: `/places/${slug}` },
+    openGraph: { images: [{ url: listing.imageUrl, alt: listing.imageAlt }] },
   };
 }
 
@@ -52,6 +54,14 @@ export default async function PlaceDetailPage({ params }: { params: Promise<{ sl
     category: listing.category,
     area: listing.area,
     description: listing.description,
+    imageUrl: listing.imageUrl,
+    priceLabel: listing.priceLabel,
+    durationLabel: listing.durationLabel,
+    estimatedCostMin: listing.estimatedCostMin,
+    estimatedCostMax: listing.estimatedCostMax,
+    costUnit: listing.costUnit,
+    bookingGuidance: listing.bookingGuidance,
+    mapUrl: listing.mapUrl,
     detailUrl,
   };
   const similar = directoryListings
@@ -64,6 +74,7 @@ export default async function PlaceDetailPage({ params }: { params: Promise<{ sl
     "@type": schemaTypes[listing.category],
     name: listing.name,
     description: listing.description,
+    image: listing.imageUrl,
     url: `${siteUrl}${detailUrl}`,
     address: {
       "@type": "PostalAddress",
@@ -75,67 +86,88 @@ export default async function PlaceDetailPage({ params }: { params: Promise<{ sl
   };
 
   return (
-    <section className="px-4 py-10 sm:px-5 sm:py-14">
+    <section className="bg-[#f7f7f8] px-4 py-8 text-zinc-950 sm:px-5 sm:py-12">
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(structuredData).replace(/</g, "\\u003c") }} />
       <div className="mx-auto max-w-7xl">
-        <Link href="/" className="inline-flex items-center gap-2 text-sm font-black text-white/60 transition hover:text-white"><ArrowLeft className="h-4 w-4" /> Back to explore</Link>
-        <div className="mt-6 grid gap-8 lg:grid-cols-[minmax(0,1fr)_360px]">
-          <article>
-            <p className="text-xs font-black uppercase tracking-[0.25em] text-amber-100">{categoryLabels[listing.category]} · ExperienceVegas pick</p>
+        <Link href="/" className="inline-flex items-center gap-2 text-sm font-black text-zinc-500 transition hover:text-zinc-950">
+          <ArrowLeft className="h-4 w-4" /> Back to explore
+        </Link>
+
+        <div className="relative mt-6 aspect-[16/7] min-h-72 overflow-hidden rounded-lg bg-zinc-200">
+          <Image src={listing.imageUrl} alt={listing.imageAlt} fill priority className="object-cover" sizes="(min-width: 1280px) 1200px, calc(100vw - 2rem)" />
+          <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/25 to-transparent" />
+          <div className="absolute bottom-0 left-0 max-w-4xl p-6 sm:p-9">
+            <p className="text-xs font-black uppercase tracking-[0.25em] text-amber-200">{categoryLabels[listing.category]} · ExperienceVegas pick</p>
             <h1 className="mt-3 text-4xl font-black leading-tight text-white sm:text-6xl">{listing.name}</h1>
-            <p className="mt-4 flex items-center gap-2 text-base font-bold text-white/55"><MapPin className="h-4 w-4 text-fuchsia-200" /> {listing.area}{listing.venue ? ` · ${listing.venue}` : ""}</p>
-            <p className="mt-7 max-w-3xl text-xl leading-9 text-white/72">{listing.description}</p>
+            <p className="mt-3 flex items-center gap-2 text-sm font-bold text-white/80">
+              <MapPin className="h-4 w-4" /> {listing.area}{listing.venue ? ` · ${listing.venue}` : ""}
+            </p>
+          </div>
+        </div>
+
+        <div className="mt-8 grid gap-8 lg:grid-cols-[minmax(0,1fr)_360px]">
+          <article>
+            <p className="max-w-3xl text-xl leading-9 text-zinc-700">{listing.description}</p>
 
             <div className="mt-8 grid gap-3 sm:grid-cols-3">
-              <div className="border-t border-white/15 py-4">
-                <WalletCards className="h-5 w-5 text-amber-100" />
-                <p className="mt-3 text-xs font-black uppercase tracking-[0.16em] text-white/45">Price guidance</p>
-                <p className="mt-1 font-black text-white">{listing.priceLabel}</p>
+              <div className="border-t border-zinc-300 py-4">
+                <WalletCards className="h-5 w-5 text-fuchsia-700" />
+                <p className="mt-3 text-xs font-black uppercase tracking-[0.16em] text-zinc-500">Price guidance</p>
+                <p className="mt-1 font-black text-zinc-950">{listing.priceLabel}</p>
               </div>
-              <div className="border-t border-white/15 py-4">
-                <Clock className="h-5 w-5 text-amber-100" />
-                <p className="mt-3 text-xs font-black uppercase tracking-[0.16em] text-white/45">Planning time</p>
-                <p className="mt-1 font-black text-white">{listing.durationLabel || "Flexible"}</p>
+              <div className="border-t border-zinc-300 py-4">
+                <Clock className="h-5 w-5 text-fuchsia-700" />
+                <p className="mt-3 text-xs font-black uppercase tracking-[0.16em] text-zinc-500">Planning time</p>
+                <p className="mt-1 font-black text-zinc-950">{listing.durationLabel || "Flexible"}</p>
               </div>
-              <div className="border-t border-white/15 py-4">
-                <Sparkles className="h-5 w-5 text-amber-100" />
-                <p className="mt-3 text-xs font-black uppercase tracking-[0.16em] text-white/45">Editorial score</p>
-                <p className="mt-1 font-black text-white">{listing.editorialScore}/100</p>
+              <div className="border-t border-zinc-300 py-4">
+                <Sparkles className="h-5 w-5 text-fuchsia-700" />
+                <p className="mt-3 text-xs font-black uppercase tracking-[0.16em] text-zinc-500">Editorial score</p>
+                <p className="mt-1 font-black text-zinc-950">{listing.editorialScore}/100</p>
               </div>
             </div>
 
-            <div className="mt-8 grid gap-7 border-y border-white/10 py-8 md:grid-cols-2">
+            <div className="mt-8 grid gap-7 border-y border-zinc-200 py-8 md:grid-cols-2">
               <div>
-                <h2 className="text-xl font-black text-white">Best for</h2>
-                <ul className="mt-4 space-y-2 text-white/68">{listing.bestFor.map((item) => <li key={item}>- {item}</li>)}</ul>
+                <h2 className="text-xl font-black text-zinc-950">Best for</h2>
+                <ul className="mt-4 space-y-2 text-zinc-600">{listing.bestFor.map((item) => <li key={item}>- {item}</li>)}</ul>
               </div>
               <div>
-                <h2 className="text-xl font-black text-white">Good to know</h2>
-                <div className="mt-4 flex flex-wrap gap-2">{listing.tags.slice(0, 8).map((tag) => <span key={tag} className="rounded-full bg-white/[0.07] px-3 py-2 text-xs font-bold text-white/65">{tag}</span>)}</div>
+                <h2 className="text-xl font-black text-zinc-950">Highlights</h2>
+                <div className="mt-4 flex flex-wrap gap-2">{listing.highlights.map((tag) => <span key={tag} className="rounded-full bg-zinc-200 px-3 py-2 text-xs font-bold text-zinc-700">{tag}</span>)}</div>
               </div>
             </div>
+
+            <div className="mt-8 rounded-lg border border-fuchsia-200 bg-fuchsia-50 p-5">
+              <p className="text-xs font-black uppercase tracking-[0.18em] text-fuchsia-700">How to fit it into the trip</p>
+              <p className="mt-2 leading-7 text-zinc-700">{listing.planningTip}</p>
+            </div>
+            <p className="mt-5 text-xs font-bold text-zinc-500">Information last checked {listing.lastVerified}. Prices are planning estimates until a live booking partner confirms availability and total cost.</p>
           </article>
 
-          <aside className="h-fit rounded-lg border border-white/10 bg-white/[0.06] p-5 lg:sticky lg:top-24">
-            <p className="text-xs font-black uppercase tracking-[0.2em] text-amber-100">Use this in your plan</p>
-            <h2 className="mt-2 text-2xl font-black text-white">Interested in {listing.name}?</h2>
-            <p className="mt-3 text-sm leading-6 text-white/60">Add it to your trip tray. The planner will consider your dates, location, timing, and other picks before placing it.</p>
+          <aside className="h-fit rounded-lg border border-zinc-200 bg-white p-5 shadow-sm lg:sticky lg:top-24">
+            <p className="text-xs font-black uppercase tracking-[0.2em] text-fuchsia-700">Use this in your plan</p>
+            <h2 className="mt-2 text-2xl font-black text-zinc-950">Interested in {listing.name}?</h2>
+            <p className="mt-3 text-sm leading-6 text-zinc-600">Add it to your itinerary. Your dates, location, timing, and other saved picks will decide where it fits.</p>
             <div className="mt-5 grid gap-3">
-              <TripToggleButton item={tripPick} />
+              <TripToggleButton item={tripPick} theme="light" />
+              <a href={listing.mapUrl} target="_blank" rel="noopener noreferrer" className="inline-flex min-h-12 items-center justify-center gap-2 rounded-lg border border-zinc-300 bg-white px-4 py-3 text-sm font-black text-zinc-950 transition hover:bg-zinc-100">
+                Open Map <MapPin className="h-4 w-4" />
+              </a>
               {listing.bookingUrl ? (
-                <a href={listing.bookingUrl} target="_blank" rel="noopener noreferrer" className="inline-flex min-h-12 items-center justify-center gap-2 rounded-lg bg-white px-4 py-3 text-sm font-black text-black transition hover:bg-amber-100">
+                <a href={listing.bookingUrl} target="_blank" rel="noopener noreferrer" className="inline-flex min-h-12 items-center justify-center gap-2 rounded-lg border border-zinc-300 bg-white px-4 py-3 text-sm font-black text-zinc-950 transition hover:bg-zinc-100">
                   {listing.bookingLabel || "Visit Provider"} <ArrowUpRight className="h-4 w-4" />
                 </a>
               ) : null}
             </div>
-            <p className="mt-4 text-xs leading-5 text-white/40">Provider pages open in a new tab, so your trip remains here. Confirm current hours, prices, and availability before going.</p>
+            <p className="mt-4 text-xs leading-5 text-zinc-500">Provider pages open in a new tab. Confirm current hours, prices, and availability before going.</p>
           </aside>
         </div>
 
         {similar.length ? (
-          <section className="mt-14 border-t border-white/10 pt-10">
-            <p className="text-xs font-black uppercase tracking-[0.22em] text-amber-100">Compare nearby ideas</p>
-            <h2 className="mt-2 text-3xl font-black text-white">Similar picks</h2>
+          <section className="mt-14 border-t border-zinc-200 pt-10">
+            <p className="text-xs font-black uppercase tracking-[0.22em] text-fuchsia-700">Compare more ideas</p>
+            <h2 className="mt-2 text-3xl font-black text-zinc-950">Similar picks</h2>
             <div className="mt-6 grid gap-5 md:grid-cols-3">{similar.map((item) => <DirectoryCard key={item.id} listing={item} />)}</div>
           </section>
         ) : null}
