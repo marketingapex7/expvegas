@@ -18,7 +18,7 @@ function priceLabel(level: "value" | "mid" | "premium") {
 
 const directoryImages = {
   hotel: [
-    "https://images.unsplash.com/photo-1581351721010-8cf859cb14a4?auto=format&fit=crop&w=1200&q=82",
+    "https://images.unsplash.com/photo-1720998606608-a294c85f24e1?auto=format&fit=crop&w=1200&q=82",
     "https://images.unsplash.com/photo-1566073771259-6a8506099945?auto=format&fit=crop&w=1200&q=82",
     "https://images.unsplash.com/photo-1564501049412-61c2a3083791?auto=format&fit=crop&w=1200&q=82",
     "https://images.unsplash.com/photo-1542314831-068cd1dbfeeb?auto=format&fit=crop&w=1200&q=82",
@@ -37,10 +37,10 @@ const directoryImages = {
   ],
   experience: [
     "https://images.unsplash.com/photo-1605833556294-ea5c7a74f57d?auto=format&fit=crop&w=1200&q=82",
-    "https://images.unsplash.com/photo-1577334928618-2ff4d02d28e8?auto=format&fit=crop&w=1200&q=82",
     "https://images.unsplash.com/photo-1581351721010-8cf859cb14a4?auto=format&fit=crop&w=1200&q=82",
-    "https://images.unsplash.com/photo-1541535650810-10d26f5c2ab3?auto=format&fit=crop&w=1200&q=82",
-    "https://images.unsplash.com/photo-1575089776834-8be34696ff63?auto=format&fit=crop&w=1200&q=82",
+    "https://images.unsplash.com/photo-1581351721010-8cf859cb14a4?auto=format&fit=crop&w=1200&q=82",
+    "https://images.unsplash.com/photo-1610921926157-c17bba561357?auto=format&fit=crop&w=1200&q=82",
+    "https://images.unsplash.com/photo-1531058020387-3be344556be6?auto=format&fit=crop&w=1200&q=82",
     "https://images.unsplash.com/photo-1527631746610-bca00a040d60?auto=format&fit=crop&w=1200&q=82",
   ],
 } as const;

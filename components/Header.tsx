@@ -37,6 +37,12 @@ export function Header() {
     };
   }, []);
 
+  useEffect(() => {
+    document.body.style.overflow = menuOpen ? "hidden" : "";
+    window.dispatchEvent(new CustomEvent("experiencevegas:mobile-menu", { detail: { open: menuOpen } }));
+    return () => { document.body.style.overflow = ""; };
+  }, [menuOpen]);
+
   return (
     <header ref={headerRef} className="sticky top-0 z-50 border-b border-white/10 bg-black/80 backdrop-blur-xl">
       <div className="mx-auto flex max-w-7xl items-center justify-between gap-4 px-4 py-3 sm:px-5">
@@ -48,14 +54,18 @@ export function Header() {
           {directoryNav.map((item) => {
             const open = desktopMenu === item.label;
             return (
-              <div key={item.label} className="relative">
+              <div key={item.label} className="relative flex items-center" onMouseEnter={() => setDesktopMenu(item.label)} onMouseLeave={() => setDesktopMenu("")}>
+                <Link href={item.href} onClick={closeMenus} className={`inline-flex min-h-10 items-center rounded-l-lg py-2 pl-3 pr-1 text-sm font-bold transition ${open ? "bg-white/10 text-white" : "text-white/75 hover:bg-white/[0.06] hover:text-white"}`}>
+                  {item.label}
+                </Link>
                 <button
                   type="button"
+                  aria-label={`Open ${item.label} menu`}
                   aria-expanded={open}
                   onClick={() => setDesktopMenu(open ? "" : item.label)}
-                  className={`inline-flex min-h-10 items-center gap-1 rounded-lg px-3 py-2 text-sm font-bold transition ${open ? "bg-white/10 text-white" : "text-white/68 hover:bg-white/[0.06] hover:text-white"}`}
+                  className={`inline-flex min-h-10 items-center rounded-r-lg py-2 pl-1 pr-2 transition ${open ? "bg-white/10 text-white" : "text-white/75 hover:bg-white/[0.06] hover:text-white"}`}
                 >
-                  {item.label} <ChevronDown className={`h-3.5 w-3.5 transition ${open ? "rotate-180" : ""}`} />
+                  <ChevronDown className={`h-3.5 w-3.5 transition ${open ? "rotate-180" : ""}`} />
                 </button>
                 {open ? (
                   <div className="absolute left-1/2 top-[calc(100%+0.75rem)] w-[34rem] -translate-x-1/2 rounded-lg border border-white/10 bg-[#100e15] p-5 shadow-2xl shadow-black/60">
@@ -102,15 +112,17 @@ export function Header() {
       </div>
 
       {menuOpen ? (
-        <nav aria-label="Mobile navigation" className="max-h-[calc(100vh-4rem)] overflow-y-auto border-t border-white/10 bg-[#0c0a0f] px-4 py-3 lg:hidden">
+        <div className="fixed inset-x-0 bottom-0 top-[65px] z-50 bg-black/70 backdrop-blur-sm lg:hidden" onMouseDown={(event) => { if (event.currentTarget === event.target) closeMenus(); }}>
+        <nav aria-label="Mobile navigation" className="h-full overflow-y-auto border-t border-white/10 bg-[#0c0a0f] px-4 py-3 shadow-2xl sm:ml-auto sm:max-w-md">
           <div className="mx-auto max-w-7xl">
             {directoryNav.map((item) => {
               const open = mobileSection === item.label;
               return (
                 <div key={item.label} className="border-b border-white/10">
-                  <button type="button" aria-expanded={open} onClick={() => setMobileSection(open ? "" : item.label)} className="flex min-h-12 w-full items-center justify-between py-3 text-left font-black text-white">
-                    {item.label} <ChevronDown className={`h-4 w-4 transition ${open ? "rotate-180" : ""}`} />
-                  </button>
+                  <div className="flex items-center">
+                    <Link href={item.href} onClick={closeMenus} className="flex min-h-14 flex-1 items-center py-3 text-left font-black text-white">{item.label}</Link>
+                    <button type="button" aria-label={`Open ${item.label} links`} aria-expanded={open} onClick={() => setMobileSection(open ? "" : item.label)} className="inline-flex h-11 w-11 items-center justify-center rounded-lg text-white hover:bg-white/10"><ChevronDown className={`h-4 w-4 transition ${open ? "rotate-180" : ""}`} /></button>
+                  </div>
                   {open ? (
                     <div className="grid gap-4 pb-4 sm:grid-cols-2">
                       {item.columns.map((column) => (
@@ -127,6 +139,7 @@ export function Header() {
             <Link href="/planner" onClick={closeMenus} className="mt-4 flex min-h-12 items-center justify-center rounded-lg bg-white px-4 py-3 font-black text-black transition hover:bg-amber-100 sm:hidden">Build My Experience</Link>
           </div>
         </nav>
+        </div>
       ) : null}
     </header>
   );

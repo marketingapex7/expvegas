@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 import { CalendarPlus, ChevronRight, MapPin, Trash2, X } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useTripSelections } from "@/components/TripSelectionProvider";
@@ -16,7 +17,10 @@ const categoryLabels = {
 
 export function TripTray() {
   const { items, hydrated, removeItem, clearItems } = useTripSelections();
+  const pathname = usePathname();
   const [open, setOpen] = useState(false);
+  const [scrolled, setScrolled] = useState(false);
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   useEffect(() => {
     function closeOnEscape(event: KeyboardEvent) {
@@ -26,21 +30,35 @@ export function TripTray() {
     return () => window.removeEventListener("keydown", closeOnEscape);
   }, []);
 
-  if (!hydrated) return null;
+  useEffect(() => {
+    function handleScroll() { setScrolled(window.scrollY > 80); }
+    function handleMobileMenu(event: Event) { setMobileMenuOpen(Boolean((event as CustomEvent<{ open: boolean }>).detail?.open)); }
+    handleScroll();
+    window.addEventListener("scroll", handleScroll, { passive: true });
+    window.addEventListener("experiencevegas:mobile-menu", handleMobileMenu);
+    return () => {
+      window.removeEventListener("scroll", handleScroll);
+      window.removeEventListener("experiencevegas:mobile-menu", handleMobileMenu);
+    };
+  }, []);
+
+  if (!hydrated || mobileMenuOpen || pathname === "/my-trip" || pathname === "/itinerary") return null;
 
   return (
     <>
       <button
         type="button"
         onClick={() => setOpen(true)}
-        className="fixed bottom-4 left-4 right-4 z-40 flex min-h-14 items-center justify-between rounded-lg border border-amber-100/25 bg-amber-200 px-4 py-3 text-left text-black shadow-2xl shadow-black/40 md:bottom-6 md:left-auto md:right-6 md:w-72"
+        className={`group fixed bottom-4 right-4 z-40 flex h-12 w-12 min-h-12 items-center justify-between overflow-hidden rounded-full border border-amber-100/30 bg-amber-200 px-0 text-left text-black shadow-2xl shadow-black/40 transition-all md:bottom-6 md:right-6 ${scrolled ? "md:hover:w-64 md:hover:px-4 md:focus:w-64 md:focus:px-4" : "md:h-auto md:w-72 md:px-4 md:py-3"}`}
         aria-label={`Open My Itinerary with ${items.length} selections`}
       >
-        <span>
+        <CalendarPlus className={`mx-auto h-5 w-5 shrink-0 ${scrolled ? "md:group-hover:mx-0 md:group-focus:mx-0" : "md:hidden"}`} />
+        {items.length ? <span className={`absolute right-0 top-0 inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-fuchsia-700 px-1 text-[10px] font-black text-white ${scrolled ? "md:group-hover:hidden md:group-focus:hidden" : "md:hidden"}`}>{items.length}</span> : null}
+        <span className={`hidden whitespace-nowrap ${scrolled ? "md:ml-3 md:group-hover:block md:group-focus:block" : "md:block"}`}>
           <span className="block text-xs font-black uppercase tracking-[0.16em]">My Itinerary</span>
           <span className="block text-sm font-bold">{items.length ? `${items.length} pick${items.length === 1 ? "" : "s"} saved` : "Start adding places"}</span>
         </span>
-        <ChevronRight className="h-5 w-5" />
+        <ChevronRight className={`hidden h-5 w-5 shrink-0 ${scrolled ? "md:group-hover:block md:group-focus:block" : "md:block"}`} />
       </button>
 
       {open ? (

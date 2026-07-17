@@ -84,14 +84,14 @@ export function BrowseResults({ directory, events, title }: { directory: Directo
           </label>
           <label className="grid gap-1 text-xs font-black text-zinc-500">
             <span className="sr-only">Area</span>
-            <select value={area} onChange={(event) => setArea(event.target.value)} className="min-h-11 rounded-lg border border-zinc-300 bg-white px-3 text-sm font-bold text-zinc-800 outline-none focus:border-fuchsia-600">
+            <select value={area} onChange={(event) => setArea(event.target.value)} className="min-h-11 appearance-none rounded-lg border border-zinc-300 bg-zinc-50 px-3 text-sm font-bold text-zinc-800 shadow-sm outline-none focus:border-fuchsia-600 focus:ring-2 focus:ring-fuchsia-100">
               <option value="all">All areas</option>
               {areas.map((option) => <option key={option} value={option}>{option}</option>)}
             </select>
           </label>
           <label>
             <span className="sr-only">Price</span>
-            <select value={price} onChange={(event) => setPrice(event.target.value)} className="min-h-11 rounded-lg border border-zinc-300 bg-white px-3 text-sm font-bold text-zinc-800 outline-none focus:border-fuchsia-600">
+            <select value={price} onChange={(event) => setPrice(event.target.value)} className="min-h-11 appearance-none rounded-lg border border-zinc-300 bg-zinc-50 px-3 text-sm font-bold text-zinc-800 shadow-sm outline-none focus:border-fuchsia-600 focus:ring-2 focus:ring-fuchsia-100">
               <option value="all">Any price</option>
               <option value="free">Free</option>
               <option value="under-50">Under $50</option>
@@ -101,7 +101,7 @@ export function BrowseResults({ directory, events, title }: { directory: Directo
           </label>
           <label>
             <span className="sr-only">Best for</span>
-            <select value={audience} onChange={(event) => setAudience(event.target.value)} className="min-h-11 rounded-lg border border-zinc-300 bg-white px-3 text-sm font-bold text-zinc-800 outline-none focus:border-fuchsia-600">
+            <select value={audience} onChange={(event) => setAudience(event.target.value)} className="min-h-11 appearance-none rounded-lg border border-zinc-300 bg-zinc-50 px-3 text-sm font-bold text-zinc-800 shadow-sm outline-none focus:border-fuchsia-600 focus:ring-2 focus:ring-fuchsia-100">
               <option value="all">Everyone</option>
               <option value="family">Families</option>
               <option value="couple">Couples</option>
@@ -112,7 +112,7 @@ export function BrowseResults({ directory, events, title }: { directory: Directo
           </label>
           <label>
             <span className="sr-only">Sort results</span>
-            <select value={sort} onChange={(event) => setSort(event.target.value)} className="min-h-11 rounded-lg border border-zinc-300 bg-white px-3 text-sm font-bold text-zinc-800 outline-none focus:border-fuchsia-600">
+            <select value={sort} onChange={(event) => setSort(event.target.value)} className="min-h-11 appearance-none rounded-lg border border-zinc-300 bg-zinc-50 px-3 text-sm font-bold text-zinc-800 shadow-sm outline-none focus:border-fuchsia-600 focus:ring-2 focus:ring-fuchsia-100">
               <option value="recommended">Recommended</option>
               <option value="price-low">Lowest price</option>
               <option value="price-high">Highest price</option>
@@ -123,14 +123,14 @@ export function BrowseResults({ directory, events, title }: { directory: Directo
         <div className="mt-3 flex items-center justify-between border-t border-zinc-100 pt-3">
           <p className="inline-flex items-center gap-2 text-sm font-bold text-zinc-500"><SlidersHorizontal className="h-4 w-4" /> {results.length} choice{results.length === 1 ? "" : "s"}</p>
           <div className="inline-flex rounded-lg border border-zinc-300 bg-zinc-50 p-1" aria-label="Result layout">
-            <button type="button" onClick={() => setView("grid")} aria-label="Grid view" aria-pressed={view === "grid"} className={`inline-flex h-9 w-9 items-center justify-center rounded-md ${view === "grid" ? "bg-white text-zinc-950 shadow-sm" : "text-zinc-400"}`}><LayoutGrid className="h-4 w-4" /></button>
-            <button type="button" onClick={() => setView("area")} aria-label="Group by area" aria-pressed={view === "area"} className={`inline-flex h-9 w-9 items-center justify-center rounded-md ${view === "area" ? "bg-white text-zinc-950 shadow-sm" : "text-zinc-400"}`}><MapPinned className="h-4 w-4" /></button>
+            <button type="button" onClick={() => setView("grid")} aria-label="Grid view" aria-pressed={view === "grid"} className={`inline-flex min-h-11 items-center justify-center gap-2 rounded-md px-3 text-xs font-black ${view === "grid" ? "bg-white text-zinc-950 shadow-sm" : "text-zinc-500"}`}><LayoutGrid className="h-4 w-4" /><span className="hidden sm:inline">Grid</span></button>
+            <button type="button" onClick={() => setView("area")} aria-label="Group by area" aria-pressed={view === "area"} className={`inline-flex min-h-11 items-center justify-center gap-2 rounded-md px-3 text-xs font-black ${view === "area" ? "bg-white text-zinc-950 shadow-sm" : "text-zinc-500"}`}><MapPinned className="h-4 w-4" /><span className="hidden sm:inline">By area</span></button>
           </div>
         </div>
       </div>
 
       {results.length ? view === "grid" ? (
-        <div className="mt-6 grid gap-5 md:grid-cols-2 lg:grid-cols-3">{results.map((result) => <ResultCard key={result.id} result={result} />)}</div>
+        <div className={`mt-6 grid gap-5 md:grid-cols-2 ${results.length === 2 ? "lg:grid-cols-2" : "lg:grid-cols-3"}`}>{results.map((result) => <ResultCard key={result.id} result={result} />)}</div>
       ) : (
         <div className="mt-8 space-y-10">{grouped.map((group) => (
           <section key={group.area}>

@@ -50,6 +50,10 @@ const nextConfig: NextConfig = {
   async redirects() {
     return [
       { source: "/shows", destination: "/las-vegas-shows", permanent: true },
+      { source: "/hotels", destination: "/las-vegas-hotels", permanent: true },
+      { source: "/restaurants", destination: "/las-vegas-restaurants", permanent: true },
+      { source: "/things-to-do", destination: "/things-to-do-las-vegas", permanent: true },
+      { source: "/itinerary", destination: "/my-trip", permanent: true },
       { source: "/comedy", destination: "/las-vegas-comedy", permanent: true },
       { source: "/concerts", destination: "/las-vegas-concerts", permanent: true },
       { source: "/sports", destination: "/las-vegas-sports", permanent: true },

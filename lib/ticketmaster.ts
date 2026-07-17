@@ -90,29 +90,16 @@ function classificationToCategory(classification?: TicketmasterClassification): 
   return "attractions";
 }
 
+function usableTaxonomy(value?: string) {
+  const normalized = value?.trim();
+  if (!normalized || normalized.toLowerCase() === "undefined" || normalized.toLowerCase() === "unknown") return undefined;
+  return normalized;
+}
+
 function bestImage(images?: TicketmasterImage[]) {
   return images
     ?.filter((image) => image.url)
     .sort((a, b) => (b.width || 0) * (b.height || 0) - (a.width || 0) * (a.height || 0))[0]?.url;
-}
-
-function formatEventDate(localDate?: string, localTime?: string) {
-  if (!localDate) return "";
-
-  const formattedDate = new Intl.DateTimeFormat("en-US", {
-    weekday: "short",
-    month: "short",
-    day: "numeric",
-  }).format(new Date(`${localDate}T00:00:00`));
-
-  if (!localTime) return formattedDate;
-
-  const formattedTime = new Intl.DateTimeFormat("en-US", {
-    hour: "numeric",
-    minute: "2-digit",
-  }).format(new Date(`${localDate}T${localTime}`));
-
-  return `${formattedDate} at ${formattedTime}`;
 }
 
 export function normalizeTicketmasterEvent(event: TicketmasterEvent): VegasEvent {
@@ -120,8 +107,7 @@ export function normalizeTicketmasterEvent(event: TicketmasterEvent): VegasEvent
   const venue = event._embedded?.venues?.[0];
   const category = classificationToCategory(classification);
   const priceRange = event.priceRanges?.[0];
-  const subcategory = classification?.genre?.name || classification?.subGenre?.name || classification?.segment?.name;
-  const eventDate = formatEventDate(event.dates?.start?.localDate, event.dates?.start?.localTime);
+  const subcategory = usableTaxonomy(classification?.genre?.name) || usableTaxonomy(classification?.subGenre?.name) || usableTaxonomy(classification?.segment?.name);
 
   return {
     id: `ticketmaster-${event.id}`,
@@ -145,10 +131,10 @@ export function normalizeTicketmasterEvent(event: TicketmasterEvent): VegasEvent
       addressCountry: venue?.country?.countryCode || venue?.country?.name || "US",
     },
     tags: [category, subcategory, venue?.name].filter(Boolean).map((tag) => String(tag).toLowerCase()),
-    bestFor: ["Date-specific plans", "Visitors comparing live events"],
+    bestFor: category === "sports" ? ["Sports fans", "Arena nights"] : category === "concerts" ? ["Music fans", "A headline night out"] : category === "comedy" ? ["Adults who want an easy night", "Lower-key groups"] : ["Date-specific plans", "First-time visitors"],
     skipIf: ["You only want curated editorial picks"],
     shortDescription: event.info || `${event.name} in Las Vegas.`,
-    quickVerdict: `${event.name} is a live Vegas event from Ticketmaster${venue?.name ? ` at ${venue.name}` : ""}${eventDate ? ` on ${eventDate}` : ""}.`,
+    quickVerdict: event.info?.trim() || `${subcategory || "Live entertainment"}${venue?.name ? ` at ${venue.name}` : " in Las Vegas"}. Compare the available time and price before adding it to the night.`,
     affiliateUrl: event.url || "#",
     imageUrl: bestImage(event.images),
     editorialScore: 78,

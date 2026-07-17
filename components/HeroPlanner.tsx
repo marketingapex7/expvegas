@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { ArrowRight, CalendarDays, Loader2, MapPin, Sparkles, Users, WalletCards } from "lucide-react";
 import { PlannerInput, PlannerResponse } from "@/types/planner";
 import { useTripSelections } from "@/components/TripSelectionProvider";
+import { DateRangeFields } from "@/components/DateRangeFields";
 
 const PlanResult = dynamic(
   () => import("@/components/PlanResult").then((module) => module.PlanResult),
@@ -121,11 +122,17 @@ function upsertPromptSentence(current: string, label: string, sentence: string) 
   return trimmed.length > 0 ? `${trimmed} ${sentence}` : sentence;
 }
 
-export function HeroPlanner() {
+export function HeroPlanner({ compact = false }: { compact?: boolean }) {
   const router = useRouter();
-  const { items: tripPicks, dates: savedTripDates, settings: tripSettings, setDates: setSavedTripDates } = useTripSelections();
-  const arrivalDate = savedTripDates.arrivalDate;
-  const departureDate = savedTripDates.departureDate;
+  const {
+    items: tripPicks,
+    dates: savedTripDates,
+    settings: tripSettings,
+    hydrated: tripSelectionsHydrated,
+    setDates: setSavedTripDates,
+  } = useTripSelections();
+  const [arrivalDate, setArrivalDate] = useState("");
+  const [departureDate, setDepartureDate] = useState("");
   const [prompt, setPrompt] = useState("");
   const [selectedHelpers, setSelectedHelpers] = useState<string[]>([]);
   const [result, setResult] = useState<PlannerResponse | null>(null);
@@ -146,10 +153,25 @@ export function HeroPlanner() {
   const [buildProgress, setBuildProgress] = useState(8);
   const [buildStepIndex, setBuildStepIndex] = useState(0);
   const [dateError, setDateError] = useState("");
+  const [dateFieldsTouched, setDateFieldsTouched] = useState({ arrival: false, departure: false });
   const buildPanelRef = useRef<HTMLDivElement>(null);
-  const datesAreSet = Boolean(arrivalDate && departureDate);
+  const dateDraftEditedRef = useRef(false);
   const today = new Date().toISOString().slice(0, 10);
   const maxDepartureDate = addDays(arrivalDate, 7);
+  const arrivalError = !arrivalDate
+    ? "Choose your arrival date."
+    : arrivalDate < today
+      ? "Arrival must be today or later so we can use current schedules."
+      : "";
+  const departureError = !departureDate
+    ? "Choose your departure date."
+    : arrivalDate && departureDate < arrivalDate
+      ? "Departure must be on or after arrival."
+      : tripLengthInDays(arrivalDate, departureDate) > 7
+        ? "Departure must be within 7 planning days of arrival."
+        : "";
+  const datesAreSet = !arrivalError && !departureError;
+  const plannerCtaState = loading ? "loading" : !datesAreSet ? "disabled" : saveStatus ? "error" : "ready";
 
   const helperSummary = useMemo(() => {
     if (selectedHelpers.length === 0) return "Add dates, ticket budget, group, lodging, and vibe when you know them.";
@@ -167,6 +189,9 @@ export function HeroPlanner() {
   }
 
   function updateTravelDates(nextArrivalDate: string, nextDepartureDate: string) {
+    dateDraftEditedRef.current = true;
+    setArrivalDate(nextArrivalDate);
+    setDepartureDate(nextDepartureDate);
     setSavedTripDates({ arrivalDate: nextArrivalDate, departureDate: nextDepartureDate });
     if (nextArrivalDate && nextDepartureDate && nextDepartureDate < nextArrivalDate) {
       setDateError("Your departure date must be on or after your arrival date.");
@@ -219,6 +244,13 @@ export function HeroPlanner() {
     "Running itinerary sanity check",
     "Saving your game plan",
   ];
+
+  useEffect(() => {
+    if (!tripSelectionsHydrated || dateDraftEditedRef.current) return;
+
+    setArrivalDate(savedTripDates.arrivalDate);
+    setDepartureDate(savedTripDates.departureDate);
+  }, [savedTripDates.arrivalDate, savedTripDates.departureDate, tripSelectionsHydrated]);
 
   useEffect(() => {
     const restoreTimer = window.setTimeout(() => {
@@ -473,7 +505,8 @@ export function HeroPlanner() {
     event.preventDefault();
 
     if (!datesAreSet) {
-      setDateError("Choose arrival and departure dates first so we can build around real events.");
+      setDateFieldsTouched({ arrival: true, departure: true });
+      setDateError(arrivalError || departureError || "Check your trip dates before continuing.");
       return;
     }
 
@@ -487,27 +520,27 @@ export function HeroPlanner() {
   }
 
   return (
-    <section id="trip-builder" className="relative overflow-hidden px-4 pb-10 pt-8 sm:px-5 sm:pt-12 md:pb-16 lg:pt-16">
+    <section id="trip-builder" className={`relative overflow-hidden px-4 pb-10 sm:px-5 md:pb-16 ${compact ? "pt-7 sm:pt-9" : "pt-8 sm:pt-12 lg:pt-16"}`}>
       <div className="absolute inset-x-0 top-0 -z-10 h-[34rem] bg-[radial-gradient(circle_at_18%_8%,rgba(245,158,11,0.2),transparent_32%),radial-gradient(circle_at_78%_0%,rgba(217,70,239,0.18),transparent_34%),linear-gradient(180deg,rgba(255,255,255,0.06),transparent_72%)]" />
       <div className="mx-auto max-w-5xl">
         <div className="mx-auto max-w-3xl text-center">
-          <p className="mx-auto mb-5 inline-flex max-w-full rounded-full border border-amber-200/25 bg-amber-200/10 px-4 py-2 text-xs font-black uppercase leading-5 tracking-[0.18em] text-amber-100 sm:text-sm">
-            Vegas planning that starts with what you actually want
-          </p>
-          <h1 className="text-4xl font-black leading-[1.01] text-white sm:text-5xl md:text-6xl lg:text-7xl">
-            Build your Vegas game plan.
+          {!compact ? <p className="mx-auto mb-5 inline-flex max-w-full rounded-full border border-amber-200/25 bg-amber-200/10 px-4 py-2 text-xs font-black uppercase leading-5 tracking-[0.18em] text-amber-100 sm:text-sm">Vegas planning that starts with what you actually want</p> : null}
+          <h1 className={`font-black leading-[1.01] text-white ${compact ? "text-3xl sm:text-4xl" : "text-4xl sm:text-5xl md:text-6xl lg:text-7xl"}`}>
+            {compact ? "Build your itinerary" : "Build your Vegas game plan."}
           </h1>
-          <p className="mx-auto mt-5 max-w-2xl text-lg leading-8 text-white/72 sm:text-xl sm:leading-9">
-            Tell ExperienceVegas the dates, ticket budget, food spend, group, lodging, and vibe. We will turn the messy ticket search into a timed plan for events, food, casino time, and places worth seeing.
+          <p className={`mx-auto max-w-2xl leading-8 text-white/75 ${compact ? "mt-3 text-base" : "mt-5 text-lg sm:text-xl sm:leading-9"}`}>
+            {compact ? "Start with dates, then add the details that matter. We will turn them into a timed Vegas plan." : "Tell ExperienceVegas the dates, ticket budget, food spend, group, lodging, and vibe. We will turn the messy ticket search into a timed plan for events, food, casino time, and places worth seeing."}
           </p>
-          <div className="mx-auto mt-6 grid max-w-3xl gap-2 text-left sm:grid-cols-4">
+          <div className="mx-auto mt-6 grid max-w-3xl grid-cols-4 gap-1.5 text-left sm:gap-2">
             {["Pick dates", "Tell us the trip", "Tune the plan", "Get the game plan"].map((step, index) => {
-              const isActive = (index === 0 && datesAreSet) || (index === 1 && datesAreSet) || (index === 2 && showRefinements) || (index === 3 && result);
+              const currentStep = result ? 3 : showRefinements ? 2 : datesAreSet ? 1 : 0;
+              const isCurrent = index === currentStep;
+              const isComplete = index < currentStep;
 
               return (
-                <div key={step} className={`rounded-lg border px-3 py-3 ${isActive ? "border-amber-100/40 bg-amber-100/10" : "border-white/10 bg-white/[0.04]"}`}>
-                  <p className="text-xs font-black uppercase tracking-[0.16em] text-white/40">Step {index + 1}</p>
-                  <p className="mt-1 text-sm font-black text-white">{step}</p>
+                <div key={step} aria-current={isCurrent ? "step" : undefined} className={`min-w-0 rounded-lg border px-2 py-2 sm:px-3 sm:py-3 ${isCurrent ? "border-amber-200 bg-amber-100/15" : isComplete ? "border-emerald-300/30 bg-emerald-300/10" : "border-white/10 bg-white/[0.04]"}`}>
+                  <p className={`text-[10px] font-black uppercase tracking-[0.1em] sm:text-xs sm:tracking-[0.16em] ${isCurrent ? "text-amber-100" : "text-white/55"}`}>Step {index + 1}</p>
+                  <p className="mt-1 hidden text-sm font-black text-white sm:block">{step}</p>
                 </div>
               );
             })}
@@ -545,37 +578,13 @@ export function HeroPlanner() {
               <p className="mb-3 inline-flex items-center gap-2 text-xs font-black uppercase tracking-[0.16em] text-amber-100">
                 <CalendarDays className="h-4 w-4" /> Step 1: Pick your Vegas dates
               </p>
-              <div className="grid gap-3 sm:grid-cols-[1fr_1fr_auto] sm:items-end">
-                <label className="grid gap-1 text-xs font-bold text-white/65">
-                  Arrival
-                  <input
-                    type="date"
-                    required
-                    min={today}
-                    value={arrivalDate}
-                    onChange={(event) => updateTravelDates(event.target.value, departureDate)}
-                    className="min-h-11 rounded-lg border border-white/10 bg-black/35 px-3 py-2 text-sm text-white [color-scheme:dark] outline-none transition focus:border-amber-100/70"
-                  />
-                </label>
-                <label className="grid gap-1 text-xs font-bold text-white/65">
-                  Departure
-                  <input
-                    type="date"
-                    required
-                    min={arrivalDate || undefined}
-                    max={maxDepartureDate}
-                    value={departureDate}
-                    onChange={(event) => updateTravelDates(arrivalDate, event.target.value)}
-                    className="min-h-11 rounded-lg border border-white/10 bg-black/35 px-3 py-2 text-sm text-white [color-scheme:dark] outline-none transition focus:border-amber-100/70"
-                  />
-                </label>
-                <div className="rounded-lg bg-black/25 px-3 py-3 text-sm font-bold text-white/70">
-                  {datesAreSet ? `${formatTravelDate(arrivalDate)} to ${formatTravelDate(departureDate)}` : "Dates required"}
-                </div>
+              <div className="grid gap-3 sm:grid-cols-2 sm:items-start">
+                <DateRangeFields arrivalDate={arrivalDate} departureDate={departureDate} minArrival={today} maxDeparture={maxDepartureDate} onArrivalChange={(value) => updateTravelDates(value, departureDate)} onDepartureChange={(value) => updateTravelDates(arrivalDate, value)} onArrivalBlur={() => setDateFieldsTouched((current) => ({ ...current, arrival: true }))} onDepartureBlur={() => setDateFieldsTouched((current) => ({ ...current, departure: true }))} arrivalError={dateFieldsTouched.arrival ? arrivalError : ""} departureError={dateFieldsTouched.departure ? departureError : ""} theme="dark" />
               </div>
-              <p className="mt-3 text-xs leading-5 text-white/45">
-                Plans cover arrival through the day before departure, up to 7 days. Same-day trips receive a one-day plan.
+              <p data-testid="date-status" aria-live="polite" className={`mt-3 text-sm font-bold ${datesAreSet ? "text-emerald-200" : "text-white/65"}`}>
+                {datesAreSet ? `Dates set: ${formatTravelDate(arrivalDate)} to ${formatTravelDate(departureDate)}` : "Add your arrival and departure dates to continue."}
               </p>
+              <p className="mt-2 text-xs leading-5 text-white/55">Plans cover arrival through the day before departure, up to 7 days. Same-day trips receive a one-day plan.</p>
               {dateError ? <p className="mt-3 text-sm font-bold text-amber-100">{dateError}</p> : null}
             </div>
 
@@ -695,11 +704,18 @@ export function HeroPlanner() {
 
             <div className="mt-4 flex flex-col gap-3 border-t border-white/10 pt-4 sm:flex-row sm:items-center sm:justify-between">
               <p className="text-sm font-bold text-white/45">{helperSummary}</p>
-              <button disabled={loading || !datesAreSet} className="inline-flex min-h-12 items-center justify-center gap-2 rounded-lg bg-white px-5 py-3 font-black text-black transition hover:bg-amber-100 disabled:cursor-not-allowed disabled:opacity-45 sm:min-w-56">
-                {loading ? "Building..." : !datesAreSet ? "Choose Dates First" : showRefinements ? "Build My Game Plan" : "Build My Experience"} {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <ArrowRight className="h-4 w-4" />}
+              <button
+                data-testid="planner-primary-cta"
+                data-state={plannerCtaState}
+                disabled={loading || !datesAreSet}
+                aria-disabled={loading || !datesAreSet}
+                aria-describedby={saveStatus ? "planner-build-error" : undefined}
+                className={`inline-flex min-h-12 items-center justify-center gap-2 rounded-lg px-5 py-3 font-black transition sm:min-w-56 ${plannerCtaState === "loading" ? "cursor-wait bg-amber-100/70 text-black" : plannerCtaState === "error" ? "bg-rose-200 text-rose-950 hover:bg-rose-100" : plannerCtaState === "ready" ? "bg-gradient-to-r from-amber-300 to-fuchsia-300 text-zinc-950 shadow-lg shadow-fuchsia-950/20 hover:brightness-110" : "cursor-not-allowed border border-white/20 bg-white/15 text-white/65"}`}
+              >
+                {loading ? "Building..." : !datesAreSet ? "Choose Dates First" : saveStatus ? "Try Building Again" : showRefinements ? "Build My Game Plan" : "Continue to Trip Details"} {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <ArrowRight className="h-4 w-4" />}
               </button>
             </div>
-            {saveStatus ? <p className="mt-3 text-sm font-bold text-amber-100">{saveStatus}</p> : null}
+            {saveStatus ? <p id="planner-build-error" role="alert" className="mt-3 text-sm font-bold text-amber-100">{saveStatus}</p> : null}
           </div>
           </form>
         ) : null}

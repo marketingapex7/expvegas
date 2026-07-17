@@ -18,7 +18,7 @@ const trustLinks = [
 
 export function Footer() {
   return (
-    <footer className="border-t border-white/10 px-5 py-10 text-sm text-white/55">
+    <footer className="border-t border-fuchsia-300/15 bg-gradient-to-b from-[#100b18] to-black px-5 pb-28 pt-10 text-sm text-white/70 md:pb-10">
       <div className="mx-auto grid max-w-7xl gap-8 sm:grid-cols-2 lg:grid-cols-[1.3fr_1fr_1fr_1fr]">
         <div>
           <Link href="/" className="text-lg font-black text-white">Experience<span className="text-fuchsia-300">Vegas</span></Link>

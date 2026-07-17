@@ -1,6 +1,6 @@
 import Link from "next/link";
-import Image from "next/image";
-import { ArrowRight, MapPin } from "lucide-react";
+import { ArrowRight } from "lucide-react";
+import { CardImage } from "@/components/CardImage";
 import { TripToggleButton } from "@/components/TripToggleButton";
 import { DirectoryListing, TripPick } from "@/types/directory";
 
@@ -35,28 +35,34 @@ export function DirectoryCard({ listing }: { listing: DirectoryListing }) {
   };
 
   return (
-    <article className="flex min-h-full flex-col overflow-hidden rounded-lg border border-zinc-200 bg-white shadow-sm transition hover:-translate-y-1 hover:border-zinc-300 hover:shadow-lg">
+    <article className="group flex min-h-full flex-col overflow-hidden rounded-lg border border-zinc-200/90 bg-white p-2 shadow-[0_8px_30px_rgba(24,24,27,0.08)] transition duration-300 hover:-translate-y-1 hover:shadow-[0_18px_44px_rgba(24,24,27,0.14)]">
       <Link href={detailUrl} className="block">
-        <div className="relative aspect-[4/3] overflow-hidden bg-zinc-100">
-          <Image src={listing.imageUrl} alt={listing.imageAlt} fill sizes="(min-width: 1024px) 25vw, (min-width: 640px) 50vw, 100vw" className="object-cover transition duration-500 hover:scale-[1.03]" />
-          <span className={`absolute left-3 top-3 rounded-full px-3 py-1.5 text-xs font-black shadow-sm ${details.accent}`}>{details.label}</span>
-          <span className="absolute right-3 top-3 rounded-full bg-white/95 px-3 py-1.5 text-xs font-black text-zinc-900 shadow-sm">{listing.priceLabel}</span>
-        </div>
-        <div className="border-b border-zinc-100 p-5 pb-4">
-          <h3 className="text-xl font-black leading-tight text-zinc-950">{listing.name}</h3>
-          <p className="mt-2 flex items-center gap-1.5 text-sm font-bold text-zinc-500"><MapPin className="h-4 w-4" /> {listing.area}</p>
+        <div className="relative aspect-[16/10] overflow-hidden rounded-lg bg-zinc-100">
+          <CardImage
+            src={listing.imageUrl}
+            alt={listing.imageAlt}
+            category={listing.category}
+            sizes="(min-width: 1024px) 25vw, (min-width: 640px) 50vw, 100vw"
+            className="object-cover transition duration-500 group-hover:scale-[1.03]"
+          />
+          <span className={`absolute left-3 top-3 rounded-full px-3 py-1.5 text-xs font-bold shadow-sm backdrop-blur ${details.accent}`}>{details.label}</span>
         </div>
       </Link>
-      <div className="flex flex-1 flex-col p-5">
-        <p className="line-clamp-3 text-sm leading-6 text-zinc-600">{listing.description}</p>
-        <p className="mt-4 text-xs font-black uppercase tracking-[0.16em] text-fuchsia-700">Best for</p>
-        <p className="mt-1 text-sm leading-6 text-zinc-600">{listing.bestFor.slice(0, 3).join(" / ")}</p>
-        <p className="mt-3 text-xs font-bold text-zinc-500">{listing.bookingGuidance === "free" ? "No booking needed" : listing.bookingGuidance === "reserve" ? "Reservation recommended" : listing.bookingGuidance === "check-availability" ? "Check live availability" : "Flexible timing"} · Verified {listing.lastVerified}</p>
-        <div className="mt-auto grid gap-2 pt-5 sm:grid-cols-2">
-          <Link href={detailUrl} className="inline-flex min-h-11 items-center justify-center gap-2 rounded-lg border border-zinc-300 px-3 py-2 text-sm font-black text-zinc-900 transition hover:bg-zinc-100">
-            Details <ArrowRight className="h-4 w-4" />
+      <div className="flex flex-1 flex-col px-3 pb-3 pt-4 sm:px-4 sm:pb-4">
+        <Link href={detailUrl} className="rounded-sm outline-none focus-visible:ring-2 focus-visible:ring-fuchsia-600">
+          <h3 className="text-2xl font-black leading-[1.08] text-zinc-950 transition group-hover:text-fuchsia-800">{listing.name}</h3>
+        </Link>
+        <div className="mt-3 flex flex-wrap gap-2 text-xs font-bold text-zinc-700">
+          <span className="rounded-full bg-zinc-100 px-3 py-1.5">{listing.area}</span>
+          <span className="rounded-full bg-zinc-100 px-3 py-1.5">{listing.priceLabel}</span>
+          <span className="rounded-full bg-zinc-100 px-3 py-1.5">{listing.durationLabel}</span>
+        </div>
+        <p className="mt-4 line-clamp-3 text-sm leading-6 text-zinc-700">{listing.description}</p>
+        <div className="mt-auto grid gap-2 pt-6">
+          <Link href={detailUrl} className="inline-flex min-h-12 items-center justify-center gap-2 rounded-lg bg-gradient-to-r from-amber-300 to-amber-400 px-4 py-3 text-sm font-black text-zinc-950 shadow-sm transition hover:from-amber-200 hover:to-amber-300">
+            View Details <ArrowRight className="h-4 w-4" />
           </Link>
-          <TripToggleButton item={tripPick} compact theme="light" />
+          <TripToggleButton item={tripPick} theme="light" variant="bare" />
         </div>
       </div>
     </article>

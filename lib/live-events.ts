@@ -45,6 +45,33 @@ type LiveEventResult = {
   endDate: string;
 };
 
+function collapseShowtimes(events: VegasEvent[]) {
+  const grouped = new Map<string, VegasEvent>();
+
+  for (const event of events) {
+    const key = `${event.name.trim().toLowerCase()}|${event.venueName.trim().toLowerCase()}`;
+    const showtime = {
+      id: event.id,
+      localDate: event.localDate,
+      localTime: event.localTime,
+      startDateTime: event.startDateTime,
+      affiliateUrl: event.affiliateUrl,
+    };
+    const existing = grouped.get(key);
+
+    if (!existing) {
+      grouped.set(key, { ...event, showtimes: [showtime] });
+      continue;
+    }
+
+    existing.showtimes = [...(existing.showtimes || []), showtime]
+      .filter((item, index, values) => values.findIndex((value) => value.id === item.id) === index)
+      .sort((a, b) => `${a.localDate || ""}T${a.localTime || ""}`.localeCompare(`${b.localDate || ""}T${b.localTime || ""}`));
+  }
+
+  return [...grouped.values()];
+}
+
 export async function getLiveVegasEvents(startDate: string, endDate = startDate, size = 20): Promise<LiveEventResult> {
   if (!process.env.TICKETMASTER_API_KEY) {
     return { events: rankEvents(seedEvents), isLive: false, startDate, endDate };
@@ -52,7 +79,7 @@ export async function getLiveVegasEvents(startDate: string, endDate = startDate,
 
   try {
     const events = await searchTicketmasterEvents({ startDate, endDate, size });
-    if (events.length) return { events: rankEvents(events), isLive: true, startDate, endDate };
+    if (events.length) return { events: rankEvents(collapseShowtimes(events)), isLive: true, startDate, endDate };
   } catch (error) {
     console.error("Live Ticketmaster inventory unavailable", error);
   }

@@ -19,9 +19,18 @@ export type SeoTopic = {
 };
 
 function clusterDescription(topic: SeoTopic) {
+  const specificDescriptions: Record<string, string> = {
+    "las-vegas-hotels": "Choose the part of Vegas you want to wake up in, then compare resort style, walkability, event access, and realistic room spend.",
+    "las-vegas-shows": "Narrow the schedule by the kind of night you want: spectacle, comedy, magic, music, or something unmistakably Vegas.",
+    "las-vegas-restaurants": "Find a meal that fits the night around it, from fast pre-show food to destination dinners worth building around.",
+    "things-to-do-las-vegas": "Mix headline attractions with free stops, neighborhoods, shopping, and flexible ideas that leave room for the unexpected.",
+    "las-vegas-attractions": "Compare the views, immersive experiences, tours, and easy add-ons that make sense for your dates and location.",
+  };
+  if (specificDescriptions[topic.slug]) return specificDescriptions[topic.slug];
+  const subject = topic.title.toLowerCase().replace(/las vegas/g, "Las Vegas");
   switch (topic.cluster) {
     case "entertainment":
-      return `Compare ${topic.title.toLowerCase()} by dates, venue, price, group fit, and the kind of night you actually want.`;
+      return `Compare ${subject} by dates, venue, price, group fit, and the kind of night you actually want.`;
     case "attractions":
       return `Build a better Vegas day with ${topic.title.toLowerCase()}, flexible stops, and experiences that fit around your main plans.`;
     case "dining":
@@ -33,6 +42,14 @@ function clusterDescription(topic: SeoTopic) {
     default:
       return `Use ExperienceVegas to turn ${topic.title.toLowerCase()} into a more confident Vegas plan.`;
   }
+}
+
+function topicKicker(topic: SeoTopic) {
+  if (topic.cluster === "lodging") return "Where to stay";
+  if (topic.cluster === "entertainment") return "Shows & entertainment";
+  if (topic.cluster === "dining") return "Where to eat";
+  if (topic.cluster === "planning") return "Plan your trip";
+  return "Things to do";
 }
 
 function comparePoints(topic: SeoTopic) {
@@ -121,7 +138,7 @@ export function SeoLandingPage({ topic, relatedTopics }: { topic: SeoTopic; rela
           <span className="text-white/70">{topic.title}</span>
         </nav>
         <div className="max-w-4xl">
-          <p className="text-xs font-black uppercase tracking-[0.3em] text-amber-100">{topic.pillar} · {topic.pageType}</p>
+          <p className="text-xs font-black uppercase tracking-[0.3em] text-amber-100">{topicKicker(topic)}</p>
           <h1 className="mt-4 text-4xl font-black leading-tight text-white sm:text-6xl">{topic.title}</h1>
           <p className="mt-5 max-w-3xl text-lg leading-8 text-white/70">{clusterDescription(topic)}</p>
           {editorialContent ? <p className="mt-3 text-xs font-bold uppercase tracking-[0.16em] text-white/40">Reviewed {editorialContent.reviewed}</p> : null}
@@ -192,7 +209,7 @@ export function SeoLandingPage({ topic, relatedTopics }: { topic: SeoTopic; rela
             <div className="mb-7 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
               <div>
                 <p className="text-xs font-black uppercase tracking-[0.25em] text-fuchsia-700">Curated starting points</p>
-                <h2 className="mt-2 text-3xl font-black text-zinc-950">Compare {topic.title.toLowerCase()}.</h2>
+                <h2 className="mt-2 text-3xl font-black text-zinc-950">Compare {topic.title.toLowerCase().replace(/las vegas/g, "Las Vegas")}.</h2>
               </div>
               <p className="max-w-md text-sm leading-6 text-zinc-600">Save the choices that fit. Your dates, budget, location, and group will decide what belongs in the final itinerary.</p>
             </div>

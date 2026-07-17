@@ -1,10 +1,11 @@
 "use client";
 
-import Image from "next/image";
 import Link from "next/link";
 import { ArrowDown, ArrowRight, ArrowUp, CalendarDays, CheckCircle2, Clock, Copy, GripVertical, Lock, MapPin, Plus, ShieldCheck, Trash2, Unlock, WalletCards, Zap } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useTripSelections } from "@/components/TripSelectionProvider";
+import { CardImage } from "@/components/CardImage";
+import { DateRangeFields } from "@/components/DateRangeFields";
 import { directoryListings } from "@/lib/directory-data";
 import { seedEvents } from "@/data/seed-events";
 import { DirectoryCategory, TripDates, TripPick, TripPickStatus, TripSettings } from "@/types/directory";
@@ -223,7 +224,7 @@ export function SavedTripWorkspace() {
                   >
                     <div className="grid sm:grid-cols-[9rem_1fr]">
                       <Link href={item.detailUrl} className="relative min-h-36 bg-zinc-200">
-                        {item.imageUrl ? <Image src={item.imageUrl} alt="" fill sizes="144px" className="object-cover" /> : null}
+                        <CardImage src={item.imageUrl} alt={item.name} category={item.category} sizes="144px" />
                       </Link>
                       <div className="p-4">
                         <div className="flex items-start justify-between gap-3">
@@ -270,25 +271,25 @@ export function SavedTripWorkspace() {
           <aside className="space-y-4 lg:sticky lg:top-24 lg:self-start">
             <div className="rounded-lg border border-zinc-200 bg-white p-5 shadow-sm">
               <p className="inline-flex items-center gap-2 text-xs font-black uppercase tracking-[0.18em] text-fuchsia-700"><CalendarDays className="h-4 w-4" /> Trip basics</p>
-              <div className="mt-4 grid grid-cols-2 gap-3">
-                <label className="grid gap-1.5 text-xs font-black text-zinc-500">Arrival<input type="date" min={today} value={dates.arrivalDate} onChange={(event) => setDates({ arrivalDate: event.target.value, departureDate: dates.departureDate < event.target.value ? "" : dates.departureDate })} className="min-h-11 rounded-lg border border-zinc-300 px-2 text-sm text-zinc-950 outline-none focus:border-fuchsia-600" /></label>
-                <label className="grid gap-1.5 text-xs font-black text-zinc-500">Departure<input type="date" min={dates.arrivalDate || today} max={addDays(dates.arrivalDate, 7)} value={dates.departureDate} onChange={(event) => setDates({ ...dates, departureDate: event.target.value })} className="min-h-11 rounded-lg border border-zinc-300 px-2 text-sm text-zinc-950 outline-none focus:border-fuchsia-600" /></label>
-                <label className="grid gap-1.5 text-xs font-black text-zinc-500">Travelers<input type="number" min="1" max="20" value={settings.partySize} onChange={(event) => setSettings({ ...settings, partySize: Math.max(1, Number(event.target.value) || 1) })} className="min-h-11 rounded-lg border border-zinc-300 px-3 text-sm text-zinc-950 outline-none focus:border-fuchsia-600" /></label>
-                <label className="grid gap-1.5 text-xs font-black text-zinc-500">Target budget<input type="number" min="0" step="100" value={settings.budgetCap || ""} placeholder="Optional" onChange={(event) => setSettings({ ...settings, budgetCap: Math.max(0, Number(event.target.value) || 0) })} className="min-h-11 rounded-lg border border-zinc-300 px-3 text-sm text-zinc-950 outline-none focus:border-fuchsia-600" /></label>
+              <div className="mt-4 grid min-w-0 grid-cols-2 gap-3">
+                <DateRangeFields arrivalDate={dates.arrivalDate} departureDate={dates.departureDate} minArrival={today} maxDeparture={addDays(dates.arrivalDate, 7)} onArrivalChange={(value) => setDates({ arrivalDate: value, departureDate: dates.departureDate < value ? "" : dates.departureDate })} onDepartureChange={(value) => setDates({ ...dates, departureDate: value })} />
+                <label className="grid min-w-0 gap-1.5 text-xs font-black text-zinc-600">Travelers<input type="number" min="1" max="20" value={settings.partySize} onChange={(event) => setSettings({ ...settings, partySize: Math.max(1, Number(event.target.value) || 1) })} className="min-h-11 w-full min-w-0 rounded-lg border border-zinc-300 px-3 text-sm text-zinc-950 outline-none focus:border-fuchsia-600" /></label>
+                <label className="grid min-w-0 gap-1.5 text-xs font-black text-zinc-600">Target budget<input type="number" min="0" step="100" value={settings.budgetCap || ""} placeholder="Optional" onChange={(event) => setSettings({ ...settings, budgetCap: Math.max(0, Number(event.target.value) || 0) })} className="min-h-11 w-full max-w-full min-w-0 rounded-lg border border-zinc-300 px-3 text-sm text-zinc-950 outline-none focus:border-fuchsia-600" /></label>
               </div>
             </div>
 
-            <div className="rounded-lg border border-zinc-200 bg-white p-5 shadow-sm">
+            {items.length ? <div className="rounded-lg border border-zinc-200 bg-white p-5 shadow-sm">
               <div className="flex items-center justify-between"><p className="inline-flex items-center gap-2 text-xs font-black uppercase tracking-[0.18em] text-fuchsia-700"><ShieldCheck className="h-4 w-4" /> Plan health</p><span className={`text-2xl font-black ${planScore >= 85 ? "text-emerald-700" : planScore >= 65 ? "text-amber-700" : "text-rose-700"}`}>{planScore}</span></div>
               {checks.length ? <ul className="mt-4 space-y-2">{checks.map((check) => <li key={check.label} className="text-sm leading-6 text-zinc-600">- {check.label}</li>)}</ul> : <p className="mt-4 inline-flex items-start gap-2 text-sm font-bold leading-6 text-emerald-800"><CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0" /> The shortlist has a strong balance for planning.</p>}
-            </div>
+            </div> : null}
 
             <div className="rounded-lg bg-zinc-950 p-5 text-white shadow-sm">
               <p className="text-xs font-black uppercase tracking-[0.18em] text-amber-200">Working estimate</p>
-              <p className="mt-2 text-3xl font-black">${Math.round(cost.min).toLocaleString()}-${Math.round(cost.max).toLocaleString()}</p>
+              <p className="mt-2 text-3xl font-black">{items.length ? `$${Math.round(cost.min).toLocaleString()}-$${Math.round(cost.max).toLocaleString()}` : "—"}</p>
+              {!items.length ? <p className="mt-2 text-sm font-bold text-white/75">Add picks to see an estimate.</p> : null}
               <p className="mt-2 text-xs leading-5 text-white/55">For {settings.partySize} traveler{settings.partySize === 1 ? "" : "s"}; hotel estimates assume one room. Shopping, gambling, fees, tax, and transportation are excluded until live partners provide totals.</p>
               {settings.budgetCap > 0 ? <div className="mt-4 h-2 overflow-hidden rounded-full bg-white/15"><div className={`h-full ${cost.min > settings.budgetCap ? "bg-rose-400" : "bg-amber-300"}`} style={{ width: `${Math.min(100, (cost.min / settings.budgetCap) * 100)}%` }} /></div> : null}
-              <Link href="/planner" aria-disabled={!items.length || !datesReady} className={`mt-5 flex min-h-12 items-center justify-center gap-2 rounded-lg px-4 py-3 text-sm font-black ${items.length && datesReady ? "bg-amber-300 text-zinc-950 hover:bg-amber-200" : "pointer-events-none bg-white/10 text-white/35"}`}>Build My Timed Itinerary <ArrowRight className="h-4 w-4" /></Link>
+              <Link href="/planner" aria-disabled={!items.length || !datesReady} className={`mt-5 flex min-h-12 items-center justify-center gap-2 rounded-lg px-4 py-3 text-sm font-black ${items.length && datesReady ? "bg-amber-300 text-zinc-950 hover:bg-amber-200" : "pointer-events-none border border-white/20 bg-white/15 text-white/65"}`}>Build My Timed Itinerary <ArrowRight className="h-4 w-4" /></Link>
               <Link href="/now" className="mt-2 flex min-h-11 items-center justify-center gap-2 rounded-lg border border-white/15 px-4 py-2 text-sm font-black text-white hover:bg-white/10"><Zap className="h-4 w-4" /> What Should We Do Now?</Link>
             </div>
           </aside>

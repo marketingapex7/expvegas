@@ -30,6 +30,13 @@ export type VegasEvent = {
   quickVerdict: string;
   affiliateUrl: string;
   imageUrl?: string;
+  showtimes?: {
+    id: string;
+    localDate?: string;
+    localTime?: string;
+    startDateTime?: string;
+    affiliateUrl: string;
+  }[];
   editorialScore: number;
   valueScore: number;
   wowScore: number;
