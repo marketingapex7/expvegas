@@ -10,6 +10,24 @@ test("guessable routes and branded not-found page keep visitors oriented", async
   await expect(page.getByRole("main").getByRole("link", { name: "Build My Experience" })).toBeVisible();
 });
 
+test("desktop dropdowns stay open while the pointer enters the menu", async ({ page }) => {
+  await page.setViewportSize({ width: 1280, height: 900 });
+  await page.goto("/las-vegas-shows");
+
+  const navigation = page.getByRole("navigation", { name: "Main navigation" });
+  const trigger = navigation.getByRole("link", { name: "Shows & Events", exact: true });
+  const submenuLink = navigation.getByRole("link", { name: "Shows under $100", exact: true });
+  await trigger.hover();
+  await expect(submenuLink).toBeVisible();
+
+  const triggerBox = await trigger.boundingBox();
+  if (!triggerBox) throw new Error("Desktop menu trigger has no bounding box");
+  await page.mouse.move(triggerBox.x + triggerBox.width / 2, triggerBox.y + triggerBox.height + 6, { steps: 4 });
+  await expect(submenuLink).toBeVisible();
+  await submenuLink.hover();
+  await expect(submenuLink).toBeVisible();
+});
+
 test("mobile navigation hides the floating tray and empty itinerary metrics stay honest", async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto("/");
