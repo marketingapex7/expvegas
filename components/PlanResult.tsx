@@ -8,6 +8,7 @@ import { seedEvents } from "@/data/seed-events";
 import { sanitizeSchedule } from "@/lib/itinerary-engine";
 import { ItineraryBlock, ItineraryDay, PlannerEventOption, PlannerResponse } from "@/types/planner";
 import { PlanBookingChecklist } from "@/components/PlanBookingChecklist";
+import { PlanTripDetails } from "@/components/PlanTripDetails";
 
 type TuneOption = {
   label: string;
@@ -339,24 +340,24 @@ export function PlanResult({
   }
 
   return (
-    <div className="mx-auto mt-5 rounded-lg border border-amber-100/20 bg-white/[0.07] p-5">
-      <div className="mb-5 rounded-lg border border-amber-100/25 bg-black/25 p-4">
+    <div className="mx-auto mt-4 rounded-lg border border-amber-100/20 bg-white/[0.07] p-3 sm:mt-5 sm:p-5">
+      <div className="mb-4 rounded-lg border border-amber-100/25 bg-black/25 p-3 sm:mb-5 sm:p-4">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div>
             <p className="text-sm font-black text-white">{shareUrl ? "Your game plan is saved" : "Save this itinerary"}</p>
             {shareUrl ? (
               <>
-                <a href={shareUrl} className="mt-2 block break-all text-sm font-bold text-amber-100 hover:text-white">
+                <a href={shareUrl} className="mt-2 hidden break-all text-sm font-bold text-amber-100 hover:text-white sm:block">
                   {shareUrl}
                 </a>
-                <p className="mt-2 text-xs font-bold text-white/45">
+                <p className="mt-2 hidden text-xs font-bold text-white/45 sm:block">
                   {expiresAt
                     ? `Private link available through ${new Intl.DateTimeFormat("en-US", { month: "long", day: "numeric", year: "numeric" }).format(new Date(expiresAt))}.`
                     : "Private links are available for 30 days after the plan is created."}
                 </p>
               </>
             ) : (
-              <p className="mt-2 text-sm font-bold text-white/58">
+              <p className="mt-2 hidden text-sm font-bold text-white/58 sm:block">
                 {saveStatus || "We will create a private return link so the itinerary survives clicks away from this page."}
               </p>
             )}
@@ -395,73 +396,16 @@ export function PlanResult({
         {swapStatus ? <p className="mt-3 text-xs font-bold text-amber-100">{swapStatus}</p> : null}
         {calendarStatus ? <p className="mt-3 text-xs font-bold text-amber-100">{calendarStatus}</p> : null}
       </div>
-      <p className="text-xs font-black uppercase tracking-[0.22em] text-amber-100">{result.headline}</p>
-      <h2 className="mt-3 text-3xl font-black leading-tight text-white">{result.bestPickName}</h2>
-      <p className="mt-3 leading-7 text-white/70">{result.whyItFits}</p>
-      {result.sourceSummary ? <p className="mt-3 text-sm font-bold text-white/45">{result.sourceSummary}</p> : null}
-      {result.tripSummary ? (
-        <section className="mt-5 rounded-lg border border-white/10 bg-black/20 p-4">
-          <div className="grid gap-4 lg:grid-cols-[1.15fr_0.85fr]">
-            <div>
-              <p className="text-xs font-black uppercase tracking-[0.2em] text-amber-100">Trip summary</p>
-              <p className="mt-3 text-sm leading-6 text-white/68">{result.tripSummary.whyThisPlanWorks}</p>
-              <div className="mt-4 grid gap-3 sm:grid-cols-3">
-                <div className="rounded-lg bg-white/[0.06] p-3">
-                  <p className="text-xs font-black uppercase tracking-[0.16em] text-white/40">Staying</p>
-                  <p className="mt-2 text-sm font-black text-white">{result.tripSummary.lodging}</p>
-                </div>
-                <div className="rounded-lg bg-white/[0.06] p-3">
-                  <p className="text-xs font-black uppercase tracking-[0.16em] text-white/40">Spend</p>
-                  <p className="mt-2 text-sm font-black text-white">{result.tripSummary.estimatedSpend}</p>
-                </div>
-                <div className="rounded-lg bg-white/[0.06] p-3">
-                  <p className="text-xs font-black uppercase tracking-[0.16em] text-white/40">Style</p>
-                  <p className="mt-2 text-sm font-black text-white">{result.tripSummary.tripStyle.join(" / ")}</p>
-                </div>
-              </div>
-              {result.tripSummary.bestLodgingZone ? (
-                <div className="mt-3 rounded-lg border border-amber-100/20 bg-amber-100/[0.07] p-3">
-                  <p className="text-xs font-black uppercase tracking-[0.16em] text-amber-100">Best lodging zone</p>
-                  <p className="mt-2 text-sm leading-6 text-white/72">{result.tripSummary.bestLodgingZone}</p>
-                </div>
-              ) : null}
-              {result.tripSummary.assumptions?.length ? (
-                <div className="mt-3 rounded-lg border border-white/10 bg-white/[0.04] p-3">
-                  <p className="text-xs font-black uppercase tracking-[0.16em] text-white/45">Plan assumptions</p>
-                  <div className="mt-2 flex flex-wrap gap-2">
-                    {result.tripSummary.assumptions.map((assumption) => (
-                      <span key={assumption} className="rounded-full bg-white/10 px-3 py-1.5 text-xs font-bold text-white/65">
-                        {assumption}
-                      </span>
-                    ))}
-                  </div>
-                </div>
-              ) : null}
-            </div>
-            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-1">
-              <div className="rounded-lg bg-white/[0.06] p-4">
-                <p className="text-sm font-black text-white">Keep flexible</p>
-                <ul className="mt-3 space-y-2 text-sm text-white/65">
-                  {result.tripSummary.keepFlexible.map((item) => (
-                    <li key={item}>- {item}</li>
-                  ))}
-                </ul>
-              </div>
-            </div>
-          </div>
-        </section>
-      ) : null}
-      <div className="mt-5 rounded-lg border border-amber-100/15 bg-amber-100/[0.06] p-4">
-        <div className="flex items-start gap-3">
-          <MapPin className="mt-0.5 h-4 w-4 shrink-0 text-amber-100" />
-          <p className="text-sm leading-6 text-white/65">
-            Planning note: timing, prices, restaurant hours, and availability can change. Confirm the details with the venue before booking.
-          </p>
-        </div>
+      <div className="hidden md:block">
+        <PlanTripDetails result={result} />
+      </div>
+      <div className="md:hidden">
+        <p className="text-xs font-black uppercase tracking-[0.18em] text-amber-100">Your Vegas game plan</p>
+        <h2 className="mt-2 text-2xl font-black leading-tight text-white">{result.bestPickName}</h2>
       </div>
       {itineraryDays?.length ? <PlanBookingChecklist planId={planId} itineraryDays={itineraryDays} /> : null}
       {itineraryDays?.length ? (
-        <div className="mt-5 grid gap-4">
+        <div data-testid="timed-itinerary" className="mt-5 grid gap-4">
           <nav aria-label="Jump to itinerary day" className="sticky top-[4.5rem] z-10 -mx-1 flex gap-2 overflow-x-auto rounded-lg border border-white/10 bg-black/80 p-2 backdrop-blur-xl">
             {itineraryDays.map((day, index) => (
               <a key={day.date} href={`#itinerary-${day.date}`} className="shrink-0 rounded-lg bg-white/[0.08] px-3 py-2 text-xs font-black text-white/70 transition hover:bg-amber-200 hover:text-black">
@@ -524,6 +468,17 @@ export function PlanResult({
           ))}
         </div>
       )}
+      <details data-testid="mobile-trip-details" className="mt-5 rounded-lg border border-white/10 bg-black/20 md:hidden">
+        <summary className="cursor-pointer list-none px-4 py-4 text-sm font-black text-white">
+          <span className="flex items-center justify-between gap-3">
+            Trip details
+            <span aria-hidden="true" className="text-amber-100">+</span>
+          </span>
+        </summary>
+        <div className="border-t border-white/10 p-4">
+          <PlanTripDetails result={result} />
+        </div>
+      </details>
       {result.backupPickNames.length > 0 ? (
         <p className="mt-4 text-sm text-white/55">
           Backup picks: <span className="font-bold text-white/72">{result.backupPickNames.join(" / ")}</span>

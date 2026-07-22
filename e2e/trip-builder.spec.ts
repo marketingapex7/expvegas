@@ -89,11 +89,10 @@ test("trip builder advances from dates through a completed game plan", async ({ 
   await primaryCta.click();
 
   await expect(page.getByText("Building your Vegas game plan")).toBeVisible();
-  await expect(page.getByText("Your Vegas weekend is ready")).toBeVisible({ timeout: 15_000 });
+  const bookingList = page.getByTestId("plan-booking-checklist");
+  await expect(bookingList).toBeVisible({ timeout: 15_000 });
   await expect(page.getByText("E2E Vegas Show").first()).toBeVisible();
 
-  const bookingList = page.getByTestId("plan-booking-checklist");
-  await expect(bookingList).toBeVisible();
   await expect(bookingList.getByText("E2E Dinner")).toBeVisible();
   await expect(bookingList.getByText("E2E Vegas Show")).toBeVisible();
   await expect(bookingList.getByRole("link", { name: "Check Tickets" })).toHaveAttribute(
@@ -109,4 +108,52 @@ test("trip builder advances from dates through a completed game plan", async ({ 
   await booked.check();
   await expect(booked).toBeChecked();
   await expect.poll(() => page.evaluate(() => Object.keys(localStorage).some((key) => key.startsWith("experiencevegas:booked:")))).toBe(true);
+});
+
+test("mobile completed plan prioritizes booking and itinerary before trip details", async ({ page }) => {
+  const arrivalDate = new Date();
+  arrivalDate.setUTCDate(arrivalDate.getUTCDate() + 30);
+  const departureDate = new Date(arrivalDate);
+  departureDate.setUTCDate(departureDate.getUTCDate() + 3);
+
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.route("**/api/planner", async (route) => {
+    await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(plannerResponse) });
+  });
+  await page.route("**/api/plans", async (route) => {
+    await route.fulfill({ status: 200, contentType: "application/json", body: "{}" });
+  });
+
+  await page.goto("/");
+  await page.evaluate(() => window.localStorage.clear());
+  await page.reload();
+  await page.getByTestId("arrival-date").fill(arrivalDate.toISOString().slice(0, 10));
+  await page.getByTestId("departure-date").fill(departureDate.toISOString().slice(0, 10));
+  await page.getByLabel("Describe your perfect Vegas experience").fill("A polished weekend with dinner and a show.");
+  await page.getByTestId("planner-primary-cta").click();
+  await page.getByTestId("planner-primary-cta").click();
+
+  const bookingList = page.getByTestId("plan-booking-checklist");
+  const itinerary = page.getByTestId("timed-itinerary");
+  const tripDetails = page.getByTestId("mobile-trip-details");
+
+  await expect(bookingList).toBeVisible({ timeout: 15_000 });
+  await expect(itinerary).toBeVisible();
+  await expect(tripDetails).toBeVisible();
+  await expect(tripDetails).not.toHaveAttribute("open", "");
+
+  const order = await page.evaluate(() => {
+    const booking = document.querySelector('[data-testid="plan-booking-checklist"]');
+    const schedule = document.querySelector('[data-testid="timed-itinerary"]');
+    const details = document.querySelector('[data-testid="mobile-trip-details"]');
+    return booking && schedule && details
+      ? Boolean(booking.compareDocumentPosition(schedule) & Node.DOCUMENT_POSITION_FOLLOWING)
+        && Boolean(schedule.compareDocumentPosition(details) & Node.DOCUMENT_POSITION_FOLLOWING)
+      : false;
+  });
+  expect(order).toBe(true);
+
+  await tripDetails.getByText("Trip details").click();
+  await expect(tripDetails).toHaveAttribute("open", "");
+  await expect(tripDetails.getByText("Trip summary")).toBeVisible();
 });
