@@ -13,14 +13,26 @@ const plannerResponse = {
     date: "2026-08-14",
     label: "Friday, Aug 14",
     theme: "Arrival and a strong first night",
-    blocks: [{
-      time: "7:00 PM",
-      title: "E2E Vegas Show",
-      category: "event",
-      location: "Center Strip",
-      description: "A representative event used to verify the complete planning flow.",
-      durationMinutes: 90,
-    }],
+    blocks: [
+      {
+        time: "6:00 PM",
+        title: "E2E Dinner",
+        category: "meal",
+        location: "Center Strip",
+        description: "Dinner before the show.",
+        durationMinutes: 75,
+      },
+      {
+        time: "8:00 PM",
+        title: "E2E Vegas Show",
+        category: "event",
+        location: "Center Strip",
+        description: "A representative event used to verify the complete planning flow.",
+        bookingUrl: "https://tickets.example.com/e2e-vegas-show",
+        priceHint: "From $89",
+        durationMinutes: 90,
+      },
+    ],
   }],
   tripSummary: {
     lodging: "Not booked yet",
@@ -79,4 +91,22 @@ test("trip builder advances from dates through a completed game plan", async ({ 
   await expect(page.getByText("Building your Vegas game plan")).toBeVisible();
   await expect(page.getByText("Your Vegas weekend is ready")).toBeVisible({ timeout: 15_000 });
   await expect(page.getByText("E2E Vegas Show").first()).toBeVisible();
+
+  const bookingList = page.getByTestId("plan-booking-checklist");
+  await expect(bookingList).toBeVisible();
+  await expect(bookingList.getByText("E2E Dinner")).toBeVisible();
+  await expect(bookingList.getByText("E2E Vegas Show")).toBeVisible();
+  await expect(bookingList.getByRole("link", { name: "Check Tickets" })).toHaveAttribute(
+    "href",
+    "https://tickets.example.com/e2e-vegas-show",
+  );
+  await expect(bookingList.getByRole("link", { name: "Find Booking" })).toHaveAttribute(
+    "href",
+    /google\.com\/maps\/search/,
+  );
+
+  const booked = bookingList.getByRole("checkbox", { name: "E2E Vegas Show booked" });
+  await booked.check();
+  await expect(booked).toBeChecked();
+  await expect.poll(() => page.evaluate(() => Object.keys(localStorage).some((key) => key.startsWith("experiencevegas:booked:")))).toBe(true);
 });

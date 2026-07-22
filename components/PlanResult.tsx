@@ -7,6 +7,7 @@ import { restaurants, VegasRestaurant } from "@/data/restaurants";
 import { seedEvents } from "@/data/seed-events";
 import { sanitizeSchedule } from "@/lib/itinerary-engine";
 import { ItineraryBlock, ItineraryDay, PlannerEventOption, PlannerResponse } from "@/types/planner";
+import { PlanBookingChecklist } from "@/components/PlanBookingChecklist";
 
 type TuneOption = {
   label: string;
@@ -439,14 +440,6 @@ export function PlanResult({
             </div>
             <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-1">
               <div className="rounded-lg bg-white/[0.06] p-4">
-                <p className="text-sm font-black text-white">Book now</p>
-                <ul className="mt-3 space-y-2 text-sm text-white/65">
-                  {result.tripSummary.bookNow.map((item) => (
-                    <li key={item}>- {item}</li>
-                  ))}
-                </ul>
-              </div>
-              <div className="rounded-lg bg-white/[0.06] p-4">
                 <p className="text-sm font-black text-white">Keep flexible</p>
                 <ul className="mt-3 space-y-2 text-sm text-white/65">
                   {result.tripSummary.keepFlexible.map((item) => (
@@ -466,6 +459,7 @@ export function PlanResult({
           </p>
         </div>
       </div>
+      {itineraryDays?.length ? <PlanBookingChecklist planId={planId} itineraryDays={itineraryDays} /> : null}
       {itineraryDays?.length ? (
         <div className="mt-5 grid gap-4">
           <nav aria-label="Jump to itinerary day" className="sticky top-[4.5rem] z-10 -mx-1 flex gap-2 overflow-x-auto rounded-lg border border-white/10 bg-black/80 p-2 backdrop-blur-xl">
