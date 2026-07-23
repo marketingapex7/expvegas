@@ -14,10 +14,26 @@ function publicPlanSaveError(error: { code?: string; message?: string }) {
     };
   }
 
-  if (error.code === "PGRST205" || (message.includes("table") && message.includes("plans"))) {
+  if (
+    error.code === "PGRST205" ||
+    error.code === "42P01" ||
+    ((message.includes("table") || message.includes("relation")) && message.includes("plans"))
+  ) {
     return {
       error: "The Supabase plans table is missing. Run supabase/plans.sql in this project's SQL Editor.",
       code: "PLANS_TABLE_MISSING",
+    };
+  }
+
+  if (
+    message.includes("fetch failed") ||
+    message.includes("failed to fetch") ||
+    message.includes("project is paused") ||
+    message.includes("project not found")
+  ) {
+    return {
+      error: "The configured Supabase project could not be reached. Confirm the project is active and the Supabase URL is current.",
+      code: "SUPABASE_UNREACHABLE",
     };
   }
 
