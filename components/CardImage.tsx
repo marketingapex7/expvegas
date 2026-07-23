@@ -13,12 +13,13 @@ const categoryIcons = {
   shopping: ShoppingBag,
 };
 
-export function CardImage({ src, alt, category, sizes, className = "object-cover" }: {
+export function CardImage({ src, alt, category, sizes, className = "object-cover", priority = false }: {
   src?: string;
   alt: string;
   category: keyof typeof categoryIcons;
   sizes: string;
   className?: string;
+  priority?: boolean;
 }) {
   const [failed, setFailed] = useState(!src);
   const Icon = categoryIcons[category] || ImageOff;
@@ -32,5 +33,5 @@ export function CardImage({ src, alt, category, sizes, className = "object-cover
     );
   }
 
-  return <Image src={src} alt={alt} fill sizes={sizes} className={className} onError={() => setFailed(true)} />;
+  return <Image src={src} alt={alt} fill sizes={sizes} className={className} priority={priority} onError={() => setFailed(true)} />;
 }

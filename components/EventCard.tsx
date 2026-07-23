@@ -8,7 +8,7 @@ import { VegasEvent } from "@/types/event";
 import { formatPrice } from "@/lib/utils";
 import { TripToggleButton } from "@/components/TripToggleButton";
 
-export function EventCard({ event, badge }: { event: VegasEvent; badge?: string }) {
+export function EventCard({ event, badge, priority = false }: { event: VegasEvent; badge?: string; priority?: boolean }) {
   const showtimes = useMemo(() => event.showtimes?.length ? event.showtimes : [{ id: event.id, localDate: event.localDate, localTime: event.localTime, startDateTime: event.startDateTime, affiliateUrl: event.affiliateUrl }], [event]);
   const [selectedShowtimeId, setSelectedShowtimeId] = useState(showtimes[0].id);
   const selectedShowtime = showtimes.find((showtime) => showtime.id === selectedShowtimeId) || showtimes[0];
@@ -54,6 +54,7 @@ export function EventCard({ event, badge }: { event: VegasEvent; badge?: string 
             category="event"
             sizes="(min-width: 768px) 33vw, 100vw"
             className="object-cover transition duration-500 group-hover:scale-[1.03]"
+            priority={priority}
           />
           <span className="absolute left-3 top-3 rounded-full bg-white/95 px-3 py-1.5 text-xs font-bold text-zinc-950 shadow-sm backdrop-blur">
             {badge || taxonomyLabel}

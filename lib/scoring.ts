@@ -1,5 +1,6 @@
 import { VegasEvent } from "@/types/event";
 import { PlannerInput } from "@/types/planner";
+import { eventMatchesTicketBand, ticketBandsFromText } from "@/lib/budget-preferences";
 
 const groupScoreMap: Record<string, keyof VegasEvent> = {
   couple: "couplesScore",
@@ -24,8 +25,8 @@ export function scoreEvent(event: VegasEvent, input?: Partial<PlannerInput>) {
   if (near && (event.venueName.toLowerCase().includes(near) || event.area.toLowerCase().includes(near))) score += 15;
 
   const budget = input?.budget?.toLowerCase() || "";
-  if (budget.includes("under") && event.priceMin && event.priceMin <= 100) score += 10;
-  if (budget.includes("premium") && event.priceMin && event.priceMin >= 100) score += 8;
+  const selectedBands = ticketBandsFromText(budget);
+  if (selectedBands.some((band) => eventMatchesTicketBand(event, band))) score += 10;
 
   return Math.round(score);
 }

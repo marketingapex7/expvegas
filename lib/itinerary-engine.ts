@@ -2,6 +2,7 @@ import { attractionStops, casinoStops, freeExperienceStops, PlanningStop } from 
 import { restaurants, VegasRestaurant } from "@/data/restaurants";
 import { VegasEvent } from "@/types/event";
 import { ItineraryBlock, ItineraryDay, PlannerInput } from "@/types/planner";
+import { mealLevelsFromText } from "@/lib/budget-preferences";
 
 type BuildItineraryInput = {
   plannerInput: PlannerInput;
@@ -103,13 +104,14 @@ function pickStop(stops: PlanningStop[], input: PlannerInput, offset: number) {
   return ranked[offset % ranked.length];
 }
 
-function restaurantBudgetPreference(input: PlannerInput): VegasRestaurant["priceLevel"] {
-  return budgetPreference(input) || "mid";
+function restaurantBudgetPreferences(input: PlannerInput): VegasRestaurant["priceLevel"][] {
+  const selectedLevels = mealLevelsFromText(input.mealBudget);
+  return selectedLevels.length > 0 ? selectedLevels : [budgetPreference(input) || "mid"];
 }
 
 function scoreRestaurant(restaurant: VegasRestaurant, input: PlannerInput) {
   const text = textFor(input);
-  const preferredBudget = restaurantBudgetPreference(input);
+  const preferredBudgets = restaurantBudgetPreferences(input);
   const stayArea = normalizedStayArea(input);
   const terms = [
     ...restaurant.cuisine,
@@ -122,7 +124,7 @@ function scoreRestaurant(restaurant: VegasRestaurant, input: PlannerInput) {
   ].map((term) => term.toLowerCase());
 
   let score = restaurant.editorialScore / 10;
-  if (restaurant.priceLevel === preferredBudget) score += 10;
+  if (preferredBudgets.includes(restaurant.priceLevel)) score += 10;
 
   for (const term of terms) {
     if (term && text.includes(term)) score += 6;

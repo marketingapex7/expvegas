@@ -45,6 +45,7 @@ const plannerResponse = {
 };
 
 test("trip builder advances from dates through a completed game plan", async ({ page }) => {
+  let plannerRequest: Record<string, string> = {};
   const arrivalDate = new Date();
   arrivalDate.setUTCDate(arrivalDate.getUTCDate() + 30);
   const departureDate = new Date(arrivalDate);
@@ -54,6 +55,7 @@ test("trip builder advances from dates through a completed game plan", async ({ 
   const expectedDateSummary = `${new Intl.DateTimeFormat("en-US", { month: "short", day: "numeric", year: "numeric", timeZone: "UTC" }).format(arrivalDate)} to ${new Intl.DateTimeFormat("en-US", { month: "short", day: "numeric", year: "numeric", timeZone: "UTC" }).format(departureDate)}`;
 
   await page.route("**/api/planner", async (route) => {
+    plannerRequest = route.request().postDataJSON() as Record<string, string>;
     await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(plannerResponse) });
   });
   await page.route("**/api/plans", async (route) => {
@@ -82,9 +84,39 @@ test("trip builder advances from dates through a completed game plan", async ({ 
   await expect(primaryCta).toContainText("Continue to Trip Details");
 
   await page.getByLabel("Describe your perfect Vegas experience").fill("A memorable first trip with a great show and relaxed meals.");
+  const underHundredTickets = page.getByRole("button", { name: "Under $100 per person" });
+  const midrangeTickets = page.getByRole("button", { name: "$100-$200 per person" });
+  await underHundredTickets.click();
+  await midrangeTickets.click();
+  await expect(underHundredTickets).toHaveAttribute("aria-pressed", "true");
+  await expect(midrangeTickets).toHaveAttribute("aria-pressed", "true");
   await primaryCta.click();
 
   await expect(page.getByText("Tune your itinerary")).toBeVisible();
+  const valueMeals = page.getByRole("button", { name: "Under $30 per person" });
+  const premiumMeals = page.getByRole("button", { name: "$60-$120 per person" });
+  await valueMeals.click();
+  await premiumMeals.click();
+  await expect(valueMeals).toHaveAttribute("aria-pressed", "true");
+  await expect(premiumMeals).toHaveAttribute("aria-pressed", "true");
+
+  const lightBankroll = page.getByRole("button", { name: "Bankroll under $100" });
+  const tableGames = page.getByRole("button", { name: "Table games" });
+  const noGambling = page.getByRole("button", { name: "No gambling" });
+  await lightBankroll.click();
+  await tableGames.click();
+  await noGambling.click();
+  await expect(noGambling).toHaveAttribute("aria-pressed", "true");
+  await expect(lightBankroll).toHaveAttribute("aria-pressed", "false");
+  await expect(tableGames).toHaveAttribute("aria-pressed", "false");
+
+  const mediumBankroll = page.getByRole("button", { name: "Bankroll $100-$300" });
+  const sportsbook = page.getByRole("button", { name: "Sportsbook" });
+  await mediumBankroll.click();
+  await sportsbook.click();
+  await expect(noGambling).toHaveAttribute("aria-pressed", "false");
+  await expect(mediumBankroll).toHaveAttribute("aria-pressed", "true");
+  await expect(sportsbook).toHaveAttribute("aria-pressed", "true");
   await expect(primaryCta).toContainText("Build My Game Plan");
   await primaryCta.click();
 
@@ -92,6 +124,12 @@ test("trip builder advances from dates through a completed game plan", async ({ 
   const bookingList = page.getByTestId("plan-booking-checklist");
   await expect(bookingList).toBeVisible({ timeout: 15_000 });
   await expect(page.getByText("E2E Vegas Show").first()).toBeVisible();
+  expect(plannerRequest.budget).toContain("Under $100 per person");
+  expect(plannerRequest.budget).toContain("$100-$200 per person");
+  expect(plannerRequest.mealBudget).toContain("Under $30 per person");
+  expect(plannerRequest.mealBudget).toContain("$60-$120 per person");
+  expect(plannerRequest.gamblingPreference).toContain("Bankroll $100-$300");
+  expect(plannerRequest.gamblingPreference).toContain("Sportsbook");
 
   await expect(bookingList.getByText("E2E Dinner")).toBeVisible();
   await expect(bookingList.getByText("E2E Vegas Show")).toBeVisible();

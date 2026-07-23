@@ -33,14 +33,14 @@ const refinementGroups = [
   {
     label: "Food spend",
     key: "mealBudget",
-    multi: false,
-    options: ["Mostly casual meals under $40 per person", "Balanced meals around $40-$80 per person", "Food is a big part at $80-$150 per person", "One premium dinner over $100 per person"],
+    multi: true,
+    options: ["Under $30 per person", "$30-$60 per person", "$60-$120 per person", "$120+ splurge meal"],
   },
   {
     label: "Gambling bankroll",
     key: "gamblingPreference",
-    multi: false,
-    options: ["No gambling", "Casino atmosphere only", "Light gambling under $100 total", "Slots bankroll $100-$300 total", "Table games bankroll $300+ total", "Poker", "Sportsbook"],
+    multi: true,
+    options: ["No gambling", "Casino atmosphere only", "Bankroll under $100", "Bankroll $100-$300", "Bankroll $300-$750", "Bankroll $750+", "Slots", "Table games", "Poker", "Sportsbook"],
   },
   {
     label: "Pace",
@@ -60,21 +60,25 @@ const helperGroups = [
   {
     label: "Ticket budget",
     icon: WalletCards,
-    options: ["event tickets under $100 per person", "event tickets $100-$200 per person", "premium event tickets are okay if worth it"],
+    multi: true,
+    options: ["Under $100 per person", "$100-$200 per person", "$200-$350 per person", "$350+ splurge"],
   },
   {
     label: "Group",
     icon: Users,
+    multi: false,
     options: ["couple", "friends trip", "family with teens", "bachelor party"],
   },
   {
     label: "Lodging",
     icon: MapPin,
+    multi: false,
     options: ["haven't booked lodging yet", "center Strip", "near Bellagio", "near Caesars", "near Sphere", "near T-Mobile Arena", "Downtown"],
   },
   {
     label: "Vibe",
     icon: Sparkles,
+    multi: false,
     options: ["big Vegas spectacle", "easy laughs", "sports energy", "not too touristy"],
   },
 ];
@@ -111,14 +115,26 @@ function sentenceFor(group: string, option: string) {
   return `Vibe: ${option}.`;
 }
 
+function mixedSelectionText(kind: "ticket" | "meal" | "gambling", values: string[]) {
+  if (values.length === 0) return undefined;
+  if (kind === "gambling" && values.length === 1 && values[0] === "No gambling") return "No gambling";
+  if (kind === "gambling" && values.length === 1 && values[0] === "Casino atmosphere only") {
+    return "Casino atmosphere only, with no gambling bankroll";
+  }
+
+  const label = kind === "ticket" ? "ticket options" : kind === "meal" ? "meals" : "gambling preferences";
+  return `Mix ${label} across ${values.join(" and ")}; include choices from each selection when available`;
+}
+
 function upsertPromptSentence(current: string, label: string, sentence: string) {
   const trimmed = current.trim();
   const pattern = new RegExp(`${label}: [^.]*\\.`);
 
   if (pattern.test(trimmed)) {
-    return trimmed.replace(pattern, sentence);
+    return trimmed.replace(pattern, sentence).replace(/\s{2,}/g, " ").trim();
   }
 
+  if (!sentence) return trimmed;
   return trimmed.length > 0 ? `${trimmed} ${sentence}` : sentence;
 }
 
@@ -180,10 +196,26 @@ export function HeroPlanner({ compact = false }: { compact?: boolean }) {
 
   function addHelper(group: string, option: string) {
     const key = `${group}:${option}`;
+    const isMulti = helperGroups.find((helperGroup) => helperGroup.label === group)?.multi;
+    const groupSelections = selectedHelpers.filter((helper) => helper.startsWith(`${group}:`));
+    const nextGroupSelections = isMulti
+      ? groupSelections.includes(key)
+        ? groupSelections.filter((helper) => helper !== key)
+        : [...groupSelections, key]
+      : [key];
 
-    setSelectedHelpers((current) => [...current.filter((helper) => !helper.startsWith(`${group}:`)), key]);
+    setSelectedHelpers([
+      ...selectedHelpers.filter((helper) => !helper.startsWith(`${group}:`)),
+      ...nextGroupSelections,
+    ]);
     setPrompt((current) => {
-      const nextSentence = sentenceFor(group, option);
+      const values = nextGroupSelections.map((helper) => helper.split(":").slice(1).join(":"));
+      const nextSentence =
+        group === "Ticket budget"
+          ? values.length > 0
+            ? `Ticket budget: ${mixedSelectionText("ticket", values)}.`
+            : ""
+          : sentenceFor(group, option);
       return upsertPromptSentence(current, group === "Ticket budget" ? "Ticket budget" : group, nextSentence);
     });
   }
@@ -219,6 +251,12 @@ export function HeroPlanner({ compact = false }: { compact?: boolean }) {
 
   function selectedValue(label: string) {
     return selectedHelpers.find((helper) => helper.startsWith(`${label}:`))?.split(":").slice(1).join(":");
+  }
+
+  function selectedValues(label: string) {
+    return selectedHelpers
+      .filter((helper) => helper.startsWith(`${label}:`))
+      .map((helper) => helper.split(":").slice(1).join(":"));
   }
 
   const shareUrl =
@@ -295,7 +333,21 @@ export function HeroPlanner({ compact = false }: { compact?: boolean }) {
   function toggleMultiRefinement(key: string, value: string) {
     setMultiRefinements((current) => {
       const values = current[key] || [];
-      const nextValues = values.includes(value) ? values.filter((item) => item !== value) : [...values, value];
+      let nextValues: string[];
+
+      if (key === "gamblingPreference") {
+        const exclusiveOptions = ["No gambling", "Casino atmosphere only"];
+        if (exclusiveOptions.includes(value)) {
+          nextValues = values.includes(value) ? [] : [value];
+        } else {
+          const compatibleValues = values.filter((item) => !exclusiveOptions.includes(item));
+          nextValues = compatibleValues.includes(value)
+            ? compatibleValues.filter((item) => item !== value)
+            : [...compatibleValues, value];
+        }
+      } else {
+        nextValues = values.includes(value) ? values.filter((item) => item !== value) : [...values, value];
+      }
 
       return { ...current, [key]: nextValues };
     });
@@ -313,13 +365,19 @@ export function HeroPlanner({ compact = false }: { compact?: boolean }) {
     return {
       prompt,
       travelDates,
-      budget: overrides.budget || selectedValue("Ticket budget"),
+      budget: overrides.budget || mixedSelectionText("ticket", selectedValues("Ticket budget")),
       groupType: overrides.groupType || selectedValue("Group"),
       stayingNear: overrides.stayingNear || selectedValue("Lodging"),
       vibe: overrides.vibe || selectedValue("Vibe") || prompt,
       foodPreference: overrides.foodPreference || multiRefinements.foodPreference?.join(", ") || refinements.foodPreference,
-      mealBudget: overrides.mealBudget || refinements.mealBudget,
-      gamblingPreference: overrides.gamblingPreference || refinements.gamblingPreference,
+      mealBudget:
+        overrides.mealBudget ||
+        mixedSelectionText("meal", multiRefinements.mealBudget || []) ||
+        refinements.mealBudget,
+      gamblingPreference:
+        overrides.gamblingPreference ||
+        mixedSelectionText("gambling", multiRefinements.gamblingPreference || []) ||
+        refinements.gamblingPreference,
       pace: overrides.pace || refinements.pace,
       logistics: overrides.logistics || refinements.logistics,
       additionalDetails: [additionalDetails, selectedPlaces, tripBudget].filter(Boolean).join(" ").slice(0, 1_500),
@@ -612,6 +670,7 @@ export function HeroPlanner({ compact = false }: { compact?: boolean }) {
                       <p className="mb-3 inline-flex items-center gap-2 text-xs font-black uppercase tracking-[0.16em] text-white/50">
                         <Icon className="h-4 w-4 text-amber-100" /> {group.label}
                       </p>
+                      {group.multi ? <p className="mb-2 text-[11px] font-semibold text-white/45">Choose all that fit.</p> : null}
                       <div className="flex flex-wrap gap-2 md:block md:space-y-2">
                         {group.options.map((option) => {
                           const key = `${group.label}:${option}`;
@@ -622,6 +681,7 @@ export function HeroPlanner({ compact = false }: { compact?: boolean }) {
                               key={option}
                               type="button"
                               onClick={() => addHelper(group.label, option)}
+                              aria-pressed={isSelected}
                               className={`rounded-full px-3 py-2 text-left text-xs font-bold leading-5 transition md:w-full ${
                                 isSelected ? "bg-amber-200 text-black" : "bg-white/10 text-white/72 hover:bg-white/15"
                               }`}
@@ -667,6 +727,7 @@ export function HeroPlanner({ compact = false }: { compact?: boolean }) {
                   {refinementGroups.map((group) => (
                     <div key={group.key} className="rounded-lg border border-white/10 bg-white/[0.04] p-3">
                       <p className="mb-3 text-xs font-black uppercase tracking-[0.16em] text-white/50">{group.label}</p>
+                      {group.multi ? <p className="mb-2 text-[11px] font-semibold text-white/45">Choose all that fit.</p> : null}
                       <div className="flex flex-wrap gap-2 lg:block lg:space-y-2">
                         {group.options.map((option) => {
                           const isSelected = group.multi
@@ -678,6 +739,7 @@ export function HeroPlanner({ compact = false }: { compact?: boolean }) {
                               key={option}
                               type="button"
                               onClick={() => (group.multi ? toggleMultiRefinement(group.key, option) : setRefinement(group.key, option))}
+                              aria-pressed={isSelected}
                               className={`rounded-full px-3 py-2 text-left text-xs font-bold leading-5 transition lg:w-full ${
                                 isSelected ? "bg-amber-200 text-black" : "bg-white/10 text-white/72 hover:bg-white/15"
                               }`}

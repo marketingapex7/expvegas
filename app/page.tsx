@@ -86,7 +86,7 @@ export default async function HomePage() {
             </Link>
           </div>
           <div className="grid gap-6 md:grid-cols-3">
-            {topTonight.map((event, index) => <EventCard key={event.id} event={event} badge={["Top match", "High-energy pick", "Worth comparing"][index]} />)}
+            {topTonight.map((event, index) => <EventCard key={event.id} event={event} badge={["Top match", "High-energy pick", "Worth comparing"][index]} priority={index === 0} />)}
           </div>
         </div>
       </section>

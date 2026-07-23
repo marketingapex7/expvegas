@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { seedEvents } from "@/data/seed-events";
 import { buildItinerary } from "@/lib/itinerary-engine";
 import { rankEvents } from "@/lib/scoring";
+import { diversifyEventsByTicketBudget } from "@/lib/budget-preferences";
 import { searchTicketmasterEvents } from "@/lib/ticketmaster";
 import { apiErrorResponse, rateLimit, readValidatedJson } from "@/lib/api-security";
 import { plannerInputSchema } from "@/lib/planner-validation";
@@ -145,6 +146,7 @@ export async function POST(request: Request) {
   }
 
   const ranked = rankEvents([...liveEvents, ...seedEvents], input);
+  const budgetDiversifiedEvents = diversifyEventsByTicketBudget(ranked, input.budget);
   const fallbackBest = ranked[0];
 
   if (!fallbackBest) {
@@ -154,7 +156,7 @@ export async function POST(request: Request) {
   const itineraryDays = buildItinerary({ plannerInput: input, startDate, endDate, rankedEvents: ranked });
   const firstScheduledEvent = itineraryDays.flatMap((day) => day.blocks).find((block) => block.category === "event");
   const best = ranked.find((event) => event.name === firstScheduledEvent?.title) || fallbackBest;
-  const backups = ranked.filter((event) => event.id !== best.id).slice(0, 3);
+  const backups = budgetDiversifiedEvents.filter((event) => event.id !== best.id).slice(0, 3);
   const tripSummary = buildTripSummary(input, itineraryDays, best);
 
   const output: PlannerResponse = {
@@ -176,7 +178,7 @@ export async function POST(request: Request) {
       liveEvents.length > 0
         ? `Live schedule checked for your dates. Included ${liveEvents.length} Ticketmaster event${liveEvents.length === 1 ? "" : "s"} to compare.`
         : "No live Ticketmaster events were available, so this used curated ExperienceVegas picks.",
-    eventOptions: ranked.slice(0, 20).map((event) => ({
+    eventOptions: budgetDiversifiedEvents.slice(0, 20).map((event) => ({
       id: event.id,
       name: event.name,
       category: event.category,
