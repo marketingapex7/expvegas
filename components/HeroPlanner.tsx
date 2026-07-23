@@ -849,11 +849,11 @@ export function HeroPlanner({ compact = false }: { compact?: boolean }) {
             <div className="mt-5 grid gap-3 lg:grid-cols-[0.9fr_1.1fr]">
               <div className="rounded-lg bg-black/25 p-4">
                 <p className="text-xs font-black uppercase tracking-[0.16em] text-amber-100">Analyzing selections</p>
-                <div className="mt-3 flex max-h-36 flex-wrap gap-2 overflow-hidden">
+                <div data-testid="planner-analysis-selections" className="mt-3 flex flex-wrap items-start gap-2">
                   {(loadingSelections.length > 0 ? loadingSelections : ["Flexible trip details", "Balanced Vegas pace", "Worth-booking anchor"]).map((selection, index) => (
                     <span
                       key={selection}
-                      className={`rounded-full px-3 py-2 text-xs font-bold transition ${
+                      className={`max-w-full whitespace-normal break-words rounded-2xl px-3 py-2 text-xs font-bold leading-5 transition ${
                         index === buildStepIndex % Math.max(loadingSelections.length, 1)
                           ? "bg-amber-200 text-black"
                           : "bg-white/10 text-white/62"

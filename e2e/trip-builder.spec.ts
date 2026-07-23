@@ -121,6 +121,11 @@ test("trip builder advances from dates through a completed game plan", async ({ 
   await primaryCta.click();
 
   await expect(page.getByText("Building your Vegas game plan")).toBeVisible();
+  const analysisSelections = page.getByTestId("planner-analysis-selections");
+  await expect(analysisSelections).toBeVisible();
+  expect(await analysisSelections.evaluate((container) => (
+    [...container.children].every((child) => child.getBoundingClientRect().bottom <= container.getBoundingClientRect().bottom + 1)
+  ))).toBe(true);
   const bookingList = page.getByTestId("plan-booking-checklist");
   await expect(bookingList).toBeVisible({ timeout: 15_000 });
   await expect(page.getByText("E2E Vegas Show").first()).toBeVisible();
