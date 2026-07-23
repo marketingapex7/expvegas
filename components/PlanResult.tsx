@@ -9,6 +9,8 @@ import { sanitizeSchedule } from "@/lib/itinerary-engine";
 import { ItineraryBlock, ItineraryDay, PlannerEventOption, PlannerResponse } from "@/types/planner";
 import { PlanBookingChecklist } from "@/components/PlanBookingChecklist";
 import { PlanTripDetails } from "@/components/PlanTripDetails";
+import { PrintPlanButton } from "@/components/PrintPlanButton";
+import { PrintableGeneratedPlan } from "@/components/PrintableItinerary";
 
 type TuneOption = {
   label: string;
@@ -363,6 +365,7 @@ export function PlanResult({
             )}
           </div>
           <div className="flex flex-wrap gap-2 sm:shrink-0">
+            {itineraryDays?.length ? <PrintPlanButton theme="dark" /> : null}
             {itineraryDays?.length ? (
               <button
                 type="button"
@@ -520,6 +523,7 @@ export function PlanResult({
           {emailMessage ? <p className="text-sm font-bold text-amber-100 sm:col-span-2">{emailMessage}</p> : null}
         </form>
       ) : null}
+      {itineraryDays?.length ? <PrintableGeneratedPlan title={result.headline} days={itineraryDays} /> : null}
     </div>
   );
 }

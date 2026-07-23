@@ -1,5 +1,5 @@
-import { EventGrid } from "@/components/EventGrid";
 import { SectionHeader } from "@/components/SectionHeader";
+import { TonightFilters } from "@/components/TonightFilters";
 import { getLiveVegasEvents, getVegasToday } from "@/lib/live-events";
 
 export const revalidate = 1800;
@@ -22,7 +22,7 @@ export default async function TonightPage() {
             ? "Live events scheduled in Las Vegas tonight, ranked for quick last-minute decisions across shows, comedy, sports, concerts, and attractions."
             : "Live inventory is temporarily unavailable. These editorial picks are worth considering, but confirm the date and availability before booking."}
         />
-        <EventGrid events={result.events} />
+        <TonightFilters events={result.events} isLive={result.isLive} />
       </div>
     </section>
   );

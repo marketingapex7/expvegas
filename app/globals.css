@@ -13,3 +13,107 @@ body {
 }
 
 a { text-decoration: none; }
+
+.print-document {
+  display: none;
+}
+
+@media print {
+  @page {
+    margin: 0.55in;
+    size: letter;
+  }
+
+  body * {
+    visibility: hidden !important;
+  }
+
+  .print-document,
+  .print-document * {
+    visibility: visible !important;
+  }
+
+  .print-document {
+    position: absolute;
+    inset: 0;
+    display: block !important;
+    color: #18181b;
+    background: #fff;
+    font: 11pt/1.45 Arial, sans-serif;
+  }
+
+  .print-document h1 {
+    margin: 8px 0 4px;
+    font-size: 24pt;
+  }
+
+  .print-document h2 {
+    margin: 22px 0 2px;
+    font-size: 16pt;
+  }
+
+  .print-brand {
+    margin: 0;
+    color: #86198f;
+    font-weight: 800;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+  }
+
+  .print-summary {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 8px 20px;
+    margin: 20px 0;
+    padding: 14px;
+    border: 1px solid #d4d4d8;
+  }
+
+  .print-summary strong {
+    grid-column: 1 / -1;
+    font-size: 14pt;
+  }
+
+  .print-document ol {
+    margin: 12px 0 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  .print-document li {
+    display: grid;
+    grid-template-columns: 90px 1fr auto;
+    gap: 12px;
+    padding: 10px 0;
+    border-bottom: 1px solid #e4e4e7;
+    break-inside: avoid;
+  }
+
+  .print-document li div {
+    display: grid;
+    gap: 2px;
+  }
+
+  .print-document li span,
+  .print-document time {
+    color: #52525b;
+    font-size: 9pt;
+    text-transform: capitalize;
+  }
+
+  .print-document li p {
+    margin: 3px 0 0;
+    color: #3f3f46;
+    font-size: 9pt;
+  }
+
+  .print-day {
+    break-inside: avoid-page;
+  }
+
+  .print-note {
+    margin-top: 24px;
+    color: #71717a;
+    font-size: 8.5pt;
+  }
+}

@@ -124,6 +124,7 @@ test("trip builder advances from dates through a completed game plan", async ({ 
   const bookingList = page.getByTestId("plan-booking-checklist");
   await expect(bookingList).toBeVisible({ timeout: 15_000 });
   await expect(page.getByText("E2E Vegas Show").first()).toBeVisible();
+  await expect(page.getByRole("button", { name: "Save as PDF" })).toBeVisible();
   expect(plannerRequest.budget).toContain("Under $100 per person");
   expect(plannerRequest.budget).toContain("$100-$200 per person");
   expect(plannerRequest.mealBudget).toContain("Under $30 per person");

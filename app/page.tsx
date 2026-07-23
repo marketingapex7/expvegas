@@ -3,6 +3,7 @@ import { ArrowRight, Building2, CalendarDays, Drama, MapPin, ShoppingBag, Sparkl
 import { DirectorySection } from "@/components/DirectorySection";
 import { EventCard } from "@/components/EventCard";
 import { HeroPlanner } from "@/components/HeroPlanner";
+import { HomeTripPreview } from "@/components/HomeTripPreview";
 import { SectionHeader } from "@/components/SectionHeader";
 import { bestForLinks, nearLinks } from "@/data/nav";
 import { experienceListings, hotelListings, restaurantListings } from "@/lib/directory-data";
@@ -41,6 +42,7 @@ export default async function HomePage() {
   return (
     <>
       <HeroPlanner />
+      <HomeTripPreview />
 
       <section className="border-y border-zinc-200 bg-white px-4 py-7 text-zinc-950 sm:px-5">
         <div className="mx-auto max-w-7xl">
@@ -86,7 +88,7 @@ export default async function HomePage() {
             </Link>
           </div>
           <div className="grid gap-6 md:grid-cols-3">
-            {topTonight.map((event, index) => <EventCard key={event.id} event={event} badge={["Top match", "High-energy pick", "Worth comparing"][index]} priority={index === 0} />)}
+            {topTonight.map((event, index) => <EventCard key={event.id} event={event} badge={["Top match", "High-energy pick", "Worth comparing"][index]} priority />)}
           </div>
         </div>
       </section>

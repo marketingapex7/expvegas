@@ -10,6 +10,9 @@ import { directoryListings } from "@/lib/directory-data";
 import { seedEvents } from "@/data/seed-events";
 import { DirectoryCategory, TripDates, TripPick, TripPickStatus, TripSettings } from "@/types/directory";
 import { formatPrice } from "@/lib/utils";
+import { calculateTripBudget, formatCostRange, tripDayCount } from "@/lib/trip-budget";
+import { PrintPlanButton } from "@/components/PrintPlanButton";
+import { PrintableSavedTrip } from "@/components/PrintableItinerary";
 
 const categoryLabels: Record<DirectoryCategory, string> = {
   hotel: "Stays",
@@ -40,11 +43,6 @@ function addDays(value: string, days: number) {
   const date = new Date(`${value}T00:00:00Z`);
   date.setUTCDate(date.getUTCDate() + days);
   return date.toISOString().slice(0, 10);
-}
-
-function tripDays(dates: TripDates) {
-  if (!dates.arrivalDate || !dates.departureDate) return 1;
-  return Math.max(1, Math.round((Date.parse(`${dates.departureDate}T00:00:00Z`) - Date.parse(`${dates.arrivalDate}T00:00:00Z`)) / 86_400_000));
 }
 
 function directoryPick(id: string) {
@@ -108,21 +106,13 @@ function decodePayload(value: string): SharedTrip | undefined {
   }
 }
 
-function itemCost(item: TripPick, settings: TripSettings, days: number) {
-  if (item.status === "backup" || item.costUnit === "free") return { min: 0, max: 0 };
-  const min = item.estimatedCostMin || 0;
-  const max = item.estimatedCostMax ?? min;
-  const multiplier = item.costUnit === "per-night" ? days : item.costUnit === "per-person" ? settings.partySize : 1;
-  return { min: min * multiplier, max: max * multiplier };
-}
-
 export function SavedTripWorkspace() {
   const { items, dates, settings, hydrated, removeItem, clearItems, setDates, setSettings, updateItem, reorderItem, moveItem, importTrip } = useTripSelections();
   const [draggedId, setDraggedId] = useState("");
   const [shareMessage, setShareMessage] = useState("");
   const importedRef = useRef(false);
   const today = new Date().toISOString().slice(0, 10);
-  const days = tripDays(dates);
+  const days = tripDayCount(dates);
   const datesReady = Boolean(dates.arrivalDate && dates.departureDate && dates.departureDate >= dates.arrivalDate);
 
   useEffect(() => {
@@ -149,10 +139,8 @@ export function SavedTripWorkspace() {
     return () => window.clearTimeout(timer);
   }, [hydrated, importTrip]);
 
-  const cost = useMemo(() => items.reduce((total, item) => {
-    const amount = itemCost(item, settings, days);
-    return { min: total.min + amount.min, max: total.max + amount.max };
-  }, { min: 0, max: 0 }), [days, items, settings]);
+  const budget = useMemo(() => calculateTripBudget(items, settings, dates), [dates, items, settings]);
+  const cost = budget.total;
 
   const checks = useMemo(() => {
     const issues: { label: string; penalty: number }[] = [];
@@ -203,6 +191,7 @@ export function SavedTripWorkspace() {
             <p className="mt-3 max-w-2xl text-base leading-7 text-zinc-600">Prioritize the places you care about, lock booked plans, and move optional ideas to Backup before the planner builds the schedule.</p>
           </div>
           <div className="flex flex-wrap gap-2">
+            {items.length ? <PrintPlanButton /> : null}
             {items.length ? <button type="button" onClick={shareTrip} className="inline-flex min-h-11 items-center gap-2 rounded-lg border border-zinc-300 bg-white px-4 py-2 text-sm font-black hover:bg-zinc-100"><Copy className="h-4 w-4" /> Share</button> : null}
             {items.length ? <button type="button" onClick={clearItems} className="min-h-11 px-3 text-sm font-bold text-zinc-500 hover:text-zinc-950">Clear all</button> : null}
           </div>
@@ -229,7 +218,7 @@ export function SavedTripWorkspace() {
                       <div className="p-4">
                         <div className="flex items-start justify-between gap-3">
                           <div>
-                            <p className="text-xs font-black uppercase tracking-[0.14em] text-fuchsia-700">{categoryLabels[item.category]} · #{index + 1}</p>
+                            <p className="text-xs font-black uppercase tracking-[0.14em] text-fuchsia-700">{categoryLabels[item.category]} / #{index + 1}</p>
                             <Link href={item.detailUrl} className="mt-1 block text-xl font-black leading-snug text-zinc-950 hover:text-fuchsia-800">{item.name}</Link>
                             <p className="mt-2 flex items-center gap-1 text-xs font-bold text-zinc-500"><MapPin className="h-3.5 w-3.5" /> {item.area}</p>
                           </div>
@@ -285,8 +274,18 @@ export function SavedTripWorkspace() {
 
             <div className="rounded-lg bg-zinc-950 p-5 text-white shadow-sm">
               <p className="text-xs font-black uppercase tracking-[0.18em] text-amber-200">Working estimate</p>
-              <p className="mt-2 text-3xl font-black">{items.length ? `$${Math.round(cost.min).toLocaleString()}-$${Math.round(cost.max).toLocaleString()}` : "—"}</p>
+              <p className="mt-2 text-3xl font-black">{items.length ? formatCostRange(cost) : "-"}</p>
               {!items.length ? <p className="mt-2 text-sm font-bold text-white/75">Add picks to see an estimate.</p> : null}
+              {items.length ? (
+                <div className="mt-5 grid grid-cols-2 gap-2">
+                  {Object.entries(budget.categories).map(([label, amount]) => (
+                    <div key={label} className="rounded-lg border border-white/10 bg-white/[0.06] px-3 py-2.5">
+                      <p className="text-[10px] font-black uppercase tracking-[0.14em] text-white/45">{label}</p>
+                      <p className="mt-1 text-sm font-black text-white">{amount.max > 0 ? formatCostRange(amount) : "$0"}</p>
+                    </div>
+                  ))}
+                </div>
+              ) : null}
               <p className="mt-2 text-xs leading-5 text-white/55">For {settings.partySize} traveler{settings.partySize === 1 ? "" : "s"}; hotel estimates assume one room. Shopping, gambling, fees, tax, and transportation are excluded until live partners provide totals.</p>
               {settings.budgetCap > 0 ? <div className="mt-4 h-2 overflow-hidden rounded-full bg-white/15"><div className={`h-full ${cost.min > settings.budgetCap ? "bg-rose-400" : "bg-amber-300"}`} style={{ width: `${Math.min(100, (cost.min / settings.budgetCap) * 100)}%` }} /></div> : null}
               <Link href="/planner" aria-disabled={!items.length || !datesReady} className={`mt-5 flex min-h-12 items-center justify-center gap-2 rounded-lg px-4 py-3 text-sm font-black ${items.length && datesReady ? "bg-amber-300 text-zinc-950 hover:bg-amber-200" : "pointer-events-none border border-white/20 bg-white/15 text-white/65"}`}>Build My Timed Itinerary <ArrowRight className="h-4 w-4" /></Link>
@@ -294,6 +293,7 @@ export function SavedTripWorkspace() {
             </div>
           </aside>
         </div>
+        {items.length ? <PrintableSavedTrip items={items} dates={dates} settings={settings} /> : null}
       </div>
     </main>
   );

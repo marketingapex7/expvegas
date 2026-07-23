@@ -146,6 +146,7 @@ export function HeroPlanner({ compact = false }: { compact?: boolean }) {
     settings: tripSettings,
     hydrated: tripSelectionsHydrated,
     setDates: setSavedTripDates,
+    setSettings: setTripSettings,
   } = useTripSelections();
   const [arrivalDate, setArrivalDate] = useState("");
   const [departureDate, setDepartureDate] = useState("");
@@ -247,6 +248,36 @@ export function HeroPlanner({ compact = false }: { compact?: boolean }) {
 
     setSelectedHelpers((current) => (current.includes("Dates:calendar") ? current : [...current, "Dates:calendar"]));
     setPrompt((current) => upsertPromptSentence(current, "Dates", `Dates: ${dateText}.`));
+  }
+
+  function loadSampleTrip() {
+    const nextFriday = new Date();
+    const daysUntilFriday = (5 - nextFriday.getUTCDay() + 7) % 7;
+    nextFriday.setUTCDate(nextFriday.getUTCDate() + (daysUntilFriday < 3 ? daysUntilFriday + 7 : daysUntilFriday));
+    const nextMonday = new Date(nextFriday);
+    nextMonday.setUTCDate(nextMonday.getUTCDate() + 3);
+    const nextArrival = nextFriday.toISOString().slice(0, 10);
+    const nextDeparture = nextMonday.toISOString().slice(0, 10);
+    const dateText = `${formatTravelDate(nextArrival)} to ${formatTravelDate(nextDeparture)}`;
+
+    dateDraftEditedRef.current = true;
+    setArrivalDate(nextArrival);
+    setDepartureDate(nextDeparture);
+    setSavedTripDates({ arrivalDate: nextArrival, departureDate: nextDeparture });
+    setTripSettings({ ...tripSettings, partySize: 4, budgetCap: 2_000 });
+    setSelectedHelpers([
+      "Dates:calendar",
+      "Ticket budget:Under $100 per person",
+      "Ticket budget:$100-$200 per person",
+      "Group:friends trip",
+      "Lodging:haven't booked lodging yet",
+      "Vibe:big Vegas spectacle",
+    ]);
+    setPrompt(
+      `Dates: ${dateText}. Ticket budget: mix ticket options across Under $100 per person and $100-$200 per person. Group: friends trip. Lodging: not booked yet. Vibe: big Vegas spectacle with one standout dinner and flexible daytime stops.`,
+    );
+    setDateError("");
+    setDateFieldsTouched({ arrival: false, departure: false });
   }
 
   function selectedValue(label: string) {
@@ -631,11 +662,16 @@ export function HeroPlanner({ compact = false }: { compact?: boolean }) {
 
         {!loading && !result ? (
           <form onSubmit={handleSubmit} className="mx-auto mt-8 rounded-lg border border-white/10 bg-white/[0.08] p-3 shadow-2xl shadow-black/30 backdrop-blur sm:p-4">
-          <div className="rounded-lg border border-white/10 bg-black/35 p-3 sm:p-4">
+            <div className="rounded-lg border border-white/10 bg-black/35 p-3 sm:p-4">
             <div className="rounded-lg border border-amber-100/20 bg-amber-100/[0.07] p-4">
-              <p className="mb-3 inline-flex items-center gap-2 text-xs font-black uppercase tracking-[0.16em] text-amber-100">
-                <CalendarDays className="h-4 w-4" /> Step 1: Pick your Vegas dates
-              </p>
+              <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
+                <p className="inline-flex items-center gap-2 text-xs font-black uppercase tracking-[0.16em] text-amber-100">
+                  <CalendarDays className="h-4 w-4" /> Step 1: Pick your Vegas dates
+                </p>
+                <button type="button" onClick={loadSampleTrip} className="inline-flex min-h-9 items-center rounded-lg border border-white/15 bg-white/[0.06] px-3 py-2 text-xs font-black text-white transition hover:bg-white/10">
+                  Try sample: weekend for 4
+                </button>
+              </div>
               <div className="grid gap-3 sm:grid-cols-2 sm:items-start">
                 <DateRangeFields arrivalDate={arrivalDate} departureDate={departureDate} minArrival={today} maxDeparture={maxDepartureDate} onArrivalChange={(value) => updateTravelDates(value, departureDate)} onDepartureChange={(value) => updateTravelDates(arrivalDate, value)} onArrivalBlur={() => setDateFieldsTouched((current) => ({ ...current, arrival: true }))} onDepartureBlur={() => setDateFieldsTouched((current) => ({ ...current, departure: true }))} arrivalError={dateFieldsTouched.arrival ? arrivalError : ""} departureError={dateFieldsTouched.departure ? departureError : ""} theme="dark" />
               </div>
