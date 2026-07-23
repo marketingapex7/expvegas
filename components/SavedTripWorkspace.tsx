@@ -1,8 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { ArrowDown, ArrowRight, ArrowUp, CalendarDays, CheckCircle2, Clock, Copy, GripVertical, Lock, MapPin, Plus, ShieldCheck, Trash2, Unlock, WalletCards, Zap } from "lucide-react";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { ArrowDown, ArrowRight, ArrowUp, CalendarDays, CheckCircle2, Clock, Copy, GripVertical, List, Lock, Map as MapIcon, MapPin, Plus, Route, ShieldCheck, Trash2, Unlock, WalletCards, Zap } from "lucide-react";
+import { DragEvent as ReactDragEvent, useEffect, useMemo, useRef, useState } from "react";
 import { useTripSelections } from "@/components/TripSelectionProvider";
 import { CardImage } from "@/components/CardImage";
 import { DateRangeFields } from "@/components/DateRangeFields";
@@ -11,8 +11,10 @@ import { seedEvents } from "@/data/seed-events";
 import { DirectoryCategory, TripDates, TripPick, TripPickStatus, TripSettings } from "@/types/directory";
 import { formatPrice } from "@/lib/utils";
 import { calculateTripBudget, formatCostRange, tripDayCount } from "@/lib/trip-budget";
+import { estimateVegasTravel, inferVegasZone } from "@/lib/vegas-logistics";
 import { PrintPlanButton } from "@/components/PrintPlanButton";
 import { PrintableSavedTrip } from "@/components/PrintableItinerary";
+import { VegasAreaMap, VegasMapItem } from "@/components/VegasAreaMap";
 
 const categoryLabels: Record<DirectoryCategory, string> = {
   hotel: "Stays",
@@ -58,6 +60,7 @@ function directoryPick(id: string) {
     imageUrl: listing.imageUrl,
     priceLabel: listing.priceLabel,
     durationLabel: listing.durationLabel,
+    zone: listing.zone,
     detailUrl: `/places/${listing.slug}`,
     estimatedCostMin: listing.estimatedCostMin,
     estimatedCostMax: listing.estimatedCostMax,
@@ -80,6 +83,7 @@ function eventPick(id: string) {
     imageUrl: event.imageUrl || "https://images.unsplash.com/photo-1605833556294-ea5c7a74f57d?auto=format&fit=crop&w=1200&q=82",
     priceLabel: formatPrice(event.priceMin),
     durationLabel: event.runtimeMinutes ? `${event.runtimeMinutes} minutes` : "Confirm runtime",
+    zone: inferVegasZone(event.area),
     detailUrl: `/${event.category}/${event.slug}`,
     estimatedCostMin: event.priceMin,
     estimatedCostMax: event.priceMax || event.priceMin,
@@ -109,7 +113,11 @@ function decodePayload(value: string): SharedTrip | undefined {
 export function SavedTripWorkspace() {
   const { items, dates, settings, hydrated, removeItem, clearItems, setDates, setSettings, updateItem, reorderItem, moveItem, importTrip } = useTripSelections();
   const [draggedId, setDraggedId] = useState("");
+  const [dragOverId, setDragOverId] = useState("");
+  const [reorderMessage, setReorderMessage] = useState("");
+  const [workspaceView, setWorkspaceView] = useState<"list" | "map">("list");
   const [shareMessage, setShareMessage] = useState("");
+  const draggedIdRef = useRef("");
   const importedRef = useRef(false);
   const today = new Date().toISOString().slice(0, 10);
   const days = tripDayCount(dates);
@@ -141,21 +149,50 @@ export function SavedTripWorkspace() {
 
   const budget = useMemo(() => calculateTripBudget(items, settings, dates), [dates, items, settings]);
   const cost = budget.total;
+  const activeItems = useMemo(() => items.filter((item) => item.status !== "backup"), [items]);
+  const travelTransitions = useMemo(() => activeItems.slice(1).map((item, index) => {
+    const previous = activeItems[index];
+    const estimate = estimateVegasTravel(
+      previous.area,
+      item.area,
+      previous.zone || inferVegasZone(previous.area),
+      item.zone || inferVegasZone(item.area),
+    );
+    return { from: previous, to: item, estimate };
+  }), [activeItems]);
+  const tripMapItems = useMemo<VegasMapItem[]>(() => items.map((item, index) => ({
+    id: item.id,
+    name: item.name,
+    area: item.area,
+    zone: item.zone || inferVegasZone(item.area),
+    href: item.detailUrl,
+    mapUrl: item.mapUrl,
+    label: item.status === "backup" ? "Backup option" : item.status === "booked" ? "Booked" : item.status === "must-do" ? "Must do" : "Considering",
+    sequence: index + 1,
+  })), [items]);
 
   const checks = useMemo(() => {
     const issues: { label: string; penalty: number }[] = [];
-    const active = items.filter((item) => item.status !== "backup");
-    const eventCount = active.filter((item) => item.category === "event").length;
-    const areaCount = new Set(active.map((item) => item.area)).size;
+    const eventCount = activeItems.filter((item) => item.category === "event").length;
+    const areaCount = new Set(activeItems.map((item) => item.area)).size;
     if (!datesReady) issues.push({ label: "Choose trip dates before checking schedules.", penalty: 15 });
-    if (!active.some((item) => item.category === "restaurant")) issues.push({ label: "Add at least one meal anchor.", penalty: 8 });
-    if (!active.some((item) => item.category === "free" || item.category === "shopping")) issues.push({ label: "Add a free or flexible stop for breathing room.", penalty: 7 });
+    if (!activeItems.some((item) => item.category === "restaurant")) issues.push({ label: "Add at least one meal anchor.", penalty: 8 });
+    if (!activeItems.some((item) => item.category === "free" || item.category === "shopping")) issues.push({ label: "Add a free or flexible stop for breathing room.", penalty: 7 });
     if (eventCount > days) issues.push({ label: "There may be too many fixed events for the trip length.", penalty: 12 });
-    if (active.length > days * 5) issues.push({ label: "The shortlist is crowded; move lower-priority ideas to Backup.", penalty: 12 });
+    if (activeItems.length > days * 5) issues.push({ label: "The shortlist is crowded; move lower-priority ideas to Backup.", penalty: 12 });
     if (areaCount > Math.max(3, days + 1)) issues.push({ label: "The plan crosses many Vegas areas and may create excessive travel.", penalty: 10 });
+    const longestTransition = travelTransitions.reduce((longest, transition) => (
+      transition.estimate.maxMinutes > (longest?.estimate.maxMinutes || 0) ? transition : longest
+    ), travelTransitions[0]);
+    if (longestTransition?.estimate.maxMinutes >= 35) {
+      issues.push({
+        label: `${longestTransition.from.name} to ${longestTransition.to.name} may need ${longestTransition.estimate.minMinutes}-${longestTransition.estimate.maxMinutes} minutes in normal traffic.`,
+        penalty: 10,
+      });
+    }
     if (settings.budgetCap > 0 && cost.min > settings.budgetCap) issues.push({ label: "The low-end estimate is already above your target budget.", penalty: 18 });
     return issues;
-  }, [cost.min, datesReady, days, items, settings.budgetCap]);
+  }, [activeItems, cost.min, datesReady, days, settings.budgetCap, travelTransitions]);
 
   const planScore = Math.max(35, 100 - checks.reduce((sum, issue) => sum + issue.penalty, 0));
 
@@ -177,6 +214,55 @@ export function SavedTripWorkspace() {
     } catch {
       setShareMessage("Sharing was canceled.");
     }
+  }
+
+  function canReorder(sourceId: string, targetId: string) {
+    const sourceIndex = items.findIndex((item) => item.id === sourceId);
+    const targetIndex = items.findIndex((item) => item.id === targetId);
+    if (sourceIndex < 0 || targetIndex < 0 || sourceIndex === targetIndex) return false;
+    const firstIndex = Math.min(sourceIndex, targetIndex);
+    const lastIndex = Math.max(sourceIndex, targetIndex);
+    return !items.slice(firstIndex, lastIndex + 1).some((item) => item.locked);
+  }
+
+  function handleDragStart(event: ReactDragEvent<HTMLElement>, item: TripPick) {
+    event.dataTransfer.effectAllowed = "move";
+    event.dataTransfer.setData("text/plain", item.id);
+    draggedIdRef.current = item.id;
+    setDraggedId(item.id);
+    setReorderMessage("");
+  }
+
+  function handleDrop(event: ReactDragEvent<HTMLElement>, targetId: string) {
+    event.preventDefault();
+    const sourceId = draggedIdRef.current || event.dataTransfer.getData("text/plain");
+    const source = items.find((item) => item.id === sourceId);
+    const targetIndex = items.findIndex((item) => item.id === targetId);
+    if (sourceId === targetId) {
+      setDraggedId("");
+      setDragOverId("");
+      draggedIdRef.current = "";
+      return;
+    }
+    if (!canReorder(sourceId, targetId)) {
+      setReorderMessage("Booked picks stay locked in their current position.");
+      setDraggedId("");
+      setDragOverId("");
+      draggedIdRef.current = "";
+      return;
+    }
+    reorderItem(sourceId, targetId);
+    setReorderMessage(`${source?.name || "Pick"} moved to position ${targetIndex + 1}. Travel estimates updated.`);
+    setDraggedId("");
+    setDragOverId("");
+    draggedIdRef.current = "";
+  }
+
+  function moveAndAnnounce(item: TripPick, index: number, direction: -1 | 1) {
+    const targetIndex = index + direction;
+    if (item.locked || items[targetIndex]?.locked) return;
+    moveItem(item.id, direction);
+    setReorderMessage(`${item.name} moved to position ${targetIndex + 1}. Travel estimates updated.`);
   }
 
   if (!hydrated) return <div className="min-h-[60vh] bg-[#f7f7f8]" />;
@@ -201,15 +287,30 @@ export function SavedTripWorkspace() {
         <div className="mt-8 grid gap-8 lg:grid-cols-[minmax(0,1fr)_380px]">
           <section aria-label="Saved itinerary items">
             {items.length ? (
+              <div className="mb-4 flex justify-end">
+                <div className="inline-flex rounded-lg border border-zinc-300 bg-zinc-100 p-1" aria-label="Itinerary view">
+                  <button type="button" onClick={() => setWorkspaceView("list")} aria-label="Itinerary list view" aria-pressed={workspaceView === "list"} className={`inline-flex min-h-10 items-center gap-2 rounded-md px-3 text-xs font-black ${workspaceView === "list" ? "bg-white text-zinc-950 shadow-sm" : "text-zinc-500"}`}><List className="h-4 w-4" /> List</button>
+                  <button type="button" onClick={() => setWorkspaceView("map")} aria-label="Itinerary map view" aria-pressed={workspaceView === "map"} className={`inline-flex min-h-10 items-center gap-2 rounded-md px-3 text-xs font-black ${workspaceView === "map" ? "bg-white text-zinc-950 shadow-sm" : "text-zinc-500"}`}><MapIcon className="h-4 w-4" /> Map</button>
+                </div>
+              </div>
+            ) : null}
+            <p id="reorder-status" aria-live="polite" className="sr-only">{reorderMessage}</p>
+            {items.length && workspaceView === "list" ? (
               <div className="space-y-4">
                 {items.map((item, index) => (
                   <article
                     key={item.id}
-                    draggable={!item.locked}
-                    onDragStart={() => setDraggedId(item.id)}
-                    onDragOver={(event) => event.preventDefault()}
-                    onDrop={() => { if (draggedId) reorderItem(draggedId, item.id); setDraggedId(""); }}
-                    className={`overflow-hidden rounded-lg border bg-white shadow-sm ${item.locked ? "border-amber-300" : "border-zinc-200"}`}
+                    data-testid={`itinerary-item-${item.id}`}
+                    onDragOver={(event) => {
+                      event.preventDefault();
+                      event.dataTransfer.dropEffect = "move";
+                      if (draggedIdRef.current && draggedIdRef.current !== item.id) setDragOverId(item.id);
+                    }}
+                    onDrop={(event) => handleDrop(event, item.id)}
+                    aria-describedby="reorder-status"
+                    className={`overflow-hidden rounded-lg border bg-white shadow-sm transition ${
+                      dragOverId === item.id ? "border-fuchsia-500 ring-2 ring-fuchsia-100" : item.locked ? "border-amber-300" : "border-zinc-200"
+                    } ${draggedId === item.id ? "opacity-55" : ""}`}
                   >
                     <div className="grid sm:grid-cols-[9rem_1fr]">
                       <Link href={item.detailUrl} className="relative min-h-36 bg-zinc-200">
@@ -223,7 +324,16 @@ export function SavedTripWorkspace() {
                             <p className="mt-2 flex items-center gap-1 text-xs font-bold text-zinc-500"><MapPin className="h-3.5 w-3.5" /> {item.area}</p>
                           </div>
                           <div className="flex items-center">
-                            <GripVertical className="hidden h-5 w-5 text-zinc-300 sm:block" />
+                            <span
+                              data-testid={`reorder-handle-${item.id}`}
+                              title={item.locked ? "Unlock to reorder" : "Drag to reorder"}
+                              draggable={!item.locked}
+                              onDragStart={(event) => handleDragStart(event, item)}
+                              onDragEnd={() => { draggedIdRef.current = ""; setDraggedId(""); setDragOverId(""); }}
+                              className={`hidden sm:inline-flex ${item.locked ? "cursor-not-allowed" : "cursor-grab active:cursor-grabbing"}`}
+                            >
+                              <GripVertical className={`h-5 w-5 ${item.locked ? "text-zinc-200" : "text-zinc-400"}`} />
+                            </span>
                             <button type="button" onClick={() => updateItem(item.id, { locked: !item.locked })} aria-label={item.locked ? `Unlock ${item.name}` : `Lock ${item.name}`} className={`inline-flex h-9 w-9 items-center justify-center rounded-lg ${item.locked ? "bg-amber-100 text-amber-900" : "text-zinc-400 hover:bg-zinc-100"}`}>{item.locked ? <Lock className="h-4 w-4" /> : <Unlock className="h-4 w-4" />}</button>
                             <button type="button" onClick={() => removeItem(item.id)} aria-label={`Remove ${item.name}`} className="inline-flex h-9 w-9 items-center justify-center rounded-lg text-zinc-400 hover:bg-zinc-100 hover:text-zinc-950"><Trash2 className="h-4 w-4" /></button>
                           </div>
@@ -238,8 +348,8 @@ export function SavedTripWorkspace() {
                             {item.mapUrl ? <a href={item.mapUrl} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 hover:text-fuchsia-700"><MapPin className="h-3.5 w-3.5" /> Map</a> : null}
                           </div>
                           <div className="flex gap-1">
-                            <button type="button" disabled={index === 0 || item.locked} onClick={() => moveItem(item.id, -1)} aria-label={`Move ${item.name} up`} className="inline-flex h-8 w-8 items-center justify-center rounded-md border border-zinc-200 disabled:opacity-30"><ArrowUp className="h-3.5 w-3.5" /></button>
-                            <button type="button" disabled={index === items.length - 1 || item.locked} onClick={() => moveItem(item.id, 1)} aria-label={`Move ${item.name} down`} className="inline-flex h-8 w-8 items-center justify-center rounded-md border border-zinc-200 disabled:opacity-30"><ArrowDown className="h-3.5 w-3.5" /></button>
+                            <button type="button" title="Move earlier" disabled={index === 0 || item.locked || items[index - 1]?.locked} onClick={() => moveAndAnnounce(item, index, -1)} aria-label={`Move ${item.name} up`} className="inline-flex h-8 w-8 items-center justify-center rounded-md border border-zinc-200 disabled:opacity-30"><ArrowUp className="h-3.5 w-3.5" /></button>
+                            <button type="button" title="Move later" disabled={index === items.length - 1 || item.locked || items[index + 1]?.locked} onClick={() => moveAndAnnounce(item, index, 1)} aria-label={`Move ${item.name} down`} className="inline-flex h-8 w-8 items-center justify-center rounded-md border border-zinc-200 disabled:opacity-30"><ArrowDown className="h-3.5 w-3.5" /></button>
                           </div>
                         </div>
                       </div>
@@ -247,6 +357,8 @@ export function SavedTripWorkspace() {
                   </article>
                 ))}
               </div>
+            ) : items.length ? (
+              <VegasAreaMap items={tripMapItems} title="Your itinerary by Vegas area" testId="itinerary-map-view" />
             ) : (
               <div className="flex min-h-96 flex-col items-center justify-center rounded-lg border border-dashed border-zinc-300 bg-white px-6 text-center">
                 <Plus className="h-8 w-8 text-fuchsia-700" />
@@ -271,6 +383,22 @@ export function SavedTripWorkspace() {
               <div className="flex items-center justify-between"><p className="inline-flex items-center gap-2 text-xs font-black uppercase tracking-[0.18em] text-fuchsia-700"><ShieldCheck className="h-4 w-4" /> Plan health</p><span className={`text-2xl font-black ${planScore >= 85 ? "text-emerald-700" : planScore >= 65 ? "text-amber-700" : "text-rose-700"}`}>{planScore}</span></div>
               {checks.length ? <ul className="mt-4 space-y-2">{checks.map((check) => <li key={check.label} className="text-sm leading-6 text-zinc-600">- {check.label}</li>)}</ul> : <p className="mt-4 inline-flex items-start gap-2 text-sm font-bold leading-6 text-emerald-800"><CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0" /> The shortlist has a strong balance for planning.</p>}
             </div> : null}
+
+            {travelTransitions.length ? (
+              <div data-testid="travel-reality" className="rounded-lg border border-zinc-200 bg-white p-5 shadow-sm">
+                <p className="inline-flex items-center gap-2 text-xs font-black uppercase tracking-[0.18em] text-fuchsia-700"><Route className="h-4 w-4" /> Travel reality</p>
+                <div className="mt-4 space-y-3">
+                  {travelTransitions.slice(0, 4).map((transition) => (
+                    <div key={`${transition.from.id}-${transition.to.id}`} className="border-l-2 border-zinc-200 pl-3">
+                      <p className="text-sm font-black text-zinc-950">{transition.from.name} to {transition.to.name}</p>
+                      <p className="mt-1 text-xs font-bold text-zinc-500">{transition.estimate.minMinutes}-{transition.estimate.maxMinutes} min | {transition.estimate.label}</p>
+                    </div>
+                  ))}
+                </div>
+                {travelTransitions.length > 4 ? <p className="mt-3 text-xs font-bold text-zinc-500">Plus {travelTransitions.length - 4} more transition{travelTransitions.length - 4 === 1 ? "" : "s"}.</p> : null}
+                <p className="mt-4 text-xs leading-5 text-zinc-500">Planning estimate based on the current shortlist order. Event traffic and resort walking time can add more.</p>
+              </div>
+            ) : null}
 
             <div className="rounded-lg bg-zinc-950 p-5 text-white shadow-sm">
               <p className="text-xs font-black uppercase tracking-[0.18em] text-amber-200">Working estimate</p>

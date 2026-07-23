@@ -3,7 +3,9 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import {
   ArrowLeft,
+  ArrowRight,
   ArrowUpRight,
+  BookOpen,
   CalendarClock,
   CheckCircle2,
   Clock,
@@ -44,6 +46,63 @@ const schemaTypes = {
   free: "TouristAttraction",
   shopping: "ShoppingCenter",
   event: "Event",
+};
+
+const relatedGuidesByCategory = {
+  hotel: [
+    { href: "/best-hotels-on-the-las-vegas-strip", label: "Best Hotels on the Las Vegas Strip" },
+    { href: "/downtown-las-vegas-hotels", label: "Downtown Las Vegas Hotels" },
+    { href: "/las-vegas-first-time-visitors", label: "Vegas for First-Time Visitors" },
+  ],
+  restaurant: [
+    { href: "/las-vegas-steakhouses", label: "Las Vegas Steakhouses" },
+    { href: "/las-vegas-buffets", label: "Las Vegas Buffets" },
+    { href: "/cheap-eats-las-vegas", label: "Cheap Eats in Las Vegas" },
+  ],
+  attraction: [
+    { href: "/things-to-do-las-vegas", label: "Things To Do in Las Vegas" },
+    { href: "/las-vegas-family-activities", label: "Family Things To Do" },
+    { href: "/free-things-to-do-las-vegas", label: "Free Things To Do" },
+  ],
+  free: [
+    { href: "/free-things-to-do-las-vegas", label: "Free Things To Do in Las Vegas" },
+    { href: "/cheap-things-to-do", label: "Cheap Things To Do" },
+    { href: "/las-vegas-first-time-visitors", label: "Vegas for First-Time Visitors" },
+  ],
+  shopping: [
+    { href: "/las-vegas-shopping", label: "Shopping in Las Vegas" },
+    { href: "/things-to-do-las-vegas", label: "Things To Do in Las Vegas" },
+    { href: "/las-vegas-for-families", label: "Las Vegas for Families" },
+  ],
+  event: [
+    { href: "/las-vegas-shows", label: "Las Vegas Shows" },
+    { href: "/tonight", label: "What Is On Tonight" },
+    { href: "/this-weekend", label: "Vegas This Weekend" },
+  ],
+};
+
+const relatedGuidesByZone = {
+  "South Strip": [
+    { href: "/near/t-mobile-arena", label: "Things To Do Near T-Mobile Arena" },
+    { href: "/near/allegiant-stadium", label: "Things To Do Near Allegiant Stadium" },
+    { href: "/near/mgm-grand", label: "Things To Do Near MGM Grand" },
+  ],
+  "Center Strip": [
+    { href: "/near/bellagio", label: "Things To Do Near Bellagio" },
+    { href: "/near/caesars-palace", label: "Things To Do Near Caesars Palace" },
+  ],
+  "North Strip": [
+    { href: "/near/sphere", label: "Things To Do Near Sphere" },
+    { href: "/restaurants-near-sphere-las-vegas", label: "Restaurants Near Sphere" },
+  ],
+  Downtown: [
+    { href: "/downtown-las-vegas-hotels", label: "Downtown Las Vegas Hotels" },
+    { href: "/free-things-to-do-las-vegas", label: "Free Things To Do" },
+  ],
+  "Off Strip": [
+    { href: "/cheap-eats-las-vegas", label: "Cheap Eats in Las Vegas" },
+    { href: "/las-vegas-day-trips", label: "Day Trips From Las Vegas" },
+  ],
 };
 
 function estimatedCostLabel(listing: DirectoryListing) {
@@ -93,6 +152,7 @@ export default async function PlaceDetailPage({ params }: { params: Promise<{ sl
     imageUrl: listing.imageUrl,
     priceLabel: listing.priceLabel,
     durationLabel: listing.durationLabel,
+    zone: listing.zone,
     estimatedCostMin: listing.estimatedCostMin,
     estimatedCostMax: listing.estimatedCostMax,
     costUnit: listing.costUnit,
@@ -111,6 +171,9 @@ export default async function PlaceDetailPage({ params }: { params: Promise<{ sl
     })
     .slice(0, 4);
   const categoryLink = categoryLinks[listing.category];
+  const relatedGuides = [...relatedGuidesByZone[listing.zone], ...relatedGuidesByCategory[listing.category]]
+    .filter((guide, index, guides) => guides.findIndex((item) => item.href === guide.href) === index)
+    .slice(0, 4);
   const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://experiencevegas.com";
   const structuredData = {
     "@context": "https://schema.org",
@@ -128,10 +191,20 @@ export default async function PlaceDetailPage({ params }: { params: Promise<{ sl
     priceRange: listing.priceLabel,
     touristType: listing.bestFor,
   };
+  const breadcrumbStructuredData = {
+    "@context": "https://schema.org",
+    "@type": "BreadcrumbList",
+    itemListElement: [
+      { "@type": "ListItem", position: 1, name: "Home", item: siteUrl },
+      { "@type": "ListItem", position: 2, name: categoryLink.label, item: `${siteUrl}${categoryLink.href}` },
+      { "@type": "ListItem", position: 3, name: listing.name, item: `${siteUrl}${detailUrl}` },
+    ],
+  };
 
   return (
     <section className="bg-[#f7f7f8] px-4 py-8 text-zinc-950 sm:px-5 sm:py-12">
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(structuredData).replace(/</g, "\\u003c") }} />
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbStructuredData).replace(/</g, "\\u003c") }} />
       <div className="mx-auto max-w-7xl">
         <Link href={categoryLink.href} className="inline-flex items-center gap-2 text-sm font-black text-zinc-500 transition hover:text-zinc-950">
           <ArrowLeft className="h-4 w-4" /> Back to {categoryLink.label}
@@ -244,6 +317,19 @@ export default async function PlaceDetailPage({ params }: { params: Promise<{ sl
             <div className="mt-6 grid gap-5 sm:grid-cols-2 lg:grid-cols-4">{nearby.map((item) => <DirectoryCard key={item.id} listing={item} />)}</div>
           </section>
         ) : null}
+
+        <section className="mt-14 border-t border-zinc-200 pt-10">
+          <p className="inline-flex items-center gap-2 text-xs font-black uppercase tracking-[0.22em] text-fuchsia-700"><BookOpen className="h-4 w-4" /> Keep planning</p>
+          <h2 className="mt-2 text-3xl font-black text-zinc-950">Useful guides around this choice.</h2>
+          <p className="mt-3 max-w-3xl leading-7 text-zinc-600">Compare the broader category, then use a nearby guide to keep the rest of the day in a realistic part of Vegas.</p>
+          <div className="mt-6 grid gap-x-6 sm:grid-cols-2 lg:grid-cols-4">
+            {relatedGuides.map((guide) => (
+              <Link key={guide.href} href={guide.href} className="group flex min-h-20 items-center justify-between gap-4 border-t border-zinc-300 py-4 text-sm font-black text-zinc-800 transition hover:border-fuchsia-400 hover:text-fuchsia-800">
+                {guide.label} <ArrowRight className="h-4 w-4 shrink-0 transition group-hover:translate-x-1" />
+              </Link>
+            ))}
+          </div>
+        </section>
       </div>
     </section>
   );

@@ -42,6 +42,7 @@ export type DirectoryListing = {
 
 export type TripPick = Pick<DirectoryListing, "id" | "slug" | "name" | "category" | "area" | "description" | "imageUrl" | "priceLabel" | "durationLabel"> & {
   detailUrl: string;
+  zone?: VegasZone;
   estimatedCostMin?: number;
   estimatedCostMax?: number;
   costUnit?: CostUnit;

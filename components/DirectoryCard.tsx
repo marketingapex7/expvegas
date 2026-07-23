@@ -36,6 +36,7 @@ export function DirectoryCard({ listing }: { listing: DirectoryListing }) {
     imageUrl: listing.imageUrl,
     priceLabel: listing.priceLabel,
     durationLabel: listing.durationLabel,
+    zone: listing.zone,
     estimatedCostMin: listing.estimatedCostMin,
     estimatedCostMax: listing.estimatedCostMax,
     costUnit: listing.costUnit,

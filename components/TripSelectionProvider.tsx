@@ -116,6 +116,9 @@ export function TripSelectionProvider({ children }: { children: ReactNode }) {
       const sourceIndex = current.findIndex((item) => item.id === sourceId);
       const targetIndex = current.findIndex((item) => item.id === targetId);
       if (sourceIndex < 0 || targetIndex < 0 || sourceIndex === targetIndex) return current;
+      const firstIndex = Math.min(sourceIndex, targetIndex);
+      const lastIndex = Math.max(sourceIndex, targetIndex);
+      if (current.slice(firstIndex, lastIndex + 1).some((item) => item.locked)) return current;
       const next = [...current];
       const [source] = next.splice(sourceIndex, 1);
       next.splice(targetIndex, 0, source);
@@ -125,6 +128,7 @@ export function TripSelectionProvider({ children }: { children: ReactNode }) {
       const index = current.findIndex((item) => item.id === id);
       const target = index + direction;
       if (index < 0 || target < 0 || target >= current.length) return current;
+      if (current[index].locked || current[target].locked) return current;
       const next = [...current];
       [next[index], next[target]] = [next[target], next[index]];
       return next;

@@ -1,23 +1,57 @@
 "use client";
 
-import { ChevronDown, LayoutGrid, MapPinned, RotateCcw, Search, SlidersHorizontal } from "lucide-react";
+import Link from "next/link";
+import { ChevronDown, LayoutGrid, Map as MapIcon, MapPinned, RotateCcw, Scale, Search, SlidersHorizontal, X } from "lucide-react";
 import { useMemo, useState } from "react";
 import { DirectoryCard } from "@/components/DirectoryCard";
 import { EventCard } from "@/components/EventCard";
+import { VegasAreaMap, VegasMapItem } from "@/components/VegasAreaMap";
 import { BookingGuidance, DirectoryListing, EnvironmentType, VegasZone } from "@/types/directory";
 import { VegasEvent } from "@/types/event";
+import { formatPrice } from "@/lib/utils";
+import { inferVegasZone } from "@/lib/vegas-logistics";
 
 type Result =
   | { kind: "directory"; id: string; area: string; zone: VegasZone; environment: EnvironmentType; durationMin: number; durationMax: number; bookingGuidance: BookingGuidance; score: number; priceMin: number; searchable: string; item: DirectoryListing }
   | { kind: "event"; id: string; area: string; zone: VegasZone; environment: EnvironmentType; durationMin: number; durationMax: number; bookingGuidance: BookingGuidance; score: number; priceMin: number; searchable: string; item: VegasEvent };
 
-function eventZone(area: string): VegasZone {
-  const text = area.toLowerCase();
-  if (text.includes("downtown") || text.includes("fremont")) return "Downtown";
-  if (text.includes("off strip") || text.includes("east") || text.includes("west")) return "Off Strip";
-  if (text.includes("south") || text.includes("t-mobile") || text.includes("allegiant")) return "South Strip";
-  if (text.includes("north") || text.includes("venetian") || text.includes("sphere") || text.includes("wynn")) return "North Strip";
-  return "Center Strip";
+const bookingLabels: Record<BookingGuidance, string> = {
+  "book-now": "Book ahead",
+  reserve: "Reserve ahead",
+  flexible: "Usually flexible",
+  free: "No booking",
+  "check-availability": "Check schedule",
+};
+
+function directoryCostLabel(item: DirectoryListing) {
+  if (item.costUnit === "free" || item.estimatedCostMax === 0) return "Free";
+  const value = item.estimatedCostMin === item.estimatedCostMax
+    ? `$${item.estimatedCostMin}`
+    : `$${item.estimatedCostMin}-$${item.estimatedCostMax}`;
+  const unit = item.costUnit === "per-person" ? " per person" : item.costUnit === "per-night" ? " per night" : "";
+  return `${value}${unit}`;
+}
+
+function comparisonDetails(result: Result) {
+  if (result.kind === "directory") {
+    return {
+      name: result.item.name,
+      href: `/places/${result.item.slug}`,
+      cost: directoryCostLabel(result.item),
+      duration: result.item.durationLabel || `${result.durationMin}-${result.durationMax} minutes`,
+      bestFor: result.item.bestFor.slice(0, 3).join(", "),
+      timing: result.item.idealTime,
+    };
+  }
+
+  return {
+    name: result.item.name,
+    href: `/${result.item.category}/${result.item.slug}`,
+    cost: formatPrice(result.item.priceMin),
+    duration: result.item.runtimeMinutes ? `${result.item.runtimeMinutes} minutes` : "Confirm runtime",
+    bestFor: result.item.bestFor.slice(0, 3).join(", "),
+    timing: result.item.localTime ? `Starts at ${result.item.localTime.slice(0, 5)}` : "Confirm showtime",
+  };
 }
 
 function normalizedResults(directory: DirectoryListing[], events: VegasEvent[]): Result[] {
@@ -40,7 +74,7 @@ function normalizedResults(directory: DirectoryListing[], events: VegasEvent[]):
       kind: "event" as const,
       id: item.id,
       area: item.area,
-      zone: eventZone(item.area),
+      zone: inferVegasZone(item.area),
       environment: "Indoor" as const,
       durationMin: item.runtimeMinutes || 60,
       durationMax: item.runtimeMinutes || 120,
@@ -53,8 +87,41 @@ function normalizedResults(directory: DirectoryListing[], events: VegasEvent[]):
   ];
 }
 
-function ResultCard({ result }: { result: Result }) {
-  return result.kind === "directory" ? <DirectoryCard listing={result.item} /> : <EventCard event={result.item} />;
+function ResultCard({
+  result,
+  comparisonSelected,
+  comparisonDisabled,
+  onToggleComparison,
+}: {
+  result: Result;
+  comparisonSelected: boolean;
+  comparisonDisabled: boolean;
+  onToggleComparison: () => void;
+}) {
+  const name = result.item.name;
+  return (
+    <div className="flex min-h-full min-w-0 flex-col">
+      <div className="mb-2 flex min-h-9 justify-end">
+        <button
+          type="button"
+          aria-label={`${comparisonSelected ? "Remove" : "Compare"} ${name}`}
+          aria-pressed={comparisonSelected}
+          disabled={comparisonDisabled && !comparisonSelected}
+          onClick={onToggleComparison}
+          className={`inline-flex min-h-9 items-center gap-1.5 rounded-lg px-3 text-xs font-black transition ${
+            comparisonSelected
+              ? "bg-fuchsia-100 text-fuchsia-950"
+              : "border border-zinc-300 bg-white text-zinc-600 hover:border-fuchsia-300 hover:text-zinc-950 disabled:cursor-not-allowed disabled:opacity-40"
+          }`}
+        >
+          <Scale className="h-3.5 w-3.5" /> {comparisonSelected ? "Comparing" : "Compare"}
+        </button>
+      </div>
+      <div className="min-h-0 flex-1">
+        {result.kind === "directory" ? <DirectoryCard listing={result.item} /> : <EventCard event={result.item} />}
+      </div>
+    </div>
+  );
 }
 
 export function BrowseResults({ directory, events, title }: { directory: DirectoryListing[]; events: VegasEvent[]; title: string }) {
@@ -67,8 +134,10 @@ export function BrowseResults({ directory, events, title }: { directory: Directo
   const [booking, setBooking] = useState("all");
   const [vibe, setVibe] = useState("all");
   const [sort, setSort] = useState("recommended");
-  const [view, setView] = useState<"grid" | "area">("grid");
+  const [view, setView] = useState<"grid" | "area" | "map">("grid");
   const [showMoreFilters, setShowMoreFilters] = useState(false);
+  const [comparisonIds, setComparisonIds] = useState<string[]>([]);
+  const [comparisonOpen, setComparisonOpen] = useState(false);
   const source = useMemo(() => normalizedResults(directory, events), [directory, events]);
   const zones = useMemo(() => [...new Set(source.map((result) => result.zone))].sort(), [source]);
   const hasDurationChoices = source.some((result) => result.durationMax > 0);
@@ -105,6 +174,38 @@ export function BrowseResults({ directory, events, title }: { directory: Directo
     area: groupArea,
     results: results.filter((result) => result.area === groupArea),
   })), [results]);
+  const mapItems = useMemo<VegasMapItem[]>(() => results.map((result, index) => {
+    if (result.kind === "directory") {
+      return {
+        id: result.id,
+        name: result.item.name,
+        area: result.area,
+        zone: result.zone,
+        href: `/places/${result.item.slug}`,
+        mapUrl: result.item.mapUrl,
+        label: `${directoryCostLabel(result.item)} · ${bookingLabels[result.bookingGuidance]}`,
+        sequence: index + 1,
+      };
+    }
+
+    return {
+      id: result.id,
+      name: result.item.name,
+      area: result.item.venueName,
+      zone: result.zone,
+      href: `/${result.item.category}/${result.item.slug}`,
+      mapUrl: `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(`${result.item.venueName}, Las Vegas, NV`)}`,
+      label: `${formatPrice(result.item.priceMin)} · ${bookingLabels[result.bookingGuidance]}`,
+      sequence: index + 1,
+    };
+  }), [results]);
+  const comparisonResults = useMemo(
+    () => comparisonIds.flatMap((id) => {
+      const result = source.find((item) => item.id === id);
+      return result ? [result] : [];
+    }),
+    [comparisonIds, source],
+  );
 
   function clearFilters() {
     setQuery("");
@@ -115,6 +216,34 @@ export function BrowseResults({ directory, events, title }: { directory: Directo
     setEnvironment("all");
     setBooking("all");
     setVibe("all");
+  }
+
+  function toggleComparison(id: string) {
+    if (comparisonIds.includes(id)) {
+      const next = comparisonIds.filter((item) => item !== id);
+      setComparisonIds(next);
+      if (next.length < 2) setComparisonOpen(false);
+      return;
+    }
+    if (comparisonIds.length < 3) setComparisonIds([...comparisonIds, id]);
+  }
+
+  function clearComparison() {
+    setComparisonIds([]);
+    setComparisonOpen(false);
+  }
+
+  function resultCard(result: Result) {
+    const selected = comparisonIds.includes(result.id);
+    return (
+      <ResultCard
+        key={result.id}
+        result={result}
+        comparisonSelected={selected}
+        comparisonDisabled={comparisonIds.length >= 3}
+        onToggleComparison={() => toggleComparison(result.id)}
+      />
+    );
   }
 
   return (
@@ -230,19 +359,73 @@ export function BrowseResults({ directory, events, title }: { directory: Directo
           <div className="inline-flex rounded-lg border border-zinc-300 bg-zinc-50 p-1" aria-label="Result layout">
             <button type="button" onClick={() => setView("grid")} aria-label="Grid view" aria-pressed={view === "grid"} className={`inline-flex min-h-11 items-center justify-center gap-2 rounded-md px-3 text-xs font-black ${view === "grid" ? "bg-white text-zinc-950 shadow-sm" : "text-zinc-500"}`}><LayoutGrid className="h-4 w-4" /><span className="hidden sm:inline">Grid</span></button>
             <button type="button" onClick={() => setView("area")} aria-label="Group by area" aria-pressed={view === "area"} className={`inline-flex min-h-11 items-center justify-center gap-2 rounded-md px-3 text-xs font-black ${view === "area" ? "bg-white text-zinc-950 shadow-sm" : "text-zinc-500"}`}><MapPinned className="h-4 w-4" /><span className="hidden sm:inline">By area</span></button>
+            <button type="button" onClick={() => setView("map")} aria-label="Map view" aria-pressed={view === "map"} className={`inline-flex min-h-11 items-center justify-center gap-2 rounded-md px-3 text-xs font-black ${view === "map" ? "bg-white text-zinc-950 shadow-sm" : "text-zinc-500"}`}><MapIcon className="h-4 w-4" /><span className="hidden sm:inline">Map</span></button>
           </div>
         </div>
       </div>
 
+      {comparisonResults.length ? (
+        <div data-testid="comparison-bar" className="mt-4 flex flex-col gap-3 border-y border-zinc-300 bg-white px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
+          <div className="min-w-0">
+            <p className="text-xs font-black uppercase tracking-[0.14em] text-fuchsia-700">{comparisonResults.length} of 3 selected</p>
+            <p className="mt-1 truncate text-sm font-bold text-zinc-600">{comparisonResults.map((result) => result.item.name).join(" vs. ")}</p>
+          </div>
+          <div className="flex gap-2">
+            <button type="button" onClick={clearComparison} className="min-h-10 rounded-lg px-3 text-xs font-black text-zinc-500 hover:bg-zinc-100">Clear</button>
+            <button
+              type="button"
+              disabled={comparisonResults.length < 2}
+              onClick={() => setComparisonOpen(true)}
+              className="inline-flex min-h-10 flex-1 items-center justify-center gap-2 rounded-lg bg-zinc-950 px-4 text-xs font-black text-white transition hover:bg-fuchsia-800 disabled:cursor-not-allowed disabled:bg-zinc-200 disabled:text-zinc-500 sm:flex-none"
+            >
+              <Scale className="h-4 w-4" /> Compare {comparisonResults.length} picks
+            </button>
+          </div>
+        </div>
+      ) : null}
+
+      {comparisonOpen && comparisonResults.length >= 2 ? (
+        <section data-testid="comparison-panel" aria-labelledby="comparison-heading" className="mt-8 border-y border-zinc-300 py-7">
+          <div className="flex items-start justify-between gap-4">
+            <div>
+              <p className="text-xs font-black uppercase tracking-[0.18em] text-fuchsia-700">Decision support</p>
+              <h2 id="comparison-heading" className="mt-2 text-3xl font-black text-zinc-950">Compare your Vegas picks</h2>
+            </div>
+            <button type="button" onClick={() => setComparisonOpen(false)} aria-label="Close comparison" className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-zinc-300 text-zinc-600 hover:bg-zinc-100"><X className="h-4 w-4" /></button>
+          </div>
+          <div className={`mt-6 grid gap-4 ${comparisonResults.length === 2 ? "md:grid-cols-2" : "md:grid-cols-3"}`}>
+            {comparisonResults.map((result) => {
+              const details = comparisonDetails(result);
+              return (
+                <article key={result.id} className="rounded-lg border border-zinc-200 bg-white p-5 shadow-sm">
+                  <p className="text-xs font-black uppercase tracking-[0.14em] text-fuchsia-700">{result.zone}</p>
+                  <h3 className="mt-2 text-xl font-black leading-snug text-zinc-950">{details.name}</h3>
+                  <dl className="mt-5 divide-y divide-zinc-100 text-sm">
+                    <div className="grid grid-cols-[5.5rem_1fr] gap-3 py-3"><dt className="font-black text-zinc-500">Cost</dt><dd className="font-bold text-zinc-900">{details.cost}</dd></div>
+                    <div className="grid grid-cols-[5.5rem_1fr] gap-3 py-3"><dt className="font-black text-zinc-500">Time</dt><dd className="font-bold text-zinc-900">{details.duration}</dd></div>
+                    <div className="grid grid-cols-[5.5rem_1fr] gap-3 py-3"><dt className="font-black text-zinc-500">Best for</dt><dd className="font-bold text-zinc-900">{details.bestFor}</dd></div>
+                    <div className="grid grid-cols-[5.5rem_1fr] gap-3 py-3"><dt className="font-black text-zinc-500">When</dt><dd className="font-bold text-zinc-900">{details.timing}</dd></div>
+                    <div className="grid grid-cols-[5.5rem_1fr] gap-3 py-3"><dt className="font-black text-zinc-500">Booking</dt><dd className="font-bold text-zinc-900">{bookingLabels[result.bookingGuidance]}</dd></div>
+                  </dl>
+                  <Link href={details.href} className="mt-5 inline-flex min-h-11 w-full items-center justify-center rounded-lg border border-zinc-300 px-4 text-sm font-black text-zinc-900 hover:bg-zinc-100">View details</Link>
+                </article>
+              );
+            })}
+          </div>
+        </section>
+      ) : null}
+
       {results.length ? view === "grid" ? (
-        <div className={`mt-6 grid gap-5 md:grid-cols-2 ${results.length === 2 ? "lg:grid-cols-2" : "lg:grid-cols-3"}`}>{results.map((result) => <ResultCard key={result.id} result={result} />)}</div>
-      ) : (
+        <div className={`mt-6 grid gap-5 md:grid-cols-2 ${results.length === 2 ? "lg:grid-cols-2" : "lg:grid-cols-3"}`}>{results.map(resultCard)}</div>
+      ) : view === "area" ? (
         <div className="mt-8 space-y-10">{grouped.map((group) => (
           <section key={group.area}>
             <div className="mb-4 flex items-center gap-2"><MapPinned className="h-5 w-5 text-fuchsia-700" /><h3 className="text-2xl font-black">{group.area}</h3><span className="text-sm font-bold text-zinc-400">{group.results.length}</span></div>
-            <div className="grid gap-5 md:grid-cols-2 lg:grid-cols-3">{group.results.map((result) => <ResultCard key={result.id} result={result} />)}</div>
+            <div className="grid gap-5 md:grid-cols-2 lg:grid-cols-3">{group.results.map(resultCard)}</div>
           </section>
         ))}</div>
+      ) : (
+        <div className="mt-6"><VegasAreaMap items={mapItems} title={`${title} by Vegas area`} testId="browse-map-view" /></div>
       ) : (
         <div className="mt-6 rounded-lg border border-dashed border-zinc-300 bg-white px-5 py-16 text-center"><p className="font-black text-zinc-950">No choices match those filters.</p><p className="mt-2 text-sm text-zinc-500">Try a broader neighborhood, price, or planning style.</p><button type="button" onClick={clearFilters} className="mt-3 text-sm font-bold text-fuchsia-700">Clear filters</button></div>
       )}

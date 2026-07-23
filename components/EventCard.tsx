@@ -6,6 +6,7 @@ import { useMemo, useState } from "react";
 import { CardImage } from "@/components/CardImage";
 import { VegasEvent } from "@/types/event";
 import { formatPrice } from "@/lib/utils";
+import { inferVegasZone } from "@/lib/vegas-logistics";
 import { TripToggleButton } from "@/components/TripToggleButton";
 
 const scheduleDateFormatter = new Intl.DateTimeFormat("en-US", {
@@ -60,6 +61,7 @@ export function EventCard({ event, badge, priority = false }: { event: VegasEven
     imageUrl,
     priceLabel: formatPrice(event.priceMin),
     durationLabel: event.runtimeMinutes ? `${event.runtimeMinutes} minutes` : "Confirm runtime",
+    zone: inferVegasZone(event.area),
     estimatedCostMin: event.priceMin,
     estimatedCostMax: event.priceMax || event.priceMin,
     costUnit: "per-person" as const,

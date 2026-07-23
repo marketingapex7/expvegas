@@ -3,6 +3,7 @@ import { restaurants, VegasRestaurant } from "@/data/restaurants";
 import { VegasEvent } from "@/types/event";
 import { ItineraryBlock, ItineraryDay, PlannerInput } from "@/types/planner";
 import { mealLevelsFromText } from "@/lib/budget-preferences";
+import { estimateVegasTravel } from "@/lib/vegas-logistics";
 
 type BuildItineraryInput = {
   plannerInput: PlannerInput;
@@ -220,10 +221,12 @@ function defaultDuration(block: ItineraryBlock) {
   return 60;
 }
 
-function bufferAfter(block: ItineraryBlock) {
-  if (block.category === "event") return 30;
-  if (block.category === "meal") return 20;
-  return 15;
+function bufferBetween(block: ItineraryBlock, nextBlock?: ItineraryBlock) {
+  const activityBuffer = block.category === "event" ? 30 : block.category === "meal" ? 20 : 15;
+  if (!block.location || !nextBlock?.location) return activityBuffer;
+
+  const travel = estimateVegasTravel(block.location, nextBlock.location);
+  return Math.max(activityBuffer, travel.maxMinutes + 5);
 }
 
 export function sanitizeSchedule(blocks: ItineraryBlock[]) {
@@ -235,7 +238,7 @@ export function sanitizeSchedule(blocks: ItineraryBlock[]) {
     const durationMinutes = defaultDuration(block);
     const isFixedStart = block.category === "event" && originalStart < 9999;
     const previous = scheduled.at(-1);
-    const previousEnd = previous ? previous.start + previous.duration + bufferAfter(previous.block) : 0;
+    const previousEnd = previous ? previous.start + previous.duration + bufferBetween(previous.block, block) : 0;
 
     if (isFixedStart && previousEnd > originalStart) {
       let cursor = originalStart;
@@ -244,7 +247,8 @@ export function sanitizeSchedule(blocks: ItineraryBlock[]) {
         const prior = scheduled[index];
         if (prior.block.category === "event") break;
 
-        const latestStart = cursor - prior.duration - bufferAfter(prior.block);
+        const nextBlock = scheduled[index + 1]?.block || block;
+        const latestStart = cursor - prior.duration - bufferBetween(prior.block, nextBlock);
         if (prior.start > latestStart) {
           const oldTime = prior.block.time;
           prior.start = latestStart;
@@ -260,7 +264,7 @@ export function sanitizeSchedule(blocks: ItineraryBlock[]) {
 
     const updatedPrevious = scheduled.at(-1);
     const updatedPreviousEnd = updatedPrevious
-      ? updatedPrevious.start + updatedPrevious.duration + bufferAfter(updatedPrevious.block)
+      ? updatedPrevious.start + updatedPrevious.duration + bufferBetween(updatedPrevious.block, block)
       : 0;
     const nextStart = isFixedStart ? originalStart : Math.max(originalStart, updatedPreviousEnd);
     const adjustedBlock: ItineraryBlock = {
