@@ -13,6 +13,16 @@ const categoryDetails = {
   event: { label: "Event", accent: "bg-violet-100 text-violet-900" },
 };
 
+function estimatedCostLabel(listing: DirectoryListing) {
+  if (listing.costUnit === "free" || (listing.estimatedCostMin === 0 && listing.estimatedCostMax === 0)) return "Free";
+
+  const range = listing.estimatedCostMin === listing.estimatedCostMax
+    ? `$${listing.estimatedCostMin}`
+    : `$${listing.estimatedCostMin}-$${listing.estimatedCostMax}`;
+  const unit = listing.costUnit === "per-night" ? "/ night" : listing.costUnit === "per-person" ? "/ person" : "";
+  return `Est. ${range} ${unit}`.trim();
+}
+
 export function DirectoryCard({ listing }: { listing: DirectoryListing }) {
   const detailUrl = `/places/${listing.slug}`;
   const details = categoryDetails[listing.category];
@@ -54,15 +64,17 @@ export function DirectoryCard({ listing }: { listing: DirectoryListing }) {
         </Link>
         <div className="mt-3 flex flex-wrap gap-2 text-xs font-bold text-zinc-700">
           <span className="rounded-full bg-zinc-100 px-3 py-1.5">{listing.area}</span>
-          <span className="rounded-full bg-zinc-100 px-3 py-1.5">{listing.priceLabel}</span>
+          <span title="Editorial estimate; confirm current pricing with the provider" className="rounded-full bg-emerald-50 px-3 py-1.5 text-emerald-900">{estimatedCostLabel(listing)}</span>
           <span className="rounded-full bg-zinc-100 px-3 py-1.5">{listing.durationLabel}</span>
         </div>
         <p className="mt-4 line-clamp-3 text-sm leading-6 text-zinc-700">{listing.description}</p>
+        {listing.bestFor[0] ? <p className="mt-3 text-xs font-bold text-zinc-500"><span className="text-zinc-900">Best for:</span> {listing.bestFor.slice(0, 2).join(", ")}</p> : null}
         <div className="mt-auto grid gap-2 pt-6">
           <Link href={detailUrl} className="inline-flex min-h-12 items-center justify-center gap-2 rounded-lg bg-gradient-to-r from-amber-300 to-amber-400 px-4 py-3 text-sm font-black text-zinc-950 shadow-sm transition hover:from-amber-200 hover:to-amber-300">
             View Details <ArrowRight className="h-4 w-4" />
           </Link>
           <TripToggleButton item={tripPick} theme="light" variant="bare" />
+          <p className="text-center text-[11px] font-semibold leading-4 text-zinc-400">Editorial estimate | checked {listing.lastVerified}</p>
         </div>
       </div>
     </article>

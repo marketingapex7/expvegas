@@ -23,24 +23,34 @@ export function TripTray() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   useEffect(() => {
+    if (!open) return;
     function closeOnEscape(event: KeyboardEvent) {
       if (event.key === "Escape") setOpen(false);
     }
     window.addEventListener("keydown", closeOnEscape);
     return () => window.removeEventListener("keydown", closeOnEscape);
-  }, []);
+  }, [open]);
 
   useEffect(() => {
-    function handleScroll() { setScrolled(window.scrollY > 80); }
+    if (!hydrated || pathname === "/my-trip" || pathname === "/itinerary") return;
+    let animationFrame = 0;
+    function handleScroll() {
+      if (animationFrame) return;
+      animationFrame = window.requestAnimationFrame(() => {
+        animationFrame = 0;
+        setScrolled(window.scrollY > 80);
+      });
+    }
     function handleMobileMenu(event: Event) { setMobileMenuOpen(Boolean((event as CustomEvent<{ open: boolean }>).detail?.open)); }
     handleScroll();
     window.addEventListener("scroll", handleScroll, { passive: true });
     window.addEventListener("experiencevegas:mobile-menu", handleMobileMenu);
     return () => {
+      if (animationFrame) window.cancelAnimationFrame(animationFrame);
       window.removeEventListener("scroll", handleScroll);
       window.removeEventListener("experiencevegas:mobile-menu", handleMobileMenu);
     };
-  }, []);
+  }, [hydrated, pathname]);
 
   if (!hydrated || mobileMenuOpen || pathname === "/my-trip" || pathname === "/itinerary") return null;
 

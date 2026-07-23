@@ -613,12 +613,12 @@ export function HeroPlanner({ compact = false }: { compact?: boolean }) {
       <div className="absolute inset-x-0 top-0 -z-10 h-[34rem] bg-[radial-gradient(circle_at_18%_8%,rgba(245,158,11,0.2),transparent_32%),radial-gradient(circle_at_78%_0%,rgba(217,70,239,0.18),transparent_34%),linear-gradient(180deg,rgba(255,255,255,0.06),transparent_72%)]" />
       <div className="mx-auto max-w-5xl">
         <div className={`mx-auto max-w-3xl text-center ${result ? "hidden md:block" : ""}`}>
-          {!compact ? <p className="mx-auto mb-5 inline-flex max-w-full rounded-full border border-amber-200/25 bg-amber-200/10 px-4 py-2 text-xs font-black uppercase leading-5 tracking-[0.18em] text-amber-100 sm:text-sm">Vegas planning that starts with what you actually want</p> : null}
+          {!compact ? <p className="mx-auto mb-5 hidden max-w-full rounded-full border border-amber-200/25 bg-amber-200/10 px-4 py-2 text-xs font-black uppercase leading-5 tracking-[0.18em] text-amber-100 sm:inline-flex sm:text-sm">Vegas planning that starts with what you actually want</p> : null}
           <h1 className={`font-black leading-[1.01] text-white ${compact ? "text-3xl sm:text-4xl" : "text-4xl sm:text-5xl md:text-6xl lg:text-7xl"}`}>
             {compact ? "Build your itinerary" : "Build your Vegas game plan."}
           </h1>
           <p className={`mx-auto max-w-2xl leading-8 text-white/75 ${compact ? "mt-3 text-base" : "mt-5 text-lg sm:text-xl sm:leading-9"}`}>
-            {compact ? "Start with dates, then add the details that matter. We will turn them into a timed Vegas plan." : "Tell ExperienceVegas the dates, ticket budget, food spend, group, lodging, and vibe. We will turn the messy ticket search into a timed plan for events, food, casino time, and places worth seeing."}
+            {compact ? "Start with dates, then add the details that matter. We will turn them into a timed Vegas plan." : "Choose dates, budget, group, and vibe. Get a timed plan with events, food, free stops, casino time, and realistic travel buffers."}
           </p>
           <div className="mx-auto mt-6 grid max-w-3xl grid-cols-4 gap-1.5 text-left sm:gap-2">
             {["Pick dates", "Tell us the trip", "Tune the plan", "Get the game plan"].map((step, index) => {

@@ -48,3 +48,23 @@ test("mobile navigation hides the floating tray and empty itinerary metrics stay
   await expect(page.getByText("Add picks to see an estimate.")).toBeVisible();
   await expect(page.getByRole("button", { name: /Open My Itinerary/ })).toBeHidden();
 });
+
+test("mobile homepage keeps discovery lanes compact while desktop preserves depth", async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto("/");
+
+  for (const testId of ["home-hotels", "home-restaurants", "home-free-experiences"]) {
+    const section = page.getByTestId(testId);
+    await expect(section.locator("article:visible")).toHaveCount(2);
+    await expect(section.getByRole("link", { name: /See all 4\+ choices/ })).toBeVisible();
+  }
+  await expect(page.getByTestId("home-tonight").locator("article:visible")).toHaveCount(2);
+  await expect(page.getByText("Starting prices may exclude taxes and ticket fees.")).toBeVisible();
+  await expect(page.getByTestId("home-hotels").getByText(/Est\. \$\d+-\$\d+ \/ night/).first()).toBeVisible();
+
+  await page.setViewportSize({ width: 1280, height: 900 });
+  await page.reload();
+  await expect(page.getByTestId("home-hotels").locator("article:visible")).toHaveCount(4);
+  await expect(page.getByTestId("home-restaurants").locator("article:visible")).toHaveCount(4);
+  await expect(page.getByTestId("home-free-experiences").locator("article:visible")).toHaveCount(4);
+});

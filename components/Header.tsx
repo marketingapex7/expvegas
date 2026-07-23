@@ -21,6 +21,7 @@ export function Header() {
   }
 
   useEffect(() => {
+    if (!desktopMenu && !menuOpen) return;
     function handlePointerDown(event: MouseEvent) {
       if (!headerRef.current?.contains(event.target as Node)) setDesktopMenu("");
     }
@@ -36,7 +37,7 @@ export function Header() {
       document.removeEventListener("mousedown", handlePointerDown);
       document.removeEventListener("keydown", handleEscape);
     };
-  }, []);
+  }, [desktopMenu, menuOpen]);
 
   useEffect(() => {
     document.body.style.overflow = menuOpen ? "hidden" : "";

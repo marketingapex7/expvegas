@@ -2,6 +2,8 @@ export type DirectoryCategory = "hotel" | "restaurant" | "attraction" | "free" |
 export type BookingGuidance = "book-now" | "reserve" | "flexible" | "free" | "check-availability";
 export type CostUnit = "per-person" | "per-night" | "free" | "variable";
 export type TripPickStatus = "considering" | "must-do" | "booked" | "backup";
+export type VegasZone = "South Strip" | "Center Strip" | "North Strip" | "Downtown" | "Off Strip";
+export type EnvironmentType = "Indoor" | "Outdoor" | "Mixed";
 
 export type DirectoryListing = {
   id: string;
@@ -25,6 +27,14 @@ export type DirectoryListing = {
   estimatedCostMax: number;
   costUnit: CostUnit;
   bookingGuidance: BookingGuidance;
+  bookingAdvice: string;
+  planningRole: string;
+  zone: VegasZone;
+  environment: EnvironmentType;
+  idealTime: string;
+  durationMinMinutes: number;
+  durationMaxMinutes: number;
+  skipIf: string[];
   lastVerified: string;
   mapUrl: string;
   editorialScore: number;

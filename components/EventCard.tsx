@@ -8,6 +8,35 @@ import { VegasEvent } from "@/types/event";
 import { formatPrice } from "@/lib/utils";
 import { TripToggleButton } from "@/components/TripToggleButton";
 
+const scheduleDateFormatter = new Intl.DateTimeFormat("en-US", {
+  weekday: "short",
+  month: "short",
+  day: "numeric",
+});
+const scheduleDateTimeFormatter = new Intl.DateTimeFormat("en-US", {
+  weekday: "short",
+  month: "short",
+  day: "numeric",
+  hour: "numeric",
+  minute: "2-digit",
+});
+const showtimeDateFormatter = new Intl.DateTimeFormat("en-US", {
+  month: "short",
+  day: "numeric",
+});
+const showtimeDateTimeFormatter = new Intl.DateTimeFormat("en-US", {
+  month: "short",
+  day: "numeric",
+  hour: "numeric",
+  minute: "2-digit",
+});
+
+function formatShowtime(localDate: string, localTime?: string, concise = false) {
+  const date = new Date(`${localDate}T${localTime || "12:00:00"}`);
+  if (concise) return (localTime ? showtimeDateTimeFormatter : showtimeDateFormatter).format(date);
+  return (localTime ? scheduleDateTimeFormatter : scheduleDateFormatter).format(date);
+}
+
 export function EventCard({ event, badge, priority = false }: { event: VegasEvent; badge?: string; priority?: boolean }) {
   const showtimes = useMemo(() => event.showtimes?.length ? event.showtimes : [{ id: event.id, localDate: event.localDate, localTime: event.localTime, startDateTime: event.startDateTime, affiliateUrl: event.affiliateUrl }], [event]);
   const [selectedShowtimeId, setSelectedShowtimeId] = useState(showtimes[0].id);
@@ -19,12 +48,7 @@ export function EventCard({ event, badge, priority = false }: { event: VegasEven
   const taxonomyLabel = event.subcategory && !["undefined", "unknown"].includes(event.subcategory.toLowerCase()) ? event.subcategory : event.category;
   const imageUrl = event.imageUrl || "https://images.unsplash.com/photo-1605833556294-ea5c7a74f57d?auto=format&fit=crop&w=1200&q=82";
   const schedule = selectedShowtime.localDate
-    ? new Intl.DateTimeFormat("en-US", {
-        weekday: "short",
-        month: "short",
-        day: "numeric",
-        ...(event.localTime ? { hour: "numeric", minute: "2-digit" } : {}),
-      }).format(new Date(`${selectedShowtime.localDate}T${selectedShowtime.localTime || "12:00:00"}`))
+    ? formatShowtime(selectedShowtime.localDate, selectedShowtime.localTime)
     : null;
   const tripPick = {
     id: event.id,
@@ -59,7 +83,9 @@ export function EventCard({ event, badge, priority = false }: { event: VegasEven
           <span className="absolute left-3 top-3 rounded-full bg-white/95 px-3 py-1.5 text-xs font-bold text-zinc-950 shadow-sm backdrop-blur">
             {badge || taxonomyLabel}
           </span>
-          {ticketmasterId ? <span className="absolute right-3 top-3 rounded-full bg-zinc-950/80 px-3 py-1.5 text-xs font-bold text-white shadow-sm backdrop-blur">Live schedule</span> : null}
+          <span className={`absolute right-3 top-3 rounded-full px-3 py-1.5 text-xs font-bold shadow-sm backdrop-blur ${ticketmasterId ? "bg-emerald-900/90 text-white" : "bg-zinc-950/80 text-white"}`}>
+            {ticketmasterId ? "Live schedule" : "Editorial pick"}
+          </span>
         </div>
       </Link>
       <div className="flex flex-1 flex-col px-3 pb-3 pt-4 sm:px-4 sm:pb-4">
@@ -69,7 +95,7 @@ export function EventCard({ event, badge, priority = false }: { event: VegasEven
         <div className="mt-3 flex flex-wrap gap-2 text-xs font-bold text-zinc-700">
           {schedule ? <span className="rounded-full bg-zinc-100 px-3 py-1.5">{schedule}</span> : null}
           <span className="max-w-full truncate rounded-full bg-zinc-100 px-3 py-1.5">{event.venueName}</span>
-          <span className="rounded-full bg-zinc-100 px-3 py-1.5">{formatPrice(event.priceMin)}</span>
+          <span title="Starting price; taxes and fees may be added by the ticket provider" className="rounded-full bg-emerald-50 px-3 py-1.5 text-emerald-900">{formatPrice(event.priceMin)}</span>
           {event.ageRestriction ? <span className="rounded-full bg-zinc-100 px-3 py-1.5">{event.ageRestriction}</span> : null}
         </div>
         {showtimes.length > 1 ? (
@@ -77,7 +103,7 @@ export function EventCard({ event, badge, priority = false }: { event: VegasEven
             Choose a time
             <select value={selectedShowtimeId} onChange={(event) => setSelectedShowtimeId(event.target.value)} className="min-h-11 w-full rounded-lg border border-zinc-300 bg-white px-3 text-sm font-bold normal-case tracking-normal text-zinc-900 outline-none focus:border-fuchsia-600">
               {showtimes.map((showtime) => {
-                const value = showtime.localDate ? new Intl.DateTimeFormat("en-US", { month: "short", day: "numeric", ...(showtime.localTime ? { hour: "numeric", minute: "2-digit" } : {}) }).format(new Date(`${showtime.localDate}T${showtime.localTime || "12:00:00"}`)) : "Time to be confirmed";
+                const value = showtime.localDate ? formatShowtime(showtime.localDate, showtime.localTime, true) : "Time to be confirmed";
                 return <option key={showtime.id} value={showtime.id}>{value}</option>;
               })}
             </select>
@@ -95,6 +121,9 @@ export function EventCard({ event, badge, priority = false }: { event: VegasEven
             </Link>
           )}
           <TripToggleButton item={tripPick} theme="light" variant="bare" />
+          <p className="text-center text-[11px] font-semibold leading-4 text-zinc-400">
+            {ticketmasterId ? "Live schedule | starting price may exclude fees" : "Editorial pick | confirm schedule and price"}
+          </p>
         </div>
       </div>
     </article>

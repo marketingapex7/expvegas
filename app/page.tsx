@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { ArrowRight, Building2, CalendarDays, Drama, MapPin, ShoppingBag, Sparkles, Ticket, Utensils, Users } from "lucide-react";
+import { ArrowRight, BadgeDollarSign, Building2, CalendarDays, CheckCircle2, Clock3, Drama, MapPin, ShoppingBag, Sparkles, Ticket, Utensils, Users } from "lucide-react";
 import { DirectorySection } from "@/components/DirectorySection";
 import { EventCard } from "@/components/EventCard";
 import { HeroPlanner } from "@/components/HeroPlanner";
@@ -70,9 +70,12 @@ export default async function HomePage() {
         listings={hotelListings.slice(0, 4)}
         viewAllHref="/las-vegas-hotels"
         viewAllLabel="Browse Hotels"
+        mobilePreviewCount={2}
+        compactOnMobile
+        testId="home-hotels"
       />
 
-      <section className="border-t border-zinc-200 bg-white px-4 py-10 text-zinc-950 sm:px-5 sm:py-14">
+      <section data-testid="home-tonight" className="border-t border-zinc-200 bg-white px-4 py-10 text-zinc-950 sm:px-5 sm:py-14">
         <div className="mx-auto max-w-7xl">
           <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
             <SectionHeader
@@ -88,8 +91,22 @@ export default async function HomePage() {
             </Link>
           </div>
           <div className="grid gap-6 md:grid-cols-3">
-            {topTonight.map((event, index) => <EventCard key={event.id} event={event} badge={["Top match", "High-energy pick", "Worth comparing"][index]} priority />)}
+            {topTonight.map((event, index) => (
+              <div key={event.id} className={index > 1 ? "hidden md:block" : ""}>
+                <EventCard event={event} badge={["Top match", "High-energy pick", "Worth comparing"][index]} priority={index === 0} />
+              </div>
+            ))}
           </div>
+          <div className="mt-6 grid gap-2 rounded-lg border border-zinc-200 bg-zinc-50 p-4 text-xs font-bold leading-5 text-zinc-600 sm:grid-cols-3">
+            <p className="inline-flex items-start gap-2"><CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-emerald-700" /> {tonight.isLive ? "Schedule supplied by Ticketmaster." : "Clearly marked editorial fallback picks."}</p>
+            <p className="inline-flex items-start gap-2"><Clock3 className="mt-0.5 h-4 w-4 shrink-0 text-fuchsia-700" /> {tonight.isLive ? "Inventory refreshes about every 30 minutes." : "Confirm the event date before making plans."}</p>
+            <p className="inline-flex items-start gap-2"><BadgeDollarSign className="mt-0.5 h-4 w-4 shrink-0 text-amber-700" /> Starting prices may exclude taxes and ticket fees.</p>
+          </div>
+          {topTonight.length > 2 ? (
+            <Link href="/tonight" className="mt-5 inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-lg border border-zinc-300 bg-white px-4 py-3 text-sm font-black text-zinc-900 sm:hidden">
+              See all events tonight <ArrowRight className="h-4 w-4" />
+            </Link>
+          ) : null}
         </div>
       </section>
 
@@ -100,6 +117,9 @@ export default async function HomePage() {
         listings={featuredRestaurants}
         viewAllHref="/las-vegas-restaurants"
         viewAllLabel="Browse Restaurants"
+        mobilePreviewCount={2}
+        compactOnMobile
+        testId="home-restaurants"
       />
 
       <DirectorySection
@@ -109,20 +129,23 @@ export default async function HomePage() {
         listings={featuredExperiences}
         viewAllHref="/free-things-to-do-las-vegas"
         viewAllLabel="Browse Free Things"
+        mobilePreviewCount={2}
+        compactOnMobile
+        testId="home-free-experiences"
       />
 
-      <section className="border-t border-zinc-200 bg-[#f7f7f8] px-4 py-10 text-zinc-950 sm:px-5 sm:py-14">
+      <section className="border-t border-zinc-200 bg-[#f7f7f8] px-4 py-9 text-zinc-950 sm:px-5 sm:py-14">
         <div className="mx-auto grid max-w-7xl gap-10 lg:grid-cols-2">
           <div>
             <Users className="h-6 w-6 text-fuchsia-700" />
             <h2 className="mt-4 text-3xl font-black text-zinc-950">Browse by who is going.</h2>
-            <p className="mt-3 max-w-xl leading-7 text-zinc-600">Start with the group when a category alone is not enough: couples, families, party weekends, first trips, and visitors who do not gamble.</p>
+            <p className="mt-3 hidden max-w-xl leading-7 text-zinc-600 sm:block">Start with the group when a category alone is not enough: couples, families, party weekends, first trips, and visitors who do not gamble.</p>
             <div className="mt-6 flex flex-wrap gap-2">{bestForLinks.map((link) => <Link key={link.href} href={link.href} className="rounded-full border border-zinc-300 bg-white px-4 py-2 text-sm font-bold text-zinc-700 transition hover:bg-zinc-100 hover:text-zinc-950">{link.label}</Link>)}</div>
           </div>
           <div>
             <MapPin className="h-6 w-6 text-fuchsia-700" />
             <h2 className="mt-4 text-3xl font-black text-zinc-950">Browse near the night&apos;s anchor.</h2>
-            <p className="mt-3 max-w-xl leading-7 text-zinc-600">Find dinner, drinks, attractions, and flexible stops around the resort, arena, or venue you already plan to visit.</p>
+            <p className="mt-3 hidden max-w-xl leading-7 text-zinc-600 sm:block">Find dinner, drinks, attractions, and flexible stops around the resort, arena, or venue you already plan to visit.</p>
             <div className="mt-6 flex flex-wrap gap-2">{nearLinks.map((link) => <Link key={link.href} href={link.href} className="rounded-full border border-zinc-300 bg-white px-4 py-2 text-sm font-bold text-zinc-700 transition hover:bg-zinc-100 hover:text-zinc-950">{link.label}</Link>)}</div>
           </div>
         </div>

@@ -1,11 +1,23 @@
 import type { Metadata } from "next";
-import Image from "next/image";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { ArrowLeft, ArrowUpRight, Clock, MapPin, Sparkles, WalletCards } from "lucide-react";
+import {
+  ArrowLeft,
+  ArrowUpRight,
+  CalendarClock,
+  CheckCircle2,
+  Clock,
+  MapPin,
+  Route,
+  Sparkles,
+  WalletCards,
+  XCircle,
+} from "lucide-react";
+import { CardImage } from "@/components/CardImage";
 import { DirectoryCard } from "@/components/DirectoryCard";
 import { TripToggleButton } from "@/components/TripToggleButton";
 import { directoryListings, getDirectoryListingBySlug } from "@/lib/directory-data";
+import { DirectoryListing } from "@/types/directory";
 
 const categoryLabels = {
   hotel: "Hotel",
@@ -16,6 +28,15 @@ const categoryLabels = {
   event: "Event",
 };
 
+const categoryLinks = {
+  hotel: { href: "/las-vegas-hotels", label: "Las Vegas hotels" },
+  restaurant: { href: "/las-vegas-restaurants", label: "Las Vegas restaurants" },
+  attraction: { href: "/las-vegas-attractions", label: "Las Vegas attractions" },
+  free: { href: "/free-things-to-do-las-vegas", label: "free things to do" },
+  shopping: { href: "/las-vegas-shopping", label: "Las Vegas shopping" },
+  event: { href: "/tonight", label: "Las Vegas events" },
+};
+
 const schemaTypes = {
   hotel: "Hotel",
   restaurant: "Restaurant",
@@ -24,6 +45,21 @@ const schemaTypes = {
   shopping: "ShoppingCenter",
   event: "Event",
 };
+
+function estimatedCostLabel(listing: DirectoryListing) {
+  if (listing.costUnit === "free" || (listing.estimatedCostMin === 0 && listing.estimatedCostMax === 0)) return "Free";
+  const range = listing.estimatedCostMin === listing.estimatedCostMax
+    ? `$${listing.estimatedCostMin}`
+    : `$${listing.estimatedCostMin}-$${listing.estimatedCostMax}`;
+  const unit = listing.costUnit === "per-night" ? "per night" : listing.costUnit === "per-person" ? "per person" : "";
+  return `${range} ${unit}`.trim();
+}
+
+function durationLabel(listing: DirectoryListing) {
+  if (listing.category === "hotel") return "Your trip base";
+  if (listing.durationMinMinutes === listing.durationMaxMinutes) return `${listing.durationMinMinutes} minutes`;
+  return `${listing.durationMinMinutes}-${listing.durationMaxMinutes} minutes`;
+}
 
 export function generateStaticParams() {
   return directoryListings.map((listing) => ({ slug: listing.slug }));
@@ -64,10 +100,17 @@ export default async function PlaceDetailPage({ params }: { params: Promise<{ sl
     mapUrl: listing.mapUrl,
     detailUrl,
   };
-  const similar = directoryListings
-    .filter((item) => item.category === listing.category && item.id !== listing.id)
-    .sort((a, b) => b.editorialScore - a.editorialScore)
-    .slice(0, 3);
+  const nearby = directoryListings
+    .filter((item) => item.id !== listing.id && item.zone === listing.zone)
+    .sort((a, b) => {
+      const exactAreaDifference = Number(b.area === listing.area) - Number(a.area === listing.area);
+      if (exactAreaDifference) return exactAreaDifference;
+      const categoryDifference = Number(b.category !== listing.category) - Number(a.category !== listing.category);
+      if (categoryDifference) return categoryDifference;
+      return b.editorialScore - a.editorialScore;
+    })
+    .slice(0, 4);
+  const categoryLink = categoryLinks[listing.category];
   const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://experiencevegas.com";
   const structuredData = {
     "@context": "https://schema.org",
@@ -83,24 +126,33 @@ export default async function PlaceDetailPage({ params }: { params: Promise<{ sl
       addressCountry: "US",
     },
     priceRange: listing.priceLabel,
+    touristType: listing.bestFor,
   };
 
   return (
     <section className="bg-[#f7f7f8] px-4 py-8 text-zinc-950 sm:px-5 sm:py-12">
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(structuredData).replace(/</g, "\\u003c") }} />
       <div className="mx-auto max-w-7xl">
-        <Link href="/" className="inline-flex items-center gap-2 text-sm font-black text-zinc-500 transition hover:text-zinc-950">
-          <ArrowLeft className="h-4 w-4" /> Back to explore
+        <Link href={categoryLink.href} className="inline-flex items-center gap-2 text-sm font-black text-zinc-500 transition hover:text-zinc-950">
+          <ArrowLeft className="h-4 w-4" /> Back to {categoryLink.label}
         </Link>
 
-        <div className="relative mt-6 aspect-[16/7] min-h-72 overflow-hidden rounded-lg bg-zinc-200">
-          <Image src={listing.imageUrl} alt={listing.imageAlt} fill priority className="object-cover" sizes="(min-width: 1280px) 1200px, calc(100vw - 2rem)" />
+        <div className="relative mt-6 aspect-[4/3] overflow-hidden rounded-lg bg-zinc-200 sm:aspect-[16/7] sm:min-h-72">
+          <CardImage
+            src={listing.imageUrl}
+            alt={listing.imageAlt}
+            category={listing.category}
+            priority
+            className="object-cover"
+            sizes="(min-width: 1280px) 1200px, calc(100vw - 2rem)"
+            fallbackLabel={false}
+          />
           <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/25 to-transparent" />
           <div className="absolute bottom-0 left-0 max-w-4xl p-6 sm:p-9">
-            <p className="text-xs font-black uppercase tracking-[0.25em] text-amber-200">{categoryLabels[listing.category]} · ExperienceVegas pick</p>
+            <p className="text-xs font-black uppercase tracking-[0.25em] text-amber-200">{categoryLabels[listing.category]} | ExperienceVegas pick</p>
             <h1 className="mt-3 text-4xl font-black leading-tight text-white sm:text-6xl">{listing.name}</h1>
             <p className="mt-3 flex items-center gap-2 text-sm font-bold text-white/80">
-              <MapPin className="h-4 w-4" /> {listing.area}{listing.venue ? ` · ${listing.venue}` : ""}
+              <MapPin className="h-4 w-4" /> {listing.area}{listing.venue ? ` | ${listing.venue}` : ""}
             </p>
           </div>
         </div>
@@ -109,46 +161,66 @@ export default async function PlaceDetailPage({ params }: { params: Promise<{ sl
           <article>
             <p className="max-w-3xl text-xl leading-9 text-zinc-700">{listing.description}</p>
 
-            <div className="mt-8 grid gap-3 sm:grid-cols-3">
+            <div className="mt-8 grid gap-x-5 sm:grid-cols-2 xl:grid-cols-4">
               <div className="border-t border-zinc-300 py-4">
                 <WalletCards className="h-5 w-5 text-fuchsia-700" />
-                <p className="mt-3 text-xs font-black uppercase tracking-[0.16em] text-zinc-500">Price guidance</p>
-                <p className="mt-1 font-black text-zinc-950">{listing.priceLabel}</p>
+                <p className="mt-3 text-xs font-black uppercase tracking-[0.16em] text-zinc-500">Estimated cost</p>
+                <p className="mt-1 font-black text-zinc-950">{estimatedCostLabel(listing)}</p>
               </div>
               <div className="border-t border-zinc-300 py-4">
                 <Clock className="h-5 w-5 text-fuchsia-700" />
-                <p className="mt-3 text-xs font-black uppercase tracking-[0.16em] text-zinc-500">Planning time</p>
-                <p className="mt-1 font-black text-zinc-950">{listing.durationLabel || "Flexible"}</p>
+                <p className="mt-3 text-xs font-black uppercase tracking-[0.16em] text-zinc-500">Allow</p>
+                <p className="mt-1 font-black text-zinc-950">{durationLabel(listing)}</p>
+              </div>
+              <div className="border-t border-zinc-300 py-4">
+                <CalendarClock className="h-5 w-5 text-fuchsia-700" />
+                <p className="mt-3 text-xs font-black uppercase tracking-[0.16em] text-zinc-500">Best timing</p>
+                <p className="mt-1 font-black text-zinc-950">{listing.idealTime}</p>
               </div>
               <div className="border-t border-zinc-300 py-4">
                 <Sparkles className="h-5 w-5 text-fuchsia-700" />
-                <p className="mt-3 text-xs font-black uppercase tracking-[0.16em] text-zinc-500">Editorial score</p>
-                <p className="mt-1 font-black text-zinc-950">{listing.editorialScore}/100</p>
+                <p className="mt-3 text-xs font-black uppercase tracking-[0.16em] text-zinc-500">Environment</p>
+                <p className="mt-1 font-black text-zinc-950">{listing.environment}</p>
               </div>
             </div>
 
             <div className="mt-8 grid gap-7 border-y border-zinc-200 py-8 md:grid-cols-2">
               <div>
-                <h2 className="text-xl font-black text-zinc-950">Best for</h2>
+                <h2 className="inline-flex items-center gap-2 text-xl font-black text-zinc-950"><CheckCircle2 className="h-5 w-5 text-emerald-700" /> Good fit when</h2>
                 <ul className="mt-4 space-y-2 text-zinc-600">{listing.bestFor.map((item) => <li key={item}>- {item}</li>)}</ul>
               </div>
               <div>
-                <h2 className="text-xl font-black text-zinc-950">Highlights</h2>
-                <div className="mt-4 flex flex-wrap gap-2">{listing.highlights.map((tag) => <span key={tag} className="rounded-full bg-zinc-200 px-3 py-2 text-xs font-bold text-zinc-700">{tag}</span>)}</div>
+                <h2 className="inline-flex items-center gap-2 text-xl font-black text-zinc-950"><XCircle className="h-5 w-5 text-rose-700" /> Skip it when</h2>
+                <ul className="mt-4 space-y-2 text-zinc-600">{listing.skipIf.map((item) => <li key={item}>- {item}</li>)}</ul>
               </div>
             </div>
 
-            <div className="mt-8 rounded-lg border border-fuchsia-200 bg-fuchsia-50 p-5">
-              <p className="text-xs font-black uppercase tracking-[0.18em] text-fuchsia-700">How to fit it into the trip</p>
-              <p className="mt-2 leading-7 text-zinc-700">{listing.planningTip}</p>
+            <div className="mt-8 grid gap-5 md:grid-cols-2">
+              <div className="border-l-4 border-fuchsia-600 bg-fuchsia-50 p-5">
+                <p className="inline-flex items-center gap-2 text-xs font-black uppercase tracking-[0.18em] text-fuchsia-700"><Route className="h-4 w-4" /> How to fit it into the trip</p>
+                <p className="mt-3 leading-7 text-zinc-700">{listing.planningTip}</p>
+              </div>
+              <div className="border-l-4 border-amber-500 bg-amber-50 p-5">
+                <p className="text-xs font-black uppercase tracking-[0.18em] text-amber-800">Booking approach</p>
+                <p className="mt-3 leading-7 text-zinc-700">{listing.bookingAdvice}</p>
+              </div>
             </div>
-            <p className="mt-5 text-xs font-bold text-zinc-500">Information last checked {listing.lastVerified}. Prices are planning estimates until a live booking partner confirms availability and total cost.</p>
+
+            <div className="mt-8">
+              <h2 className="text-xl font-black text-zinc-950">What stands out</h2>
+              <div className="mt-4 flex flex-wrap gap-2">{listing.highlights.map((tag) => <span key={tag} className="rounded-full bg-zinc-200 px-3 py-2 text-xs font-bold text-zinc-700">{tag}</span>)}</div>
+            </div>
+            <p className="mt-6 text-xs font-bold text-zinc-500">Information last checked {listing.lastVerified}. Prices are editorial planning estimates until a provider confirms current availability and total cost.</p>
           </article>
 
           <aside className="h-fit rounded-lg border border-zinc-200 bg-white p-5 shadow-sm lg:sticky lg:top-24">
             <p className="text-xs font-black uppercase tracking-[0.2em] text-fuchsia-700">Use this in your plan</p>
             <h2 className="mt-2 text-2xl font-black text-zinc-950">Interested in {listing.name}?</h2>
-            <p className="mt-3 text-sm leading-6 text-zinc-600">Add it to your itinerary. Your dates, location, timing, and other saved picks will decide where it fits.</p>
+            <p className="mt-3 text-sm leading-6 text-zinc-600">Add it to your itinerary as a {listing.planningRole.toLowerCase()}. Your dates and other saved picks will decide where it fits.</p>
+            <div className="mt-4 flex flex-wrap gap-2 text-xs font-bold text-zinc-600">
+              <span className="rounded-full bg-zinc-100 px-3 py-2">{listing.zone}</span>
+              <span className="rounded-full bg-zinc-100 px-3 py-2">{listing.environment}</span>
+            </div>
             <div className="mt-5 grid gap-3">
               <TripToggleButton item={tripPick} theme="light" />
               <a href={listing.mapUrl} target="_blank" rel="noopener noreferrer" className="inline-flex min-h-12 items-center justify-center gap-2 rounded-lg border border-zinc-300 bg-white px-4 py-3 text-sm font-black text-zinc-950 transition hover:bg-zinc-100">
@@ -164,11 +236,12 @@ export default async function PlaceDetailPage({ params }: { params: Promise<{ sl
           </aside>
         </div>
 
-        {similar.length ? (
+        {nearby.length ? (
           <section className="mt-14 border-t border-zinc-200 pt-10">
-            <p className="text-xs font-black uppercase tracking-[0.22em] text-fuchsia-700">Compare more ideas</p>
-            <h2 className="mt-2 text-3xl font-black text-zinc-950">Similar picks</h2>
-            <div className="mt-6 grid gap-5 md:grid-cols-3">{similar.map((item) => <DirectoryCard key={item.id} listing={item} />)}</div>
+            <p className="text-xs font-black uppercase tracking-[0.22em] text-fuchsia-700">Build around this area</p>
+            <h2 className="mt-2 text-3xl font-black text-zinc-950">More useful picks in {listing.zone}.</h2>
+            <p className="mt-3 max-w-3xl leading-7 text-zinc-600">These are in the same broad Vegas zone. Confirm the exact walking or driving route before placing fixed reservations back to back.</p>
+            <div className="mt-6 grid gap-5 sm:grid-cols-2 lg:grid-cols-4">{nearby.map((item) => <DirectoryCard key={item.id} listing={item} />)}</div>
           </section>
         ) : null}
       </div>
