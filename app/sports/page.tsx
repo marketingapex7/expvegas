@@ -2,7 +2,7 @@ import { EventGrid } from "@/components/EventGrid";
 import { SectionHeader } from "@/components/SectionHeader";
 import { getEventsByCategory } from "@/data/seed-events";
 
-export const metadata = { title: "Las Vegas Sports Tickets & Events | ExperienceVegas" };
+export const metadata = { title: "Las Vegas Sports Tickets & Events" };
 
 export default function SportsPage() {
   return (

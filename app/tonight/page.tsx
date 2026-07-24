@@ -1,6 +1,7 @@
 import { SectionHeader } from "@/components/SectionHeader";
 import { TonightFilters } from "@/components/TonightFilters";
-import { getLiveVegasEvents, getVegasToday } from "@/lib/live-events";
+import { getTonightVegasEvents, getVegasToday } from "@/lib/live-events";
+import { JsonLd } from "@/components/JsonLd";
 
 export const revalidate = 1800;
 
@@ -11,10 +12,29 @@ export const metadata = {
 };
 
 export default async function TonightPage() {
-  const result = await getLiveVegasEvents(getVegasToday());
+  const result = await getTonightVegasEvents(getVegasToday(), 50);
+  const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://experiencevegas.com";
+  const schema = {
+    "@context": "https://schema.org",
+    "@type": "CollectionPage",
+    name: "Things To Do in Las Vegas Tonight",
+    url: `${baseUrl}/tonight`,
+    mainEntity: {
+      "@type": "ItemList",
+      itemListElement: result.events.map((event, index) => ({
+        "@type": "ListItem",
+        position: index + 1,
+        name: event.name,
+        url: event.id.startsWith("ticketmaster-")
+          ? `${baseUrl}/events/${event.id.slice("ticketmaster-".length)}`
+          : `${baseUrl}/${event.category}/${event.slug}`,
+      })),
+    },
+  };
   return (
     <section className="px-5 py-16">
       <div className="mx-auto max-w-7xl">
+        <JsonLd data={schema} />
         <SectionHeader
           eyebrow={result.isLive ? "Live schedule" : "Curated fallback"}
           title="Best things to do in Vegas tonight"

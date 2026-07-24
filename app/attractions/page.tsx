@@ -2,7 +2,7 @@ import { EventGrid } from "@/components/EventGrid";
 import { SectionHeader } from "@/components/SectionHeader";
 import { getEventsByCategory } from "@/data/seed-events";
 
-export const metadata = { title: "Best Las Vegas Attractions | ExperienceVegas" };
+export const metadata = { title: "Best Las Vegas Attractions" };
 
 export default function AttractionsPage() {
   return (

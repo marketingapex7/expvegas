@@ -188,7 +188,7 @@ export function HeroPlanner({ compact = false }: { compact?: boolean }) {
         ? "Departure must be within 7 planning days of arrival."
         : "";
   const datesAreSet = !arrivalError && !departureError;
-  const plannerCtaState = loading ? "loading" : !datesAreSet ? "disabled" : saveStatus ? "error" : "ready";
+  const plannerCtaState = loading ? "loading" : !datesAreSet ? "explore" : saveStatus ? "error" : "ready";
 
   const helperSummary = useMemo(() => {
     if (selectedHelpers.length === 0) return "Add dates, ticket budget, group, lodging, and vibe when you know them.";
@@ -296,6 +296,7 @@ export function HeroPlanner({ compact = false }: { compact?: boolean }) {
   const loadingPayload = planInput || buildPlannerPayload();
   const loadingDates = loadingPayload.travelDates || "dates flexible";
   const loadingSelections = [
+    `Travelers: ${loadingPayload.partySize || tripSettings.partySize}`,
     loadingPayload.groupType ? `Group: ${loadingPayload.groupType}` : undefined,
     loadingPayload.stayingNear ? `Lodging: ${loadingPayload.stayingNear}` : undefined,
     loadingPayload.budget ? `Tickets: ${loadingPayload.budget}` : undefined,
@@ -396,6 +397,7 @@ export function HeroPlanner({ compact = false }: { compact?: boolean }) {
     return {
       prompt,
       travelDates,
+      partySize: tripSettings.partySize,
       budget: overrides.budget || mixedSelectionText("ticket", selectedValues("Ticket budget")),
       groupType: overrides.groupType || selectedValue("Group"),
       stayingNear: overrides.stayingNear || selectedValue("Lodging"),
@@ -608,6 +610,10 @@ export function HeroPlanner({ compact = false }: { compact?: boolean }) {
     await buildPlan();
   }
 
+  function browseWithoutDates() {
+    document.getElementById("browse-vegas")?.scrollIntoView({ behavior: "smooth", block: "start" });
+  }
+
   return (
     <section id="trip-builder" className={`relative overflow-hidden px-4 pb-10 sm:px-5 md:pb-16 ${compact ? "pt-7 sm:pt-9" : "pt-8 sm:pt-12 lg:pt-16"}`}>
       <div className="absolute inset-x-0 top-0 -z-10 h-[34rem] bg-[radial-gradient(circle_at_18%_8%,rgba(245,158,11,0.2),transparent_32%),radial-gradient(circle_at_78%_0%,rgba(217,70,239,0.18),transparent_34%),linear-gradient(180deg,rgba(255,255,255,0.06),transparent_72%)]" />
@@ -672,13 +678,27 @@ export function HeroPlanner({ compact = false }: { compact?: boolean }) {
                   Try sample: weekend for 4
                 </button>
               </div>
-              <div className="grid gap-3 sm:grid-cols-2 sm:items-start">
+              <div className="grid gap-3 sm:grid-cols-[1fr_1fr_0.7fr] sm:items-start">
                 <DateRangeFields arrivalDate={arrivalDate} departureDate={departureDate} minArrival={today} maxDeparture={maxDepartureDate} onArrivalChange={(value) => updateTravelDates(value, departureDate)} onDepartureChange={(value) => updateTravelDates(arrivalDate, value)} onArrivalBlur={() => setDateFieldsTouched((current) => ({ ...current, arrival: true }))} onDepartureBlur={() => setDateFieldsTouched((current) => ({ ...current, departure: true }))} arrivalError={dateFieldsTouched.arrival ? arrivalError : ""} departureError={dateFieldsTouched.departure ? departureError : ""} theme="dark" />
+                <label className="grid gap-1.5 text-xs font-black uppercase tracking-[0.12em] text-white/60">
+                  Travelers
+                  <input
+                    type="number"
+                    min="1"
+                    max="20"
+                    value={tripSettings.partySize}
+                    onChange={(event) =>
+                      setTripSettings({ ...tripSettings, partySize: Math.min(20, Math.max(1, Number(event.target.value) || 1)) })
+                    }
+                    className="min-h-12 rounded-lg border border-white/15 bg-black/35 px-3 text-base font-bold text-white outline-none focus:border-amber-100/70"
+                  />
+                </label>
               </div>
               <p data-testid="date-status" aria-live="polite" className={`mt-3 text-sm font-bold ${datesAreSet ? "text-emerald-200" : "text-white/65"}`}>
                 {datesAreSet ? `Dates set: ${formatTravelDate(arrivalDate)} to ${formatTravelDate(departureDate)}` : "Add your arrival and departure dates to continue."}
               </p>
               <p className="mt-2 text-xs leading-5 text-white/55">Plans cover arrival through the day before departure, up to 7 days. Same-day trips receive a one-day plan.</p>
+              {!datesAreSet ? <p className="mt-2 text-xs font-bold leading-5 text-amber-100/80">Still deciding? Browse ideas below now and add dates when you are ready for a timed itinerary.</p> : null}
               {dateError ? <p className="mt-3 text-sm font-bold text-amber-100">{dateError}</p> : null}
             </div>
 
@@ -759,12 +779,12 @@ export function HeroPlanner({ compact = false }: { compact?: boolean }) {
                      Skip tuning
                    </button>
                  </div>
-                <div className="mt-5 grid gap-3 lg:grid-cols-5">
-                  {refinementGroups.map((group) => (
+                <div className="mt-5 grid gap-3 md:grid-cols-3">
+                  {refinementGroups.filter((group) => ["foodPreference", "mealBudget", "pace"].includes(group.key)).map((group) => (
                     <div key={group.key} className="rounded-lg border border-white/10 bg-white/[0.04] p-3">
                       <p className="mb-3 text-xs font-black uppercase tracking-[0.16em] text-white/50">{group.label}</p>
                       {group.multi ? <p className="mb-2 text-[11px] font-semibold text-white/45">Choose all that fit.</p> : null}
-                      <div className="flex flex-wrap gap-2 lg:block lg:space-y-2">
+                      <div className="flex flex-wrap gap-2">
                         {group.options.map((option) => {
                           const isSelected = group.multi
                             ? multiRefinements[group.key]?.includes(option)
@@ -776,7 +796,7 @@ export function HeroPlanner({ compact = false }: { compact?: boolean }) {
                               type="button"
                               onClick={() => (group.multi ? toggleMultiRefinement(group.key, option) : setRefinement(group.key, option))}
                               aria-pressed={isSelected}
-                              className={`rounded-full px-3 py-2 text-left text-xs font-bold leading-5 transition lg:w-full ${
+                              className={`rounded-full px-3 py-2 text-left text-xs font-bold leading-5 transition ${
                                 isSelected ? "bg-amber-200 text-black" : "bg-white/10 text-white/72 hover:bg-white/15"
                               }`}
                             >
@@ -788,6 +808,38 @@ export function HeroPlanner({ compact = false }: { compact?: boolean }) {
                     </div>
                   ))}
                 </div>
+                <details className="mt-3 rounded-lg border border-white/10 bg-white/[0.03] p-3">
+                  <summary className="cursor-pointer text-sm font-black text-white/70">Optional gambling and logistics preferences</summary>
+                  <div className="mt-3 grid gap-3 md:grid-cols-2">
+                    {refinementGroups.filter((group) => ["gamblingPreference", "logistics"].includes(group.key)).map((group) => (
+                      <div key={group.key} className="rounded-lg border border-white/10 bg-white/[0.04] p-3">
+                        <p className="mb-3 text-xs font-black uppercase tracking-[0.16em] text-white/50">{group.label}</p>
+                        {group.multi ? <p className="mb-2 text-[11px] font-semibold text-white/45">Choose all that fit.</p> : null}
+                        <div className="flex flex-wrap gap-2">
+                          {group.options.map((option) => {
+                            const isSelected = group.multi
+                              ? multiRefinements[group.key]?.includes(option)
+                              : refinements[group.key] === option;
+
+                            return (
+                              <button
+                                key={option}
+                                type="button"
+                                onClick={() => (group.multi ? toggleMultiRefinement(group.key, option) : setRefinement(group.key, option))}
+                                aria-pressed={isSelected}
+                                className={`rounded-full px-3 py-2 text-left text-xs font-bold leading-5 transition ${
+                                  isSelected ? "bg-amber-200 text-black" : "bg-white/10 text-white/72 hover:bg-white/15"
+                                }`}
+                              >
+                                {option}
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </details>
                 <label className="mt-4 grid gap-2 text-sm font-bold text-white/70">
                   Anything else we should know?
                   <textarea
@@ -803,14 +855,16 @@ export function HeroPlanner({ compact = false }: { compact?: boolean }) {
             <div className="mt-4 flex flex-col gap-3 border-t border-white/10 pt-4 sm:flex-row sm:items-center sm:justify-between">
               <p className="text-sm font-bold text-white/45">{helperSummary}</p>
               <button
+                type={datesAreSet ? "submit" : "button"}
+                onClick={!datesAreSet ? browseWithoutDates : undefined}
                 data-testid="planner-primary-cta"
                 data-state={plannerCtaState}
-                disabled={loading || !datesAreSet}
-                aria-disabled={loading || !datesAreSet}
+                disabled={loading}
+                aria-disabled={loading}
                 aria-describedby={saveStatus ? "planner-build-error" : undefined}
-                className={`inline-flex min-h-12 items-center justify-center gap-2 rounded-lg px-5 py-3 font-black transition sm:min-w-56 ${plannerCtaState === "loading" ? "cursor-wait bg-amber-100/70 text-black" : plannerCtaState === "error" ? "bg-rose-200 text-rose-950 hover:bg-rose-100" : plannerCtaState === "ready" ? "bg-gradient-to-r from-amber-300 to-fuchsia-300 text-zinc-950 shadow-lg shadow-fuchsia-950/20 hover:brightness-110" : "cursor-not-allowed border border-white/20 bg-white/15 text-white/65"}`}
+                className={`inline-flex min-h-12 items-center justify-center gap-2 rounded-lg px-5 py-3 font-black transition sm:min-w-56 ${plannerCtaState === "loading" ? "cursor-wait bg-amber-100/70 text-black" : plannerCtaState === "error" ? "bg-rose-200 text-rose-950 hover:bg-rose-100" : plannerCtaState === "ready" ? "bg-gradient-to-r from-amber-300 to-fuchsia-300 text-zinc-950 shadow-lg shadow-fuchsia-950/20 hover:brightness-110" : "border border-amber-200/40 bg-amber-200/10 text-amber-100 hover:bg-amber-200/20"}`}
               >
-                {loading ? "Building..." : !datesAreSet ? "Choose Dates First" : saveStatus ? "Try Building Again" : showRefinements ? "Build My Game Plan" : "Continue to Trip Details"} {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <ArrowRight className="h-4 w-4" />}
+                {loading ? "Building..." : !datesAreSet ? "Browse Vegas Ideas" : saveStatus ? "Try Building Again" : showRefinements ? "Build My Game Plan" : "Continue to Trip Details"} {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <ArrowRight className="h-4 w-4" />}
               </button>
             </div>
             {saveStatus ? <p id="planner-build-error" role="alert" className="mt-3 text-sm font-bold text-amber-100">{saveStatus}</p> : null}

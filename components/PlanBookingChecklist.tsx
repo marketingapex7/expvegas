@@ -99,9 +99,9 @@ export function PlanBookingChecklist({ planId, itineraryDays }: PlanBookingCheck
     <section data-testid="plan-booking-checklist" className="mt-5 rounded-lg border border-amber-200/30 bg-black/30 p-4 sm:p-5">
       <div className="flex items-start justify-between gap-4">
         <div>
-          <p className="text-xs font-black uppercase tracking-[0.18em] text-amber-100">Lock in the anchors</p>
-          <h3 className="mt-1 text-xl font-black text-white">Book now</h3>
-          <p className="mt-1 text-sm leading-6 text-white/60">Tickets and tables worth handling before the trip.</p>
+          <p className="text-xs font-black uppercase tracking-[0.18em] text-amber-100">Booking checklist</p>
+          <h3 className="mt-1 text-xl font-black text-white">Ready to reserve</h3>
+          <p className="mt-1 text-sm leading-6 text-white/60">Nothing is marked booked until you confirm it.</p>
         </div>
         {bookingItems.length ? (
           <span className="shrink-0 rounded-full bg-amber-200 px-2.5 py-1 text-xs font-black text-black">
@@ -138,7 +138,7 @@ export function PlanBookingChecklist({ planId, itineraryDays }: PlanBookingCheck
                       className="h-4 w-4 accent-amber-200"
                     />
                     {checked ? <Check className="h-3.5 w-3.5" /> : null}
-                    Booked
+                    {checked ? "Booked" : "Mark booked"}
                   </label>
                   <a
                     href={item.url}

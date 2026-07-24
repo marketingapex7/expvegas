@@ -1,6 +1,5 @@
 import type { MetadataRoute } from "next";
 import topicalMap from "@/data/seo-topical-map.json";
-import { seoPillarContent } from "@/data/seo-pillar-content";
 import { bestIntentPages, nearIntentPages } from "@/data/intent-pages";
 import { seedEvents } from "@/data/seed-events";
 import { directoryListings } from "@/lib/directory-data";
@@ -13,13 +12,18 @@ export default function sitemap(): MetadataRoute.Sitemap {
     "/tonight",
     "/this-weekend",
     "/cheap-things-to-do",
+    "/shows",
+    "/comedy",
+    "/concerts",
+    "/sports",
+    "/attractions",
     "/privacy",
     "/terms",
     "/affiliate-disclosure",
     "/contact",
     "/responsible-gaming",
   ];
-  const indexableTopics = topicalMap.filter((topic) => Boolean(seoPillarContent[topic.slug]));
+  const indexableTopics = topicalMap;
   const intentPaths = [
     ...Object.keys(bestIntentPages).map((slug) => `/best/${slug}`),
     ...Object.keys(nearIntentPages).map((slug) => `/near/${slug}`),

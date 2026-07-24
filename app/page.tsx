@@ -7,7 +7,7 @@ import { HomeTripPreview } from "@/components/HomeTripPreview";
 import { SectionHeader } from "@/components/SectionHeader";
 import { bestForLinks, nearLinks } from "@/data/nav";
 import { experienceListings, hotelListings, restaurantListings } from "@/lib/directory-data";
-import { getLiveVegasEvents, getVegasToday } from "@/lib/live-events";
+import { getTonightVegasEvents, getVegasToday } from "@/lib/live-events";
 
 export const metadata = {
   title: { absolute: "ExperienceVegas | Build and Browse a Better Vegas Trip" },
@@ -31,7 +31,7 @@ function selectListings(slugs: string[], source: typeof restaurantListings) {
 }
 
 export default async function HomePage() {
-  const tonight = await getLiveVegasEvents(getVegasToday(), undefined, 12);
+  const tonight = await getTonightVegasEvents(getVegasToday(), 24);
   const topTonight = tonight.events.slice(0, 3);
   const featuredRestaurants = selectListings(
     ["golden-steer-steakhouse", "best-friend", "bacchanal-buffet", "tacos-el-gordo"],
@@ -44,7 +44,7 @@ export default async function HomePage() {
       <HeroPlanner />
       <HomeTripPreview />
 
-      <section className="border-y border-zinc-200 bg-white px-4 py-7 text-zinc-950 sm:px-5">
+      <section id="browse-vegas" className="scroll-mt-24 border-y border-zinc-200 bg-white px-4 py-7 text-zinc-950 sm:px-5">
         <div className="mx-auto max-w-7xl">
           <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
             <div>
@@ -97,6 +97,11 @@ export default async function HomePage() {
               </div>
             ))}
           </div>
+          {tonight.isLive && topTonight.length === 0 ? (
+            <div className="rounded-lg border border-zinc-200 bg-zinc-50 p-5 text-sm font-bold leading-6 text-zinc-600">
+              No future evening events are confirmed in the feed right now. Check the complete schedule or browse curated shows while inventory updates.
+            </div>
+          ) : null}
           <div className="mt-6 grid gap-2 rounded-lg border border-zinc-200 bg-zinc-50 p-4 text-xs font-bold leading-5 text-zinc-600 sm:grid-cols-3">
             <p className="inline-flex items-start gap-2"><CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-emerald-700" /> {tonight.isLive ? "Schedule supplied by Ticketmaster." : "Clearly marked editorial fallback picks."}</p>
             <p className="inline-flex items-start gap-2"><Clock3 className="mt-0.5 h-4 w-4 shrink-0 text-fuchsia-700" /> {tonight.isLive ? "Inventory refreshes about every 30 minutes." : "Confirm the event date before making plans."}</p>

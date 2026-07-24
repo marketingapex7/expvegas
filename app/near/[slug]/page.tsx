@@ -24,5 +24,5 @@ export default async function NearPage({ params }: { params: Promise<{ slug: str
   const content = nearIntentPages[slug];
   if (!content) notFound();
   const events = content.eventSlugs.map(getEventBySlug).filter((event) => event !== undefined);
-  return <IntentLandingPage eyebrow="Plan by location" content={content} events={events} />;
+  return <IntentLandingPage eyebrow="Plan by location" content={content} events={events} path={`/near/${slug}`} />;
 }

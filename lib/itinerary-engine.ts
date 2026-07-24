@@ -4,6 +4,7 @@ import { VegasEvent } from "@/types/event";
 import { ItineraryBlock, ItineraryDay, PlannerInput } from "@/types/planner";
 import { mealLevelsFromText } from "@/lib/budget-preferences";
 import { estimateVegasTravel } from "@/lib/vegas-logistics";
+import { isHeadlineEvent } from "@/lib/scoring";
 
 type BuildItineraryInput = {
   plannerInput: PlannerInput;
@@ -138,8 +139,11 @@ function scoreRestaurant(restaurant: VegasRestaurant, input: PlannerInput) {
   return score;
 }
 
-function pickRestaurant(input: PlannerInput, offset: number) {
-  const ranked = [...restaurants].sort((a, b) => scoreRestaurant(b, input) - scoreRestaurant(a, input));
+type MealPeriod = "breakfast" | "brunch" | "lunch" | "dinner" | "late night";
+
+function pickRestaurant(input: PlannerInput, offset: number, mealPeriod: MealPeriod) {
+  const eligible = restaurants.filter((restaurant) => restaurant.mealTypes.includes(mealPeriod));
+  const ranked = [...eligible].sort((a, b) => scoreRestaurant(b, input) - scoreRestaurant(a, input));
   return ranked[offset % ranked.length];
 }
 
@@ -168,26 +172,34 @@ function eventMatchesIntent(event: VegasEvent, input: PlannerInput) {
   return true;
 }
 
-function isGoodAnchorEvent(event: VegasEvent, input: PlannerInput) {
+function isGoodAnchorEvent(event: VegasEvent, input: PlannerInput, isArrivalDay = false) {
   const hour = hourForEvent(event);
   const text = textFor(input);
   const wantsDaytime = text.includes("brunch") || text.includes("daytime") || text.includes("afternoon");
 
+  if (!isHeadlineEvent(event)) return false;
   if (!eventMatchesIntent(event, input)) return false;
-  if (hour === undefined) return true;
+  if (hour === undefined) return false;
+  if (isArrivalDay) return hour >= 19;
   if (wantsDaytime) return hour >= 11;
 
   return hour >= 17;
 }
 
-function eventsForDay(events: VegasEvent[], date: string, input: PlannerInput) {
+function eventsForDay(
+  events: VegasEvent[],
+  date: string,
+  input: PlannerInput,
+  usedEventNames = new Set<string>(),
+  isArrivalDay = false,
+) {
   const dated = events.filter((event) => event.localDate === date);
-  const anchorable = dated.filter((event) => isGoodAnchorEvent(event, input));
+  const anchorable = dated.filter(
+    (event) => isGoodAnchorEvent(event, input, isArrivalDay) && !usedEventNames.has(event.name.toLowerCase()),
+  );
 
   if (anchorable.length > 0) return anchorable;
-  if (dated.length > 0) return [];
-
-  return events.filter((event) => !event.localDate && eventMatchesIntent(event, input)).slice(0, 1);
+  return [];
 }
 
 function priceHint(event: VegasEvent) {
@@ -203,6 +215,14 @@ function timeLabelFromMinutes(totalMinutes: number) {
   const hour12 = hour24 % 12 || 12;
 
   return `${hour12}:${minute.toString().padStart(2, "0")} ${period}`;
+}
+
+function roundUpToQuarter(totalMinutes: number) {
+  return Math.ceil(totalMinutes / 15) * 15;
+}
+
+function roundDownToQuarter(totalMinutes: number) {
+  return Math.floor(totalMinutes / 15) * 15;
 }
 
 function eventStartMinutes(event?: VegasEvent) {
@@ -248,7 +268,7 @@ export function sanitizeSchedule(blocks: ItineraryBlock[]) {
         if (prior.block.category === "event") break;
 
         const nextBlock = scheduled[index + 1]?.block || block;
-        const latestStart = cursor - prior.duration - bufferBetween(prior.block, nextBlock);
+        const latestStart = roundDownToQuarter(cursor - prior.duration - bufferBetween(prior.block, nextBlock));
         if (prior.start > latestStart) {
           const oldTime = prior.block.time;
           prior.start = latestStart;
@@ -266,14 +286,14 @@ export function sanitizeSchedule(blocks: ItineraryBlock[]) {
     const updatedPreviousEnd = updatedPrevious
       ? updatedPrevious.start + updatedPrevious.duration + bufferBetween(updatedPrevious.block, block)
       : 0;
-    const nextStart = isFixedStart ? originalStart : Math.max(originalStart, updatedPreviousEnd);
+    const nextStart = isFixedStart ? originalStart : roundUpToQuarter(Math.max(originalStart, updatedPreviousEnd));
     const adjustedBlock: ItineraryBlock = {
       ...block,
       time: timeLabelFromMinutes(nextStart),
       durationMinutes,
     };
 
-    if (nextStart > originalStart && originalStart < 9999) {
+    if (nextStart - originalStart >= 15 && originalStart < 9999) {
       adjustedBlock.timingNote = `Shifted from ${block.time} to keep the day realistic.`;
     }
 
@@ -285,16 +305,15 @@ export function sanitizeSchedule(blocks: ItineraryBlock[]) {
     .map(({ block, start, duration }) => ({ ...block, time: timeLabelFromMinutes(start), durationMinutes: duration }));
 }
 
-function buildBlocks(date: string, dayIndex: number, input: PlannerInput, events: VegasEvent[]): ItineraryBlock[] {
+function buildBlocks(dayIndex: number, input: PlannerInput, mainEvent?: VegasEvent): ItineraryBlock[] {
   const attraction = pickStop(attractionStops, input, dayIndex);
   const freeExperience = pickStop(freeExperienceStops, input, dayIndex);
   const secondFreeExperience = pickStop(freeExperienceStops, input, dayIndex + 3);
-  const dinner = pickRestaurant(input, dayIndex + 2);
-  const lunchRestaurant = pickRestaurant(input, dayIndex + 6);
+  const dinner = pickRestaurant(input, dayIndex + 2, "dinner");
+  const lunchRestaurant = pickRestaurant(input, dayIndex + 6, "lunch");
   const casino = pickStop(casinoStops, input, dayIndex);
-  const dayEvents = eventsForDay(events, date, input);
-  const mainEvent = dayEvents[0];
   const text = textFor(input);
+  const isArrivalDay = dayIndex === 0;
   const slowMorning = text.includes("slow morning");
   const packed = text.includes("packed");
   const noGambling = text.includes("no gambling");
@@ -302,43 +321,64 @@ function buildBlocks(date: string, dayIndex: number, input: PlannerInput, events
   const freeFocused = text.includes("free") || text.includes("cheap") || text.includes("budget") || text.includes("under");
   const flexibleLodging = lodgingIsFlexible(input);
   const mainEventStart = eventStartMinutes(mainEvent);
-  const dinnerTime = mainEventStart && mainEventStart >= 18 * 60 ? timeLabelFromMinutes(Math.max(16 * 60 + 30, mainEventStart - 150)) : "6:00 PM";
+  const mainEventDuration = mainEvent?.runtimeMinutes || (mainEvent?.category === "sports" || mainEvent?.category === "concerts" ? 180 : 120);
+  const dinnerTime =
+    isArrivalDay && mainEventStart && mainEventStart < 20 * 60
+      ? timeLabelFromMinutes(mainEventStart + mainEventDuration + 30)
+      : mainEventStart && mainEventStart >= 18 * 60
+        ? timeLabelFromMinutes(Math.max(16 * 60 + 30, mainEventStart - 120))
+        : "6:00 PM";
+
+  const daytimeBlocks: ItineraryBlock[] = isArrivalDay
+    ? [
+        {
+          time: "3:30 PM",
+          title: "Arrival, hotel check-in, and reset",
+          category: "free",
+          location: input.stayingNear && !flexibleLodging ? input.stayingNear : undefined,
+          description: "Protected arrival time for airport delays, baggage, hotel check-in, and getting settled before the first real plan.",
+          durationMinutes: 90,
+        },
+      ]
+    : [
+        {
+          time: slowMorning ? "12:00 PM" : "11:30 AM",
+          title: lunchRestaurant.name,
+          category: "meal",
+          location: lunchRestaurant.venue || lunchRestaurant.area,
+          description: lunchRestaurant.description,
+          bookingUrl: lunchRestaurant.reservationUrl,
+          durationMinutes: 90,
+        },
+        {
+          time: slowMorning ? "2:00 PM" : "1:00 PM",
+          title: shoppingFocused || freeFocused ? freeExperience.name : attraction.name,
+          category: shoppingFocused ? "shopping" : shoppingFocused || freeFocused ? "free" : "attraction",
+          location: shoppingFocused || freeFocused ? freeExperience.area : attraction.area,
+          description: shoppingFocused || freeFocused ? freeExperience.description : attraction.description,
+          durationMinutes: shoppingFocused || freeFocused ? 75 : 90,
+        },
+        noGambling
+          ? {
+              time: "4:00 PM",
+              title: secondFreeExperience.name,
+              category: secondFreeExperience.tags.includes("shopping") ? "shopping" : "free",
+              location: secondFreeExperience.area,
+              description: "Keeps the plan Vegas-feeling without forcing casino time. " + secondFreeExperience.description,
+              durationMinutes: 75,
+            }
+          : {
+              time: "4:00 PM",
+              title: casino.name,
+              category: "casino",
+              location: casino.area,
+              description: casino.description,
+              durationMinutes: 75,
+            },
+      ];
 
   const blocks: ItineraryBlock[] = [
-    {
-      time: slowMorning ? "12:00 PM" : "11:00 AM",
-      title: lunchRestaurant.name,
-      category: "meal",
-      location: lunchRestaurant.venue || lunchRestaurant.area,
-      description: lunchRestaurant.description,
-      bookingUrl: lunchRestaurant.reservationUrl,
-      durationMinutes: 90,
-    },
-    {
-      time: slowMorning ? "2:00 PM" : "1:00 PM",
-      title: shoppingFocused || freeFocused ? freeExperience.name : attraction.name,
-      category: shoppingFocused ? "shopping" : shoppingFocused || freeFocused ? "free" : "attraction",
-      location: shoppingFocused || freeFocused ? freeExperience.area : attraction.area,
-      description: shoppingFocused || freeFocused ? freeExperience.description : attraction.description,
-      durationMinutes: shoppingFocused || freeFocused ? 75 : 90,
-    },
-    noGambling
-      ? {
-          time: "4:00 PM",
-          title: secondFreeExperience.name,
-          category: secondFreeExperience.tags.includes("shopping") ? "shopping" : "free",
-          location: secondFreeExperience.area,
-          description: "Keeps the plan Vegas-feeling without forcing casino time. " + secondFreeExperience.description,
-          durationMinutes: 75,
-        }
-      : {
-          time: "4:00 PM",
-          title: casino.name,
-          category: "casino",
-          location: casino.area,
-          description: casino.description,
-          durationMinutes: 75,
-        },
+    ...daytimeBlocks,
     {
       time: dinnerTime,
       title: dinner.name,
@@ -352,7 +392,7 @@ function buildBlocks(date: string, dayIndex: number, input: PlannerInput, events
 
   if (flexibleLodging && dayIndex === 0) {
     blocks.unshift({
-      time: slowMorning ? "11:15 AM" : "10:15 AM",
+      time: "2:30 PM",
       title: "Lodging target before you book",
       category: "free",
       location: mainEvent?.venueName || freeExperience.area,
@@ -363,14 +403,14 @@ function buildBlocks(date: string, dayIndex: number, input: PlannerInput, events
 
   if (mainEvent) {
     blocks.push({
-      time: eventTime(mainEvent, "8:00 PM"),
+      time: eventTime(mainEvent, "7:00 PM"),
       title: mainEvent.name,
       category: "event",
       location: mainEvent.venueName,
       description: mainEvent.quickVerdict,
       bookingUrl: mainEvent.affiliateUrl,
       priceHint: priceHint(mainEvent),
-      durationMinutes: mainEvent.runtimeMinutes || (mainEvent.category === "sports" || mainEvent.category === "concerts" ? 180 : 120),
+      durationMinutes: mainEventDuration,
     });
   } else {
     blocks.push({
@@ -386,14 +426,14 @@ function buildBlocks(date: string, dayIndex: number, input: PlannerInput, events
     time: "10:30 PM",
     title: noGambling ? "Dessert, views, or a walkable lounge nearby" : secondFreeExperience.name,
     category: noGambling ? "free" : secondFreeExperience.tags.includes("shopping") ? "shopping" : "free",
-    location: mainEvent?.venueName || dinner.area,
+    location: noGambling ? mainEvent?.venueName || dinner.area : secondFreeExperience.area,
     description: noGambling
       ? "Keep the final stop close to avoid long rides after the main event."
       : `Use this as a flexible, non-ticketed decompression stop. ${secondFreeExperience.description}`,
     durationMinutes: 60,
   });
 
-  if (packed) {
+  if (packed && !isArrivalDay) {
     blocks.splice(2, 0, {
       time: "3:00 PM",
       title: freeExperience.name,
@@ -422,25 +462,30 @@ function timeSortValue(time: string) {
 }
 
 function dayTheme(dayIndex: number, event?: VegasEvent) {
-  if (dayIndex === 0) return "Arrival, orientation, and one strong anchor";
+  if (dayIndex === 0) return event ? "Arrival, check-in buffer, and one strong evening anchor" : "Arrival, check-in, and a flexible first night";
   if (event?.category === "sports") return "Arena energy and easy post-game logistics";
   if (event?.category === "concerts") return "Dinner, headline energy, and late-night momentum";
   if (event?.category === "comedy") return "Flexible day, easy laughs, and low-friction nightlife";
-  return "Balanced Vegas day with food, free exploring, optional gambling, and a main event";
+  if (event?.category === "shows") return `A well-paced Vegas day built around ${event.name}`;
+  if (dayIndex % 2 === 0) return "A slower start, destination dining, and flexible Vegas exploring";
+  return "A classic Strip day with lunch, sightseeing, and an open evening";
 }
 
 export function buildItinerary({ plannerInput, startDate, endDate, rankedEvents }: BuildItineraryInput): ItineraryDay[] {
   const dates = dateRange(startDate, endDate);
   const itineraryDates = dates.length > 0 ? dates : [new Date().toISOString().slice(0, 10)];
 
+  const usedEventNames = new Set<string>();
+
   return itineraryDates.map((date, index) => {
-    const dayEvents = eventsForDay(rankedEvents, date, plannerInput);
+    const mainEvent = eventsForDay(rankedEvents, date, plannerInput, usedEventNames, index === 0)[0];
+    if (mainEvent) usedEventNames.add(mainEvent.name.toLowerCase());
 
     return {
       date,
       label: formatDayLabel(date),
-      theme: dayTheme(index, dayEvents[0]),
-      blocks: buildBlocks(date, index, plannerInput, rankedEvents),
+      theme: dayTheme(index, mainEvent),
+      blocks: buildBlocks(index, plannerInput, mainEvent),
     };
   });
 }

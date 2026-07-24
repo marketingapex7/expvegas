@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { TrustPage } from "@/components/TrustPage";
 
-export const metadata: Metadata = { title: "Privacy Policy | ExperienceVegas", description: "How ExperienceVegas handles trip-planning information and saved itineraries." };
+export const metadata: Metadata = { title: "Privacy Policy", description: "How ExperienceVegas handles trip-planning information and saved itineraries." };
 
 export default function PrivacyPage() {
   return (

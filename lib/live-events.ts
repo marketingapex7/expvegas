@@ -31,6 +31,23 @@ export function getVegasToday() {
   return dateParts(new Date());
 }
 
+function getVegasMinutesNow() {
+  const parts = new Intl.DateTimeFormat("en-US", {
+    timeZone: VEGAS_TIME_ZONE,
+    hour: "2-digit",
+    minute: "2-digit",
+    hourCycle: "h23",
+  }).formatToParts(new Date());
+  const value = (type: Intl.DateTimeFormatPartTypes) => Number(parts.find((part) => part.type === type)?.value || 0);
+  return value("hour") * 60 + value("minute");
+}
+
+function timeToMinutes(value?: string) {
+  if (!value) return -1;
+  const [hour, minute] = value.split(":").map(Number);
+  return Number.isFinite(hour) && Number.isFinite(minute) ? hour * 60 + minute : -1;
+}
+
 export function getVegasWeekend(today = getVegasToday()) {
   const weekday = dayOfWeek(today);
   const daysUntilFriday = weekday >= 5 ? 0 : 5 - weekday;
@@ -90,4 +107,40 @@ export async function getLiveVegasEvents(startDate: string, endDate = startDate,
     startDate,
     endDate,
   };
+}
+
+export function filterTonightEvents(events: VegasEvent[], date: string, earliestStart: number) {
+  return events.flatMap((event) => {
+    const showtimes = (event.showtimes || [{
+      id: event.id,
+      localDate: event.localDate,
+      localTime: event.localTime,
+      startDateTime: event.startDateTime,
+      affiliateUrl: event.affiliateUrl,
+    }])
+      .filter((showtime) => showtime.localDate === date && timeToMinutes(showtime.localTime) >= earliestStart)
+      .sort((a, b) => timeToMinutes(a.localTime) - timeToMinutes(b.localTime));
+
+    const first = showtimes[0];
+    return first
+      ? [{
+          ...event,
+          localDate: first.localDate,
+          localTime: first.localTime,
+          startDateTime: first.startDateTime,
+          affiliateUrl: first.affiliateUrl,
+          showtimes,
+        }]
+      : [];
+  });
+}
+
+export async function getTonightVegasEvents(date = getVegasToday(), size = 20): Promise<LiveEventResult> {
+  const result = await getLiveVegasEvents(date, date, size);
+  if (!result.isLive) return result;
+
+  const earliestStart = date === getVegasToday() ? Math.max(16 * 60, getVegasMinutesNow()) : 16 * 60;
+  const events = filterTonightEvents(result.events, date, earliestStart);
+
+  return { ...result, events };
 }

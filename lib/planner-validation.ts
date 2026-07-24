@@ -11,6 +11,7 @@ const safeLink = z
 export const plannerInputSchema = z
   .object({
     travelDates: z.string().trim().max(120),
+    partySize: z.number().int().min(1).max(20).optional(),
     prompt: z.string().trim().max(2_000).optional(),
     groupType: shortText.optional(),
     budget: shortText.optional(),

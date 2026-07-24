@@ -24,5 +24,5 @@ export default async function BestForPage({ params }: { params: Promise<{ slug: 
   const content = bestIntentPages[slug];
   if (!content) notFound();
   const events = content.eventSlugs.map(getEventBySlug).filter((event) => event !== undefined);
-  return <IntentLandingPage eyebrow="Best for" content={content} events={events} />;
+  return <IntentLandingPage eyebrow="Best for" content={content} events={events} path={`/best/${slug}`} />;
 }

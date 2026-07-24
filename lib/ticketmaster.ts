@@ -102,20 +102,31 @@ function bestImage(images?: TicketmasterImage[]) {
     .sort((a, b) => (b.width || 0) * (b.height || 0) - (a.width || 0) * (a.height || 0))[0]?.url;
 }
 
+function cleanDisplayText(value?: string) {
+  return (value || "")
+    .replace(/[^\x20-\x7E]+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
 export function normalizeTicketmasterEvent(event: TicketmasterEvent): VegasEvent {
   const classification = event.classifications?.[0];
   const venue = event._embedded?.venues?.[0];
   const category = classificationToCategory(classification);
   const priceRange = event.priceRanges?.[0];
   const subcategory = usableTaxonomy(classification?.genre?.name) || usableTaxonomy(classification?.subGenre?.name) || usableTaxonomy(classification?.segment?.name);
+  const displayName = cleanDisplayText(event.name) || "Las Vegas event";
+  const displayVenue = cleanDisplayText(venue?.name) || "Las Vegas venue";
+  const displayCategory = category === "concerts" ? "Concert" : category === "sports" ? "Live sports" : category === "comedy" ? "Comedy" : category === "shows" ? "Live show" : "Live experience";
+  const editorialDescription = `${displayCategory} at ${displayVenue}. Confirm the listed performance time and current ticket price before booking.`;
 
   return {
     id: `ticketmaster-${event.id}`,
-    name: event.name,
-    slug: slugify(event.name),
+    name: displayName,
+    slug: slugify(displayName),
     category,
     subcategory,
-    venueName: venue?.name || "Las Vegas venue",
+    venueName: displayVenue,
     area: venue?.city?.name === "Las Vegas" ? "Las Vegas" : venue?.city?.name || "Las Vegas",
     priceMin: priceRange?.min,
     priceMax: priceRange?.max,
@@ -133,8 +144,8 @@ export function normalizeTicketmasterEvent(event: TicketmasterEvent): VegasEvent
     tags: [category, subcategory, venue?.name].filter(Boolean).map((tag) => String(tag).toLowerCase()),
     bestFor: category === "sports" ? ["Sports fans", "Arena nights"] : category === "concerts" ? ["Music fans", "A headline night out"] : category === "comedy" ? ["Adults who want an easy night", "Lower-key groups"] : ["Date-specific plans", "First-time visitors"],
     skipIf: ["You only want curated editorial picks"],
-    shortDescription: event.info || `${event.name} in Las Vegas.`,
-    quickVerdict: event.info?.trim() || `${subcategory || "Live entertainment"}${venue?.name ? ` at ${venue.name}` : " in Las Vegas"}. Compare the available time and price before adding it to the night.`,
+    shortDescription: editorialDescription,
+    quickVerdict: editorialDescription,
     affiliateUrl: event.url || "#",
     imageUrl: bestImage(event.images),
     editorialScore: 78,

@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { TrustPage } from "@/components/TrustPage";
 
-export const metadata: Metadata = { title: "Contact | ExperienceVegas", description: "Contact ExperienceVegas about trip plans, corrections, partnerships, or privacy." };
+export const metadata: Metadata = { title: "Contact", description: "Contact ExperienceVegas about trip plans, corrections, partnerships, or privacy." };
 
 export default function ContactPage() {
   return (

@@ -50,7 +50,8 @@ export function CardImage({ src, alt, category, sizes, className = "object-cover
         fill
         sizes={sizes}
         className={`${className} ${loaded ? "opacity-100" : "opacity-0"}`}
-        priority={priority}
+        loading={priority ? "eager" : "lazy"}
+        fetchPriority={priority ? "high" : "auto"}
         onLoad={() => setLoaded(true)}
         onError={() => setFailed(true)}
       />

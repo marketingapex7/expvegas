@@ -71,7 +71,10 @@ test("trip builder advances from dates through a completed game plan", async ({ 
   const primaryCta = page.getByTestId("planner-primary-cta");
 
   await expect(page.getByTestId("date-status")).toContainText("Add your arrival and departure dates");
-  await expect(primaryCta).toBeDisabled();
+  await expect(primaryCta).toBeEnabled();
+  await expect(primaryCta).toContainText("Browse Vegas Ideas");
+  await primaryCta.click();
+  await expect(page.locator("#browse-vegas")).toBeInViewport();
 
   await arrival.fill(arrivalValue);
   await departure.focus();
@@ -100,6 +103,7 @@ test("trip builder advances from dates through a completed game plan", async ({ 
   await expect(valueMeals).toHaveAttribute("aria-pressed", "true");
   await expect(premiumMeals).toHaveAttribute("aria-pressed", "true");
 
+  await page.getByText("Optional gambling and logistics preferences").click();
   const lightBankroll = page.getByRole("button", { name: "Bankroll under $100" });
   const tableGames = page.getByRole("button", { name: "Table games" });
   const noGambling = page.getByRole("button", { name: "No gambling" });
@@ -136,6 +140,7 @@ test("trip builder advances from dates through a completed game plan", async ({ 
   expect(plannerRequest.mealBudget).toContain("$60-$120 per person");
   expect(plannerRequest.gamblingPreference).toContain("Bankroll $100-$300");
   expect(plannerRequest.gamblingPreference).toContain("Sportsbook");
+  expect(plannerRequest.partySize).toBe(2);
 
   await expect(bookingList.getByText("E2E Dinner")).toBeVisible();
   await expect(bookingList.getByText("E2E Vegas Show")).toBeVisible();

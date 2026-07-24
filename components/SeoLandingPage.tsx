@@ -6,6 +6,7 @@ import { BrowseResults } from "@/components/BrowseResults";
 import { experienceListings, hotelListings, restaurantListings } from "@/lib/directory-data";
 import { rankEvents } from "@/lib/scoring";
 import { DirectoryListing } from "@/types/directory";
+import { JsonLd } from "@/components/JsonLd";
 
 export type SeoTopic = {
   slug: string;
@@ -102,6 +103,36 @@ export function SeoLandingPage({ topic, relatedTopics }: { topic: SeoTopic; rela
   const points = comparePoints(topic);
   const events = rankEvents(seedEvents.filter((event) => eventMatchesTopic(event, topic))).slice(0, 6);
   const directory = listingsForTopic(topic);
+  const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://experiencevegas.com";
+  const pageUrl = `${baseUrl}/${topic.slug}`;
+  const collectionItems = [
+    ...directory.map((listing) => ({ name: listing.name, url: `${baseUrl}/places/${listing.slug}` })),
+    ...events.map((event) => ({ name: event.name, url: `${baseUrl}/${event.category}/${event.slug}` })),
+  ];
+  const collectionSchema = {
+    "@context": "https://schema.org",
+    "@type": "CollectionPage",
+    name: topic.title,
+    url: pageUrl,
+    description: clusterDescription(topic),
+    mainEntity: {
+      "@type": "ItemList",
+      itemListElement: collectionItems.map((item, index) => ({
+        "@type": "ListItem",
+        position: index + 1,
+        name: item.name,
+        url: item.url,
+      })),
+    },
+  };
+  const breadcrumbSchema = {
+    "@context": "https://schema.org",
+    "@type": "BreadcrumbList",
+    itemListElement: [
+      { "@type": "ListItem", position: 1, name: "Home", item: baseUrl },
+      { "@type": "ListItem", position: 2, name: topic.title, item: pageUrl },
+    ],
+  };
   const pillarContent = seoPillarContent[topic.slug];
   const editorialContent = topic.cluster === "planning" ? pillarContent : undefined;
   const faqSchema = editorialContent
@@ -130,6 +161,8 @@ export function SeoLandingPage({ topic, relatedTopics }: { topic: SeoTopic; rela
   return (
     <section className="px-4 py-12 sm:px-5 sm:py-16">
       <div className="mx-auto max-w-7xl">
+        <JsonLd data={collectionSchema} />
+        <JsonLd data={breadcrumbSchema} />
         {articleSchema ? <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(articleSchema).replace(/</g, "\\u003c") }} /> : null}
         {faqSchema ? <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(faqSchema).replace(/</g, "\\u003c") }} /> : null}
         <nav aria-label="Breadcrumb" className="mb-8 flex items-center gap-2 text-sm font-bold text-white/45">

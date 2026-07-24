@@ -3,7 +3,7 @@ import { SectionHeader } from "@/components/SectionHeader";
 import { seedEvents } from "@/data/seed-events";
 import { rankEvents } from "@/lib/scoring";
 
-export const metadata = { title: "Cheap Things To Do in Las Vegas | ExperienceVegas" };
+export const metadata = { title: "Cheap Things To Do in Las Vegas" };
 
 export default function CheapThingsPage() {
   const cheapEvents = rankEvents(seedEvents).filter((event) => (event.priceMin || 999) <= 100);

@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { TrustPage } from "@/components/TrustPage";
 
-export const metadata: Metadata = { title: "Affiliate Disclosure | ExperienceVegas", description: "How affiliate links and commissions work on ExperienceVegas." };
+export const metadata: Metadata = { title: "Affiliate Disclosure", description: "How affiliate links and commissions work on ExperienceVegas." };
 
 export default function AffiliateDisclosurePage() {
   return (

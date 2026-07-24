@@ -25,7 +25,7 @@ export function inferVegasZone(value?: string): VegasZone {
   const text = (value || "").toLowerCase();
 
   if (/(downtown|fremont|arts district|circa|golden nugget)/.test(text)) return "Downtown";
-  if (/(off strip|chinatown|spring mountain|durango|red rock|summerlin|eastside|westside)/.test(text)) return "Off Strip";
+  if (/(off strip|west of strip|east of strip|chinatown|spring mountain|durango|red rock|summerlin|eastside|westside|golden steer)/.test(text)) return "Off Strip";
   if (/(sphere|venetian|palazzo|wynn|encore|resorts world|sahara|north strip)/.test(text)) return "North Strip";
   if (/(allegiant|mandalay|luxor|excalibur|mgm grand|park mgm|new york-new york|t-mobile|south strip)/.test(text)) return "South Strip";
   return "Center Strip";

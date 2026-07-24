@@ -92,11 +92,13 @@ function ResultCard({
   comparisonSelected,
   comparisonDisabled,
   onToggleComparison,
+  priority = false,
 }: {
   result: Result;
   comparisonSelected: boolean;
   comparisonDisabled: boolean;
   onToggleComparison: () => void;
+  priority?: boolean;
 }) {
   const name = result.item.name;
   return (
@@ -118,7 +120,7 @@ function ResultCard({
         </button>
       </div>
       <div className="min-h-0 flex-1">
-        {result.kind === "directory" ? <DirectoryCard listing={result.item} /> : <EventCard event={result.item} />}
+        {result.kind === "directory" ? <DirectoryCard listing={result.item} priority={priority} /> : <EventCard event={result.item} priority={priority} />}
       </div>
     </div>
   );
@@ -233,7 +235,7 @@ export function BrowseResults({ directory, events, title }: { directory: Directo
     setComparisonOpen(false);
   }
 
-  function resultCard(result: Result) {
+  function resultCard(result: Result, priority = false) {
     const selected = comparisonIds.includes(result.id);
     return (
       <ResultCard
@@ -242,6 +244,7 @@ export function BrowseResults({ directory, events, title }: { directory: Directo
         comparisonSelected={selected}
         comparisonDisabled={comparisonIds.length >= 3}
         onToggleComparison={() => toggleComparison(result.id)}
+        priority={priority}
       />
     );
   }
@@ -416,12 +419,12 @@ export function BrowseResults({ directory, events, title }: { directory: Directo
       ) : null}
 
       {results.length ? view === "grid" ? (
-        <div className={`mt-6 grid gap-5 md:grid-cols-2 ${results.length === 2 ? "lg:grid-cols-2" : "lg:grid-cols-3"}`}>{results.map(resultCard)}</div>
+        <div className={`mt-6 grid gap-5 md:grid-cols-2 ${results.length === 2 ? "lg:grid-cols-2" : "lg:grid-cols-3"}`}>{results.map((result, index) => resultCard(result, index === 0))}</div>
       ) : view === "area" ? (
         <div className="mt-8 space-y-10">{grouped.map((group) => (
           <section key={group.area}>
             <div className="mb-4 flex items-center gap-2"><MapPinned className="h-5 w-5 text-fuchsia-700" /><h3 className="text-2xl font-black">{group.area}</h3><span className="text-sm font-bold text-zinc-400">{group.results.length}</span></div>
-            <div className="grid gap-5 md:grid-cols-2 lg:grid-cols-3">{group.results.map(resultCard)}</div>
+            <div className="grid gap-5 md:grid-cols-2 lg:grid-cols-3">{group.results.map((result) => resultCard(result, result.id === results[0]?.id))}</div>
           </section>
         ))}</div>
       ) : (

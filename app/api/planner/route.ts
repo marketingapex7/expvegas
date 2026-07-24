@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { seedEvents } from "@/data/seed-events";
 import { buildItinerary } from "@/lib/itinerary-engine";
-import { rankEvents } from "@/lib/scoring";
+import { isHeadlineEvent, rankEvents } from "@/lib/scoring";
 import { diversifyEventsByTicketBudget } from "@/lib/budget-preferences";
 import { searchTicketmasterEvents } from "@/lib/ticketmaster";
 import { apiErrorResponse, rateLimit, readValidatedJson } from "@/lib/api-security";
@@ -31,16 +31,6 @@ function inferCategory(input: PlannerInput): EventCategory | undefined {
   return undefined;
 }
 
-function formatTimelineTime(event: VegasEvent) {
-  if (!event.localDate || !event.localTime) return "Main event";
-
-  return new Intl.DateTimeFormat("en-US", {
-    weekday: "short",
-    hour: "numeric",
-    minute: "2-digit",
-  }).format(new Date(`${event.localDate}T${event.localTime}`));
-}
-
 function buildWhyItFits(best: VegasEvent, input: PlannerInput, liveEventCount: number) {
   const group = input.groupType || "your group";
   const budget = input.budget || "your event ticket budget";
@@ -58,7 +48,7 @@ function lodgingIsFlexible(input: PlannerInput) {
   return !input.stayingNear || text.includes("not booked") || text.includes("haven't booked") || text.includes("havent booked");
 }
 
-function estimateSpend(itineraryDays: ItineraryDay[]) {
+function estimateSpend(itineraryDays: ItineraryDay[], partySize = 1) {
   let low = 0;
   let high = 0;
 
@@ -75,7 +65,11 @@ function estimateSpend(itineraryDays: ItineraryDay[]) {
     }
   }
 
-  return low > 0 ? `$${low}-${high} per person before hotel` : "Mostly flexible spend before hotel";
+  if (low <= 0) return "Mostly flexible spend before hotel";
+
+  const groupLow = low * partySize;
+  const groupHigh = high * partySize;
+  return `$${low}-${high} per person; about $${groupLow.toLocaleString("en-US")}-$${groupHigh.toLocaleString("en-US")} for ${partySize} traveler${partySize === 1 ? "" : "s"}, before hotel`;
 }
 
 function buildTripSummary(input: PlannerInput, itineraryDays: ItineraryDay[], best: VegasEvent): TripSummary {
@@ -113,7 +107,7 @@ function buildTripSummary(input: PlannerInput, itineraryDays: ItineraryDay[], be
     bestLodgingZone,
     tripStyle: tripStyle.length > 0 ? tripStyle : ["Flexible Vegas trip"],
     assumptions: assumptions.length > 0 ? assumptions : ["Balanced schedule with one main anchor"],
-    estimatedSpend: estimateSpend(itineraryDays),
+    estimatedSpend: estimateSpend(itineraryDays, input.partySize || 1),
     bookNow: bookNow.length > 0 ? bookNow : ["Choose the main event once dates are firm"],
     keepFlexible: keepFlexible.length > 0 ? keepFlexible : ["Leave one open block for group energy"],
     whyThisPlanWorks: `${logistics} The plan uses ${best.name}${eventVenue} as the main anchor, then surrounds it with meals and flexible Vegas stops so the day does not become a ticket checklist.`,
@@ -146,37 +140,36 @@ export async function POST(request: Request) {
   }
 
   const ranked = rankEvents([...liveEvents, ...seedEvents], input);
-  const budgetDiversifiedEvents = diversifyEventsByTicketBudget(ranked, input.budget);
-  const fallbackBest = ranked[0];
+  const headlineEvents = ranked.filter(isHeadlineEvent);
+  const budgetDiversifiedEvents = diversifyEventsByTicketBudget(headlineEvents, input.budget);
+  const fallbackBest = headlineEvents[0];
 
   if (!fallbackBest) {
     return NextResponse.json({ error: "No Vegas events are available to build a plan right now." }, { status: 503 });
   }
 
-  const itineraryDays = buildItinerary({ plannerInput: input, startDate, endDate, rankedEvents: ranked });
+  const itineraryDays = buildItinerary({ plannerInput: input, startDate, endDate, rankedEvents: headlineEvents });
   const firstScheduledEvent = itineraryDays.flatMap((day) => day.blocks).find((block) => block.category === "event");
   const best = ranked.find((event) => event.name === firstScheduledEvent?.title) || fallbackBest;
   const backups = budgetDiversifiedEvents.filter((event) => event.id !== best.id).slice(0, 3);
   const tripSummary = buildTripSummary(input, itineraryDays, best);
+  const liveHeadlineCount = liveEvents.filter(isHeadlineEvent).length;
+  const anchorDay = itineraryDays.find((day) => day.blocks.some((block) => block.category === "event")) || itineraryDays[0];
 
   const output: PlannerResponse = {
-    headline: liveEvents.length > 0 ? "Your Vegas Game Plan From Live Events" : "Your Vegas Game Plan",
+    headline: firstScheduledEvent ? "Your Vegas Game Plan From Live Events" : "Your Vegas Game Plan",
     bestPickId: best.id,
     bestPickName: best.name,
-    whyItFits: buildWhyItFits(best, input, liveEvents.length),
-    timeline: [
-      { time: "6:00 PM", title: `Dinner or drinks near ${best.venueName}` },
-      { time: formatTimelineTime(best), title: best.name, description: best.quickVerdict },
-      { time: "9:45 PM", title: "Walkable drinks or late-night add-on" },
-    ],
+    whyItFits: buildWhyItFits(best, input, liveHeadlineCount),
+    timeline: anchorDay.blocks.map((block) => ({ time: block.time, title: block.title, description: block.description })),
     backupPickIds: backups.map((event) => event.id),
     backupPickNames: backups.map((event) => event.name),
-    cheaperVersion: ranked.find((event) => event.priceMin && event.priceMin < 60)?.name,
-    premiumVersion: ranked.find((event) => event.priceMin && event.priceMin >= 100)?.name,
+    cheaperVersion: headlineEvents.find((event) => event.priceMin && event.priceMin < 60)?.name,
+    premiumVersion: headlineEvents.find((event) => event.priceMin && event.priceMin >= 100)?.name,
     avoid: input.dealbreakers ? [`Avoid anything matching: ${input.dealbreakers}`] : [],
     sourceSummary:
-      liveEvents.length > 0
-        ? `Live schedule checked for your dates. Included ${liveEvents.length} Ticketmaster event${liveEvents.length === 1 ? "" : "s"} to compare.`
+      liveHeadlineCount > 0
+        ? `Live schedule checked for your dates. Included ${liveHeadlineCount} headline Ticketmaster event${liveHeadlineCount === 1 ? "" : "s"} to compare after removing add-ons and retail listings.`
         : "No live Ticketmaster events were available, so this used curated ExperienceVegas picks.",
     eventOptions: budgetDiversifiedEvents.slice(0, 20).map((event) => ({
       id: event.id,

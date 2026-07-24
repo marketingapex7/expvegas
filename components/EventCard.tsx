@@ -46,7 +46,15 @@ export function EventCard({ event, badge, priority = false }: { event: VegasEven
   const eventPath = ticketmasterId ? `/events/${ticketmasterId}` : `/${event.category}/${event.slug}`;
   const ticketUrl = selectedShowtime.affiliateUrl || event.affiliateUrl;
   const hasTicketUrl = Boolean(ticketUrl && ticketUrl !== "#");
-  const taxonomyLabel = event.subcategory && !["undefined", "unknown"].includes(event.subcategory.toLowerCase()) ? event.subcategory : event.category;
+  const taxonomyLabel = event.category === "concerts"
+    ? "Concert"
+    : event.category === "sports"
+      ? "Sports"
+      : event.category === "comedy"
+        ? "Comedy"
+        : event.category === "shows"
+          ? "Live Show"
+          : "Attraction";
   const imageUrl = event.imageUrl || "https://images.unsplash.com/photo-1605833556294-ea5c7a74f57d?auto=format&fit=crop&w=1200&q=82";
   const schedule = selectedShowtime.localDate
     ? formatShowtime(selectedShowtime.localDate, selectedShowtime.localTime)

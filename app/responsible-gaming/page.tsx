@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { TrustPage } from "@/components/TrustPage";
 
-export const metadata: Metadata = { title: "Responsible Gaming | ExperienceVegas", description: "Practical responsible-gaming guidance and current help resources for Las Vegas visitors." };
+export const metadata: Metadata = { title: "Responsible Gaming", description: "Practical responsible-gaming guidance and current help resources for Las Vegas visitors." };
 
 export default function ResponsibleGamingPage() {
   return (

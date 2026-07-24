@@ -56,7 +56,7 @@ test("mobile homepage keeps discovery lanes compact while desktop preserves dept
   for (const testId of ["home-hotels", "home-restaurants", "home-free-experiences"]) {
     const section = page.getByTestId(testId);
     await expect(section.locator("article:visible")).toHaveCount(2);
-    await expect(section.getByRole("link", { name: /See all 4\+ choices/ })).toBeVisible();
+    await expect(section.getByRole("link", { name: "Browse all choices" })).toBeVisible();
   }
   await expect(page.getByTestId("home-tonight").locator("article:visible")).toHaveCount(2);
   await expect(page.getByText("Starting prices may exclude taxes and ticket fees.")).toBeVisible();

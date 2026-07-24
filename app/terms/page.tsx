@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { TrustPage } from "@/components/TrustPage";
 
-export const metadata: Metadata = { title: "Terms of Use | ExperienceVegas", description: "Terms for using ExperienceVegas trip-planning information and links." };
+export const metadata: Metadata = { title: "Terms of Use", description: "Terms for using ExperienceVegas trip-planning information and links." };
 
 export default function TermsPage() {
   return (

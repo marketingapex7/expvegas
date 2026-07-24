@@ -19,12 +19,12 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
   const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://experiencevegas.com";
 
   return {
-    title: `${topic.title} | ExperienceVegas`,
+    title: topic.title,
     description,
-    robots: { index: Boolean(pillarContent), follow: true },
+    robots: { index: true, follow: true },
     alternates: { canonical: `${baseUrl}/${topic.slug}` },
     openGraph: {
-      title: `${topic.title} | ExperienceVegas`,
+      title: topic.title,
       description,
       url: `${baseUrl}/${topic.slug}`,
       siteName: "ExperienceVegas",

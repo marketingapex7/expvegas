@@ -6,6 +6,7 @@ import { attractionStops, casinoStops, freeExperienceStops, PlanningStop } from 
 import { restaurants, VegasRestaurant } from "@/data/restaurants";
 import { seedEvents } from "@/data/seed-events";
 import { sanitizeSchedule } from "@/lib/itinerary-engine";
+import { estimateVegasTravel } from "@/lib/vegas-logistics";
 import { ItineraryBlock, ItineraryDay, PlannerEventOption, PlannerResponse } from "@/types/planner";
 import { PlanBookingChecklist } from "@/components/PlanBookingChecklist";
 import { PlanTripDetails } from "@/components/PlanTripDetails";
@@ -56,13 +57,10 @@ function travelContext(previous?: ItineraryBlock, current?: ItineraryBlock) {
   if (!previous || !current) return "Start from your hotel or arrival point";
   if (!previous.location || !current.location) return "Allow a short buffer between stops";
 
-  const previousLocation = previous.location.toLowerCase();
-  const currentLocation = current.location.toLowerCase();
-  if (previousLocation.includes(currentLocation) || currentLocation.includes(previousLocation)) {
-    return "Same-area stop, so this should be an easy walk";
-  }
-
-  return "Allow roughly 15-25 min by rideshare between areas";
+  const estimate = estimateVegasTravel(previous.location, current.location);
+  if (estimate.maxMinutes <= 10) return `${estimate.label}: allow ${estimate.minMinutes}-${estimate.maxMinutes} min on foot`;
+  if (estimate.fromZone === estimate.toZone) return `${estimate.label}: allow ${estimate.minMinutes}-${estimate.maxMinutes} min walking or by rideshare`;
+  return `${estimate.label}: allow ${estimate.minMinutes}-${estimate.maxMinutes} min by rideshare`;
 }
 
 function planningLabel(category: ItineraryBlock["category"]) {
@@ -181,11 +179,21 @@ function pickNext<T extends { name: string }>(items: T[], currentName: string, c
   return options[(count - 1) % options.length];
 }
 
+function mealTypeForBlock(block: ItineraryBlock) {
+  const { hour } = timeParts(block.time);
+  if (hour < 10) return "breakfast";
+  if (hour < 15) return "lunch";
+  if (hour >= 21) return "late night";
+  return "dinner";
+}
+
 function swapBlock(block: ItineraryBlock, count: number, result: PlannerResponse, dayDate: string): ItineraryBlock {
   if (count < 1) return block;
 
   if (block.category === "meal") {
-    const next = pickNext(restaurants, block.title, count);
+    const mealType = mealTypeForBlock(block);
+    const eligibleRestaurants = restaurants.filter((restaurant) => restaurant.mealTypes.includes(mealType));
+    const next = pickNext(eligibleRestaurants, block.title, count);
     return next ? restaurantToBlock(next, block) : block;
   }
 

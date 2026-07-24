@@ -3,11 +3,41 @@ import { ArrowRight, Check, Sparkles } from "lucide-react";
 import { EventGrid } from "@/components/EventGrid";
 import { IntentPageContent } from "@/data/intent-pages";
 import { VegasEvent } from "@/types/event";
+import { JsonLd } from "@/components/JsonLd";
 
-export function IntentLandingPage({ eyebrow, content, events }: { eyebrow: string; content: IntentPageContent; events: VegasEvent[] }) {
+export function IntentLandingPage({ eyebrow, content, events, path }: { eyebrow: string; content: IntentPageContent; events: VegasEvent[]; path: string }) {
+  const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://experiencevegas.com";
+  const pageUrl = `${baseUrl}${path}`;
+  const collectionSchema = {
+    "@context": "https://schema.org",
+    "@type": "CollectionPage",
+    name: content.title,
+    description: content.description,
+    url: pageUrl,
+    mainEntity: {
+      "@type": "ItemList",
+      itemListElement: events.map((event, index) => ({
+        "@type": "ListItem",
+        position: index + 1,
+        name: event.name,
+        url: `${baseUrl}/${event.category}/${event.slug}`,
+      })),
+    },
+  };
+  const breadcrumbSchema = {
+    "@context": "https://schema.org",
+    "@type": "BreadcrumbList",
+    itemListElement: [
+      { "@type": "ListItem", position: 1, name: "Home", item: baseUrl },
+      { "@type": "ListItem", position: 2, name: content.title, item: pageUrl },
+    ],
+  };
+
   return (
     <section className="px-4 py-10 sm:px-5 sm:py-16">
       <div className="mx-auto max-w-7xl">
+        <JsonLd data={collectionSchema} />
+        <JsonLd data={breadcrumbSchema} />
         <header className="max-w-4xl">
           <p className="text-xs font-black uppercase tracking-[0.3em] text-fuchsia-200">{eyebrow}</p>
           <h1 className="mt-3 text-4xl font-black leading-tight text-white sm:text-5xl">{content.title}</h1>

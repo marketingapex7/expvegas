@@ -1,5 +1,6 @@
 export type PlannerInput = {
   travelDates?: string;
+  partySize?: number;
   prompt?: string;
   groupType?: string;
   budget?: string;

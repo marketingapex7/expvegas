@@ -49,7 +49,7 @@ export function DirectorySection({
         </div>
         {mobilePreviewCount !== undefined && listings.length > mobilePreviewCount ? (
           <Link href={viewAllHref} className="mt-5 inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-lg border border-zinc-300 bg-white px-4 py-3 text-sm font-black text-zinc-900 transition hover:bg-zinc-100 sm:hidden">
-            See all {listings.length}+ choices <ArrowRight className="h-4 w-4" />
+            Browse all choices <ArrowRight className="h-4 w-4" />
           </Link>
         ) : null}
       </div>
