@@ -64,7 +64,7 @@ function PlanBlock({ block, previous }: { block: ItineraryBlock; previous?: Itin
         </div>
         <div className="min-w-0">
           <h3 className="text-lg font-black leading-tight text-white">{block.title}</h3>
-          {block.location ? <p className="mt-1 flex items-center gap-1.5 text-xs font-bold text-white/45"><MapPin className="h-3.5 w-3.5" /> {block.location}</p> : null}
+          {block.location ? <p className="mt-1 flex items-center gap-1.5 text-xs font-bold text-white/60"><MapPin className="h-3.5 w-3.5" /> {block.location}</p> : null}
           {block.description ? <p className="mt-2 line-clamp-2 text-sm leading-6 text-white/62 sm:line-clamp-none">{block.description}</p> : null}
           {block.priceHint ? <p className="mt-2 text-xs font-black text-emerald-200">{block.priceHint}</p> : null}
         </div>

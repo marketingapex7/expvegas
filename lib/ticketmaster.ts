@@ -197,7 +197,7 @@ export async function searchTicketmasterEvents(input: TicketmasterSearchInput = 
 
   function pageParams(page: number) {
     const params = new URLSearchParams({
-      apikey: apiKey!,
+      apikey: apiKey,
       city: "Las Vegas",
       stateCode: "NV",
       countryCode: "US",
