@@ -3,7 +3,7 @@
 import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
 import dynamic from "next/dynamic";
 import { useRouter } from "next/navigation";
-import { ArrowRight, CalendarDays, Loader2, MapPin, Sparkles, Users, WalletCards } from "lucide-react";
+import { ArrowRight, CalendarDays, Loader2, MapPin, SlidersHorizontal, Sparkles, Users, WalletCards } from "lucide-react";
 import { PlannerInput, PlannerResponse } from "@/types/planner";
 import { useTripSelections } from "@/components/TripSelectionProvider";
 import { DateRangeFields } from "@/components/DateRangeFields";
@@ -982,6 +982,21 @@ export function HeroPlanner({
                 </div>
               </div>
             </div>
+          </div>
+        ) : null}
+
+        {result ? (
+          <div className="mx-auto mt-6 flex max-w-5xl justify-end">
+            <button
+              type="button"
+              onClick={() => {
+                setResult(null);
+                setShowRefinements(true);
+              }}
+              className="inline-flex min-h-11 items-center gap-2 rounded-lg border border-white/15 px-4 py-2 text-sm font-black text-white transition hover:bg-white/10"
+            >
+              <SlidersHorizontal className="h-4 w-4" /> Adjust trip details
+            </button>
           </div>
         ) : null}
 
