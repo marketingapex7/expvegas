@@ -187,11 +187,12 @@ export function normalizeTicketmasterEvent(event: TicketmasterEvent): VegasEvent
 }
 
 export async function searchTicketmasterEvents(input: TicketmasterSearchInput = {}) {
-  const apiKey = process.env.TICKETMASTER_API_KEY;
-  if (!apiKey) {
+  const configuredKey = process.env.TICKETMASTER_API_KEY;
+  if (!configuredKey) {
     throw new Error("Missing TICKETMASTER_API_KEY");
   }
 
+  const apiKey: string = configuredKey;
   const maxResults = Math.min(input.maxResults || TICKETMASTER_MAX_RESULTS, TICKETMASTER_MAX_RESULTS);
   const classificationName = categoryToClassification(input.category);
 
