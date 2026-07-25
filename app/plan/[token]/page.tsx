@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import { PlanResult } from "@/components/PlanResult";
 import { getSupabaseAdmin } from "@/lib/supabase-server";
@@ -34,6 +35,36 @@ async function getSavedPlan(token: string) {
   } catch {
     return null;
   }
+}
+
+export async function generateMetadata({ params }: SavedPlanPageProps): Promise<Metadata> {
+  const { token } = await params;
+  const savedPlan = await getSavedPlan(token);
+  const dayCount = savedPlan?.result_json.itineraryDays?.length ?? 0;
+  const title = dayCount
+    ? `Your ${dayCount}-Day Las Vegas Game Plan`
+    : "Your Las Vegas Game Plan";
+  const description = savedPlan
+    ? `A personalized Vegas plan featuring ${savedPlan.result_json.bestPickName}, timed experiences, food, and practical stops.`
+    : "This private Las Vegas game plan is unavailable. Build a new personalized trip plan with ExperienceVegas.";
+
+  return {
+    title,
+    description,
+    robots: { index: false, follow: false },
+    openGraph: {
+      title,
+      description,
+      type: "website",
+      images: [{ url: "/opengraph-image", width: 1200, height: 630, alt: "ExperienceVegas personalized Las Vegas game plan" }],
+    },
+    twitter: {
+      card: "summary_large_image",
+      title,
+      description,
+      images: ["/opengraph-image"],
+    },
+  };
 }
 
 export default async function SavedPlanPage({ params }: SavedPlanPageProps) {

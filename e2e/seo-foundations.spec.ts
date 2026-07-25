@@ -45,3 +45,12 @@ test("titles use the site template once and sitemap includes the complete topica
   expect(urls.length).toBeGreaterThan(80);
   expect(new Set(urls).size).toBe(urls.length);
 });
+
+test("robots permits shareable plan URLs while keeping API routes blocked", async ({ request }) => {
+  const response = await request.get("/robots.txt");
+  expect(response.ok()).toBe(true);
+
+  const robots = await response.text();
+  expect(robots).toContain("Disallow: /api/");
+  expect(robots).not.toContain("Disallow: /plan/");
+});
