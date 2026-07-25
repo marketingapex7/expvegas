@@ -62,6 +62,16 @@ type LiveEventResult = {
   endDate: string;
 };
 
+export type HomepageEventShelf = LiveEventResult & {
+  tier: "tonight" | "tomorrow" | "weekend" | "resident";
+  eyebrow: string;
+  title: string;
+  description: string;
+  updatedLabel: string;
+};
+
+let lastGoodHomepageShelf: HomepageEventShelf | null = null;
+
 function collapseShowtimes(events: VegasEvent[]) {
   const grouped = new Map<string, VegasEvent>();
 
@@ -143,4 +153,99 @@ export async function getTonightVegasEvents(date = getVegasToday(), size = 20): 
   const events = filterTonightEvents(result.events, date, earliestStart);
 
   return { ...result, events };
+}
+
+function vegasTimeLabel(date = new Date()) {
+  return new Intl.DateTimeFormat("en-US", {
+    timeZone: VEGAS_TIME_ZONE,
+    hour: "numeric",
+    minute: "2-digit",
+    timeZoneName: "short",
+  }).format(date);
+}
+
+function shelf(
+  result: LiveEventResult,
+  events: VegasEvent[],
+  tier: HomepageEventShelf["tier"],
+  eyebrow: string,
+  title: string,
+  description: string,
+): HomepageEventShelf {
+  return {
+    ...result,
+    events: events.slice(0, 6),
+    tier,
+    eyebrow,
+    title,
+    description,
+    updatedLabel: `Updated ${vegasTimeLabel()}`,
+  };
+}
+
+export async function getHomepageEventShelf(): Promise<HomepageEventShelf> {
+  const today = getVegasToday();
+  const tomorrow = addDays(today, 1);
+  const earliestTonight = Math.max(16 * 60, getVegasMinutesNow() + 120);
+  const tonightResult = await getLiveVegasEvents(today, today, 40);
+
+  if (tonightResult.isLive) {
+    const tonightEvents = filterTonightEvents(tonightResult.events, today, earliestTonight);
+    if (tonightEvents.length >= 3) {
+      lastGoodHomepageShelf = shelf(
+        tonightResult,
+        tonightEvents,
+        "tonight",
+        "Live tonight",
+        "Events that still fit tonight.",
+        "Future start times only, with enough room to get there without rushing.",
+      );
+      return lastGoodHomepageShelf;
+    }
+  }
+
+  const tomorrowResult = await getLiveVegasEvents(tomorrow, tomorrow, 40);
+  if (tomorrowResult.isLive && tomorrowResult.events.length >= 3) {
+    lastGoodHomepageShelf = shelf(
+      tomorrowResult,
+      tomorrowResult.events,
+      "tomorrow",
+      "Coming up",
+      "Worth considering tomorrow.",
+      "A useful next-day shortlist when tonight's remaining schedule is too thin.",
+    );
+    return lastGoodHomepageShelf;
+  }
+
+  const weekend = getVegasWeekend(today);
+  const weekendResult = await getLiveVegasEvents(weekend.startDate, weekend.endDate, 50);
+  if (weekendResult.isLive && weekendResult.events.length >= 3) {
+    lastGoodHomepageShelf = shelf(
+      weekendResult,
+      weekendResult.events,
+      "weekend",
+      "This weekend",
+      "Strong events across the weekend.",
+      "Date-specific options from the live schedule, capped to the most useful six.",
+    );
+    return lastGoodHomepageShelf;
+  }
+
+  if (lastGoodHomepageShelf) {
+    return {
+      ...lastGoodHomepageShelf,
+      description: "The last confirmed schedule is shown while the live feed reconnects.",
+    };
+  }
+
+  const residentEvents = seedEvents.filter((event) => event.category !== "sports");
+
+  return shelf(
+    { events: residentEvents, isLive: false, startDate: today, endDate: weekend.endDate },
+    residentEvents,
+    "resident",
+    "Always on in Vegas",
+    "Reliable Vegas anchors to plan around.",
+    "Curated resident shows and attractions that remain useful when live inventory is thin.",
+  );
 }

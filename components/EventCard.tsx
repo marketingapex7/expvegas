@@ -8,6 +8,7 @@ import { VegasEvent } from "@/types/event";
 import { formatPrice } from "@/lib/utils";
 import { inferVegasZone } from "@/lib/vegas-logistics";
 import { TripToggleButton } from "@/components/TripToggleButton";
+import { trackProductEvent } from "@/lib/product-analytics";
 
 const scheduleDateFormatter = new Intl.DateTimeFormat("en-US", {
   weekday: "short",
@@ -38,7 +39,19 @@ function formatShowtime(localDate: string, localTime?: string, concise = false) 
   return (localTime ? scheduleDateTimeFormatter : scheduleDateFormatter).format(date);
 }
 
-export function EventCard({ event, badge, priority = false }: { event: VegasEvent; badge?: string; priority?: boolean }) {
+export function EventCard({
+  event,
+  badge,
+  priority = false,
+  showImage = true,
+  analyticsContext,
+}: {
+  event: VegasEvent;
+  badge?: string;
+  priority?: boolean;
+  showImage?: boolean;
+  analyticsContext?: string;
+}) {
   const showtimes = useMemo(() => event.showtimes?.length ? event.showtimes : [{ id: event.id, localDate: event.localDate, localTime: event.localTime, startDateTime: event.startDateTime, affiliateUrl: event.affiliateUrl }], [event]);
   const [selectedShowtimeId, setSelectedShowtimeId] = useState(showtimes[0].id);
   const selectedShowtime = showtimes.find((showtime) => showtime.id === selectedShowtimeId) || showtimes[0];
@@ -82,14 +95,22 @@ export function EventCard({ event, badge, priority = false }: { event: VegasEven
     <article className="group flex min-h-full flex-col overflow-hidden rounded-lg border border-zinc-200/90 bg-white p-2 shadow-[0_8px_30px_rgba(24,24,27,0.08)] transition duration-300 hover:-translate-y-1 hover:shadow-[0_18px_44px_rgba(24,24,27,0.14)]">
       <Link href={eventPath} className="block">
         <div className="relative aspect-[16/10] overflow-hidden rounded-lg bg-zinc-100">
-          <CardImage
-            src={imageUrl}
-            alt={`${event.name} at ${event.venueName}`}
-            category="event"
-            sizes="(min-width: 768px) 33vw, 100vw"
-            className="object-cover transition duration-500 group-hover:scale-[1.03]"
-            priority={priority}
-          />
+          {showImage ? (
+            <CardImage
+              src={imageUrl}
+              alt={`${event.name} at ${event.venueName}`}
+              category="event"
+              sizes="(min-width: 768px) 33vw, 100vw"
+              className="object-cover transition duration-500 group-hover:scale-[1.03]"
+              priority={priority}
+            />
+          ) : (
+            <div className="flex h-full flex-col justify-end bg-zinc-950 p-5 text-white">
+              <p className="text-xs font-black uppercase tracking-[0.16em] text-amber-200">{taxonomyLabel}</p>
+              <p className="mt-2 text-2xl font-black leading-tight">{event.name}</p>
+              <p className="mt-2 text-sm font-bold text-white/55">{event.venueName}</p>
+            </div>
+          )}
           <span className="absolute left-3 top-3 rounded-full bg-white/95 px-3 py-1.5 text-xs font-bold text-zinc-950 shadow-sm backdrop-blur">
             {badge || taxonomyLabel}
           </span>
@@ -122,7 +143,13 @@ export function EventCard({ event, badge, priority = false }: { event: VegasEven
         <p className="mt-4 line-clamp-3 text-sm leading-6 text-zinc-700">{event.quickVerdict}</p>
         <div className="mt-auto grid gap-2 pt-6">
           {hasTicketUrl ? (
-            <a href={ticketUrl} target="_blank" rel="noopener noreferrer sponsored" className="inline-flex min-h-12 items-center justify-center gap-2 rounded-lg bg-gradient-to-r from-amber-300 to-amber-400 px-4 py-3 text-sm font-black text-zinc-950 shadow-sm transition hover:from-amber-200 hover:to-amber-300">
+            <a
+              href={ticketUrl}
+              target="_blank"
+              rel="noopener noreferrer sponsored"
+              onClick={() => trackProductEvent("outbound_ticket_click", { eventId: event.id, context: analyticsContext })}
+              className="inline-flex min-h-12 items-center justify-center gap-2 rounded-lg bg-gradient-to-r from-amber-300 to-amber-400 px-4 py-3 text-sm font-black text-zinc-950 shadow-sm transition hover:from-amber-200 hover:to-amber-300"
+            >
               <Ticket className="h-3.5 w-3.5" /> Check Tickets
             </a>
           ) : (

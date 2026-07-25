@@ -1,172 +1,122 @@
 import Link from "next/link";
-import { ArrowRight, BadgeDollarSign, Building2, CalendarDays, CheckCircle2, Clock3, Drama, MapPin, ShoppingBag, Sparkles, Ticket, Utensils, Users } from "lucide-react";
-import { DirectorySection } from "@/components/DirectorySection";
+import { ArrowRight } from "lucide-react";
 import { EventCard } from "@/components/EventCard";
-import { HeroPlanner } from "@/components/HeroPlanner";
+import { HomeLivePlan } from "@/components/HomeLivePlan";
 import { HomeTripPreview } from "@/components/HomeTripPreview";
+import { HomeWorthRail } from "@/components/HomeWorthRail";
 import { SectionHeader } from "@/components/SectionHeader";
 import { bestForLinks, nearLinks } from "@/data/nav";
 import { experienceListings, hotelListings, restaurantListings } from "@/lib/directory-data";
-import { getTonightVegasEvents, getVegasToday } from "@/lib/live-events";
+import { getHomepageEventShelf, getVegasToday, getVegasWeekend } from "@/lib/live-events";
+import { generatePlannerResponse } from "@/lib/planner-service";
 
 export const metadata = {
-  title: { absolute: "ExperienceVegas | Build and Browse a Better Vegas Trip" },
-  description: "Build a timed Las Vegas itinerary, then browse hotels, events, restaurants, attractions, and free experiences worth adding to your trip.",
+  title: { absolute: "ExperienceVegas | Personalized Las Vegas Trip Planner" },
+  description: "See a timed Las Vegas itinerary immediately, then refine the dates, group size, budget, meals, events, and flexible stops that fit your trip.",
   alternates: { canonical: "/" },
 };
 
 export const revalidate = 1800;
 
-const browseLanes = [
-  { href: "/las-vegas-hotels", label: "Hotels", Icon: Building2 },
-  { href: "/las-vegas-shows", label: "Shows", Icon: Drama },
-  { href: "/tonight", label: "Events", Icon: Ticket },
-  { href: "/las-vegas-restaurants", label: "Restaurants", Icon: Utensils },
-  { href: "/las-vegas-attractions", label: "Attractions", Icon: Sparkles },
-  { href: "/las-vegas-shopping", label: "Shopping", Icon: ShoppingBag },
-];
-
-function selectListings(slugs: string[], source: typeof restaurantListings) {
-  return slugs.map((slug) => source.find((listing) => listing.slug === slug)).filter((listing) => listing !== undefined);
-}
+const discoveryLinks = [
+  bestForLinks.find((link) => link.label === "First-timers"),
+  bestForLinks.find((link) => link.label === "Couples"),
+  bestForLinks.find((link) => link.label === "Families"),
+  nearLinks.find((link) => link.label === "Sphere"),
+  nearLinks.find((link) => link.label === "Bellagio"),
+  nearLinks.find((link) => link.label === "T-Mobile Arena"),
+].filter((link) => link !== undefined);
 
 export default async function HomePage() {
-  const tonight = await getTonightVegasEvents(getVegasToday(), 24);
-  const topTonight = tonight.events.slice(0, 3);
-  const featuredRestaurants = selectListings(
-    ["golden-steer-steakhouse", "best-friend", "bacchanal-buffet", "tacos-el-gordo"],
-    restaurantListings,
-  );
-  const featuredExperiences = experienceListings.slice(0, 4);
+  const weekend = getVegasWeekend();
+  const defaultControls = {
+    arrivalDate: weekend.startDate,
+    departureDate: weekend.endDate,
+    partySize: 2,
+    budget: "mid" as const,
+  };
+  const defaultInput = {
+    travelDates: `${weekend.startDate} to ${weekend.endDate}`,
+    partySize: 2,
+    budget: "event tickets from $100-$200 per person",
+    groupType: "two travelers",
+    stayingNear: "center Strip",
+    vibe: "classic Vegas with one strong anchor, a useful meal, a free stop, and easy logistics",
+    mealBudget: "$30-$60 per person",
+    pace: "Balanced",
+    logistics: "Keep it walkable",
+    prompt: "Build a geographically coherent Vegas trip with realistic timing and no unnecessary backtracking.",
+  };
+
+  const [defaultPlan, eventShelf] = await Promise.all([
+    generatePlannerResponse(defaultInput),
+    getHomepageEventShelf(),
+  ]);
+
+  const worthAdding = [
+    ...hotelListings.slice(0, 2),
+    ...restaurantListings.slice(0, 2),
+    ...experienceListings.slice(0, 2),
+  ];
+  const shelfHref = eventShelf.tier === "weekend"
+    ? "/this-weekend"
+    : eventShelf.tier === "resident"
+      ? "/las-vegas-shows"
+      : "/tonight";
 
   return (
     <>
-      <HeroPlanner />
+      <HomeLivePlan initialResult={defaultPlan} initialControls={defaultControls} minDate={getVegasToday()} />
       <HomeTripPreview />
 
-      <section id="browse-vegas" className="scroll-mt-24 border-y border-zinc-200 bg-white px-4 py-7 text-zinc-950 sm:px-5">
-        <div className="mx-auto max-w-7xl">
-          <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-            <div>
-              <p className="text-xs font-black uppercase tracking-[0.22em] text-fuchsia-700">Browse Vegas</p>
-              <h2 className="mt-1 text-xl font-black text-zinc-950">Find ideas first. Add the good ones to your itinerary.</h2>
-            </div>
-            <nav aria-label="Browse Vegas categories" className="grid grid-cols-3 gap-2 sm:grid-cols-6">
-              {browseLanes.map(({ href, label, Icon }) => (
-                <Link key={href} href={href} className="flex min-h-20 min-w-0 flex-col items-center justify-center gap-2 rounded-lg border border-zinc-200 bg-zinc-50 px-3 py-3 text-center text-xs font-black text-zinc-600 transition hover:border-fuchsia-200 hover:bg-fuchsia-50 hover:text-zinc-950 sm:min-w-24">
-                  <Icon className="h-5 w-5 text-fuchsia-700" />
-                  <span className="max-w-full break-words">{label}</span>
-                </Link>
-              ))}
-            </nav>
-          </div>
+      <section className="border-y border-zinc-200 bg-white px-4 py-4 text-zinc-950 sm:px-5">
+        <div className="mx-auto flex max-w-7xl flex-wrap items-center justify-center gap-x-3 gap-y-1 text-center text-xs font-bold leading-5 text-zinc-600 sm:text-sm">
+          <span>{eventShelf.isLive ? "Live schedules from Ticketmaster" : "Curated schedule from ExperienceVegas"}</span>
+          <span aria-hidden="true" className="text-zinc-300">·</span>
+          <span>Prices are planning estimates, not quotes</span>
+          <span aria-hidden="true" className="text-zinc-300">·</span>
+          <span>No booking required; providers handle checkout</span>
         </div>
       </section>
 
-      <DirectorySection
-        eyebrow="Where to stay"
-        title="Choose a hotel that makes the rest of the trip easier."
-        description="The right base is about more than room rate. Compare the neighborhood, event access, group fit, and the experiences already on your list."
-        listings={hotelListings.slice(0, 4)}
-        viewAllHref="/las-vegas-hotels"
-        viewAllLabel="Browse Hotels"
-        mobilePreviewCount={2}
-        compactOnMobile
-        testId="home-hotels"
-      />
-
-      <section data-testid="home-tonight" className="border-t border-zinc-200 bg-white px-4 py-10 text-zinc-950 sm:px-5 sm:py-14">
+      <section data-testid="home-events" className="bg-white px-4 py-10 text-zinc-950 sm:px-5 sm:py-14">
         <div className="mx-auto max-w-7xl">
           <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
             <SectionHeader
               theme="light"
-              eyebrow={tonight.isLive ? "Live tonight" : "Curated Vegas picks"}
-              title={tonight.isLive ? "Events that are actually on tonight." : "Strong event picks while live inventory refreshes."}
-              description={tonight.isLive
-                ? "Compare the schedule, save interesting events to My Trip, or open the ticket provider only when you are ready to book."
-                : "Ticketmaster inventory is temporarily unavailable, so these recommendations are clearly marked as curated rather than tonight's confirmed schedule."}
+              eyebrow={eventShelf.eyebrow}
+              title={eventShelf.title}
+              description={eventShelf.description}
             />
-            <Link href="/tonight" className="mb-8 inline-flex min-h-11 items-center gap-2 self-start rounded-lg border border-zinc-300 px-4 py-2 text-sm font-black text-zinc-900 transition hover:bg-zinc-100 lg:self-auto">
-              See Tonight&apos;s Schedule <ArrowRight className="h-4 w-4" />
-            </Link>
+            <div className="mb-8 flex flex-wrap items-center gap-3 lg:mb-0">
+              <span className="text-xs font-bold text-zinc-400">{eventShelf.updatedLabel}</span>
+              <Link href={shelfHref} className="inline-flex min-h-11 items-center gap-2 rounded-lg border border-zinc-300 px-4 py-2 text-sm font-black text-zinc-900 transition hover:bg-zinc-100">
+                Full schedule <ArrowRight className="h-4 w-4" />
+              </Link>
+            </div>
           </div>
-          <div className="grid gap-6 md:grid-cols-3">
-            {topTonight.map((event, index) => (
-              <div key={event.id} className={index > 1 ? "hidden md:block" : ""}>
-                <EventCard event={event} badge={["Top match", "High-energy pick", "Worth comparing"][index]} priority={index === 0} />
-              </div>
+          <div className="grid auto-cols-[88%] grid-flow-col gap-5 overflow-x-auto pb-3 sm:auto-cols-[46%] lg:grid-flow-row lg:grid-cols-3 lg:overflow-visible">
+            {eventShelf.events.slice(0, 6).map((event, index) => (
+              <EventCard key={event.id} event={event} priority={index === 0} showImage={eventShelf.isLive} analyticsContext="homepage_event_shelf" />
             ))}
           </div>
-          {tonight.isLive && topTonight.length === 0 ? (
-            <div className="rounded-lg border border-zinc-200 bg-zinc-50 p-5 text-sm font-bold leading-6 text-zinc-600">
-              No future evening events are confirmed in the feed right now. Check the complete schedule or browse curated shows while inventory updates.
-            </div>
-          ) : null}
-          <div className="mt-6 grid gap-2 rounded-lg border border-zinc-200 bg-zinc-50 p-4 text-xs font-bold leading-5 text-zinc-600 sm:grid-cols-3">
-            <p className="inline-flex items-start gap-2"><CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-emerald-700" /> {tonight.isLive ? "Schedule supplied by Ticketmaster." : "Clearly marked editorial fallback picks."}</p>
-            <p className="inline-flex items-start gap-2"><Clock3 className="mt-0.5 h-4 w-4 shrink-0 text-fuchsia-700" /> {tonight.isLive ? "Inventory refreshes about every 30 minutes." : "Confirm the event date before making plans."}</p>
-            <p className="inline-flex items-start gap-2"><BadgeDollarSign className="mt-0.5 h-4 w-4 shrink-0 text-amber-700" /> Starting prices may exclude taxes and ticket fees.</p>
-          </div>
-          {topTonight.length > 2 ? (
-            <Link href="/tonight" className="mt-5 inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-lg border border-zinc-300 bg-white px-4 py-3 text-sm font-black text-zinc-900 sm:hidden">
-              See all events tonight <ArrowRight className="h-4 w-4" />
-            </Link>
-          ) : null}
         </div>
       </section>
 
-      <DirectorySection
-        eyebrow="Where to eat"
-        title="Pick the meal that fits the night around it."
-        description="Browse a useful mix of splurge dinners, group-friendly restaurants, buffets, and cheap eats. The planner will place them near the rest of your itinerary."
-        listings={featuredRestaurants}
-        viewAllHref="/las-vegas-restaurants"
-        viewAllLabel="Browse Restaurants"
-        mobilePreviewCount={2}
-        compactOnMobile
-        testId="home-restaurants"
-      />
+      <HomeWorthRail listings={worthAdding} />
 
-      <DirectorySection
-        eyebrow="Free and flexible"
-        title="Leave room for Vegas that does not need a ticket."
-        description="Shopping walks, fountains, resort interiors, and neighborhood wandering give the itinerary breathing room without turning every hour into another purchase."
-        listings={featuredExperiences}
-        viewAllHref="/free-things-to-do-las-vegas"
-        viewAllLabel="Browse Free Things"
-        mobilePreviewCount={2}
-        compactOnMobile
-        testId="home-free-experiences"
-      />
-
-      <section className="border-t border-zinc-200 bg-[#f7f7f8] px-4 py-9 text-zinc-950 sm:px-5 sm:py-14">
-        <div className="mx-auto grid max-w-7xl gap-10 lg:grid-cols-2">
-          <div>
-            <Users className="h-6 w-6 text-fuchsia-700" />
-            <h2 className="mt-4 text-3xl font-black text-zinc-950">Browse by who is going.</h2>
-            <p className="mt-3 hidden max-w-xl leading-7 text-zinc-600 sm:block">Start with the group when a category alone is not enough: couples, families, party weekends, first trips, and visitors who do not gamble.</p>
-            <div className="mt-6 flex flex-wrap gap-2">{bestForLinks.map((link) => <Link key={link.href} href={link.href} className="rounded-full border border-zinc-300 bg-white px-4 py-2 text-sm font-bold text-zinc-700 transition hover:bg-zinc-100 hover:text-zinc-950">{link.label}</Link>)}</div>
-          </div>
-          <div>
-            <MapPin className="h-6 w-6 text-fuchsia-700" />
-            <h2 className="mt-4 text-3xl font-black text-zinc-950">Browse near the night&apos;s anchor.</h2>
-            <p className="mt-3 hidden max-w-xl leading-7 text-zinc-600 sm:block">Find dinner, drinks, attractions, and flexible stops around the resort, arena, or venue you already plan to visit.</p>
-            <div className="mt-6 flex flex-wrap gap-2">{nearLinks.map((link) => <Link key={link.href} href={link.href} className="rounded-full border border-zinc-300 bg-white px-4 py-2 text-sm font-bold text-zinc-700 transition hover:bg-zinc-100 hover:text-zinc-950">{link.label}</Link>)}</div>
-          </div>
-        </div>
-      </section>
-
-      <section className="border-t border-zinc-200 bg-white px-4 py-10 pb-16 text-zinc-950 sm:px-5 sm:py-14 sm:pb-20">
-        <div className="mx-auto max-w-7xl border-y border-zinc-200 py-8 sm:py-10">
-          <div className="grid gap-7 md:grid-cols-[minmax(0,1fr)_auto] md:items-center">
-            <div>
-              <p className="inline-flex items-center gap-2 text-xs font-black uppercase tracking-[0.22em] text-fuchsia-700"><CalendarDays className="h-4 w-4" /> Bring the shortlist together</p>
-              <h2 className="mt-3 text-3xl font-black leading-tight text-zinc-950 md:text-4xl">Turn saved picks into a timed Vegas game plan.</h2>
-              <p className="mt-3 max-w-3xl text-base leading-7 text-zinc-600">Add places as you browse. The planner will use your dates, budget, lodging, travel time, and must-do selections to build the route.</p>
+      <section className="border-t border-zinc-200 bg-white px-4 py-10 text-zinc-950 sm:px-5 sm:py-14">
+        <div className="mx-auto max-w-7xl">
+          <p className="text-xs font-black uppercase tracking-[0.22em] text-fuchsia-700">Start with what matters</p>
+          <div className="mt-3 flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
+            <h2 className="max-w-2xl text-3xl font-black leading-tight sm:text-4xl">Plan by group or by the place anchoring your night.</h2>
+            <div className="flex max-w-2xl flex-wrap gap-2">
+              {discoveryLinks.map((link) => (
+                <Link key={link.href} href={link.href} className="rounded-full border border-zinc-300 bg-zinc-50 px-4 py-2 text-sm font-bold text-zinc-700 transition hover:border-fuchsia-200 hover:bg-fuchsia-50 hover:text-zinc-950">
+                  {link.label}
+                </Link>
+              ))}
             </div>
-            <Link href="/my-trip" className="inline-flex min-h-12 items-center justify-center gap-2 rounded-lg bg-zinc-950 px-5 py-3 font-black text-white transition hover:bg-fuchsia-800">
-              Review My Itinerary <ArrowRight className="h-4 w-4" />
-            </Link>
           </div>
         </div>
       </section>

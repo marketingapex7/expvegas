@@ -27,7 +27,7 @@ export function Footer() {
         <div>
           <p className="font-black text-white">Plan</p>
           <div className="mt-3 grid gap-2">
-            <Link href="/planner" className="hover:text-white">Build an experience</Link>
+            <Link href="/planner" className="hover:text-white">Plan my trip</Link>
             <Link href="/tonight" className="hover:text-white">Tonight</Link>
             <Link href="/this-weekend" className="hover:text-white">This weekend</Link>
           </div>

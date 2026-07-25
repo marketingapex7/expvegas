@@ -52,7 +52,7 @@ export function TripTray() {
     };
   }, [hydrated, pathname]);
 
-  if (!hydrated || mobileMenuOpen || pathname === "/my-trip" || pathname === "/itinerary") return null;
+  if (!hydrated || mobileMenuOpen || pathname === "/" || pathname === "/my-trip" || pathname === "/itinerary") return null;
 
   return (
     <>

@@ -7,6 +7,7 @@ import { ArrowRight, CalendarDays, Loader2, MapPin, Sparkles, Users, WalletCards
 import { PlannerInput, PlannerResponse } from "@/types/planner";
 import { useTripSelections } from "@/components/TripSelectionProvider";
 import { DateRangeFields } from "@/components/DateRangeFields";
+import { trackProductEvent } from "@/lib/product-analytics";
 
 const PlanResult = dynamic(
   () => import("@/components/PlanResult").then((module) => module.PlanResult),
@@ -138,7 +139,15 @@ function upsertPromptSentence(current: string, label: string, sentence: string) 
   return trimmed.length > 0 ? `${trimmed} ${sentence}` : sentence;
 }
 
-export function HeroPlanner({ compact = false }: { compact?: boolean }) {
+export function HeroPlanner({
+  compact = false,
+  startAtRefinement = false,
+  initialBudget,
+}: {
+  compact?: boolean;
+  startAtRefinement?: boolean;
+  initialBudget?: string;
+}) {
   const router = useRouter();
   const {
     items: tripPicks,
@@ -150,11 +159,11 @@ export function HeroPlanner({ compact = false }: { compact?: boolean }) {
   } = useTripSelections();
   const [arrivalDate, setArrivalDate] = useState("");
   const [departureDate, setDepartureDate] = useState("");
-  const [prompt, setPrompt] = useState("");
-  const [selectedHelpers, setSelectedHelpers] = useState<string[]>([]);
+  const [prompt, setPrompt] = useState(initialBudget ? `Ticket budget: ${initialBudget}.` : "");
+  const [selectedHelpers, setSelectedHelpers] = useState<string[]>(initialBudget ? [`Ticket budget:${initialBudget}`] : []);
   const [result, setResult] = useState<PlannerResponse | null>(null);
   const [loading, setLoading] = useState(false);
-  const [showRefinements, setShowRefinements] = useState(false);
+  const [showRefinements, setShowRefinements] = useState(startAtRefinement);
   const [refinements, setRefinements] = useState<Record<string, string>>({});
   const [multiRefinements, setMultiRefinements] = useState<Record<string, string[]>>({});
   const [additionalDetails, setAdditionalDetails] = useState("");
@@ -521,6 +530,10 @@ export function HeroPlanner({ compact = false }: { compact?: boolean }) {
 
     const payload = buildPlannerPayload(overrides);
     setPlanInput(payload);
+    trackProductEvent("planner_generation_started", {
+      partySize: payload.partySize || 1,
+      hasSavedPicks: tripPicks.length > 0,
+    });
     const minimumBuildTime = new Promise((resolve) => window.setTimeout(resolve, 6000));
 
     try {
@@ -536,6 +549,10 @@ export function HeroPlanner({ compact = false }: { compact?: boolean }) {
       }
 
       const nextResult = (await response.json()) as PlannerResponse;
+      trackProductEvent("planner_generation_completed", {
+        days: nextResult.itineraryDays?.length || 0,
+        hasLiveEvents: nextResult.sourceSummary?.startsWith("Live") || false,
+      });
       const nextToken = await savePlan(payload, nextResult);
       await minimumBuildTime;
       setBuildStepIndex(buildSteps.length - 1);
@@ -550,6 +567,7 @@ export function HeroPlanner({ compact = false }: { compact?: boolean }) {
       setResult(nextResult);
     } catch (error) {
       const message = error instanceof Error ? error.message : "The planner could not build this trip yet.";
+      trackProductEvent("planner_generation_failed");
       setSaveStatus(message);
     } finally {
       setLoading(false);
@@ -621,7 +639,7 @@ export function HeroPlanner({ compact = false }: { compact?: boolean }) {
         <div className={`mx-auto max-w-3xl text-center ${result ? "hidden md:block" : ""}`}>
           {!compact ? <p className="mx-auto mb-5 hidden max-w-full rounded-full border border-amber-200/25 bg-amber-200/10 px-4 py-2 text-xs font-black uppercase leading-5 tracking-[0.18em] text-amber-100 sm:inline-flex sm:text-sm">Vegas planning that starts with what you actually want</p> : null}
           <h1 className={`font-black leading-[1.01] text-white ${compact ? "text-3xl sm:text-4xl" : "text-4xl sm:text-5xl md:text-6xl lg:text-7xl"}`}>
-            {compact ? "Build your itinerary" : "Build your Vegas game plan."}
+            {compact ? "Plan your itinerary" : "Plan your Vegas trip."}
           </h1>
           <p className={`mx-auto max-w-2xl leading-8 text-white/75 ${compact ? "mt-3 text-base" : "mt-5 text-lg sm:text-xl sm:leading-9"}`}>
             {compact ? "Start with dates, then add the details that matter. We will turn them into a timed Vegas plan." : "Choose dates, budget, group, and vibe. Get a timed plan with events, food, free stops, casino time, and realistic travel buffers."}
@@ -757,10 +775,23 @@ export function HeroPlanner({ compact = false }: { compact?: boolean }) {
 
             {showRefinements ? (
               <div className="mt-4 border-t border-white/10 pt-4">
+                {tripPicks.length ? (
+                  <div className="mb-4 rounded-lg border border-emerald-300/20 bg-emerald-300/[0.08] p-4">
+                    <p className="text-xs font-black uppercase tracking-[0.18em] text-emerald-200">Saved picks carried into this plan</p>
+                    <div className="mt-3 flex flex-wrap gap-2">
+                      {tripPicks.map((item) => (
+                        <span key={item.id} className="rounded-full border border-emerald-200/20 bg-black/20 px-3 py-2 text-xs font-black text-white">
+                          {item.name}{item.locked ? " · Locked" : ""}
+                        </span>
+                      ))}
+                    </div>
+                    <p className="mt-3 text-xs leading-5 text-white/50">Locked picks stay fixed while the planner fills open time around them.</p>
+                  </div>
+                ) : null}
                 <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
                   <div>
                     <p className="text-xs font-black uppercase tracking-[0.22em] text-amber-100">Tune your itinerary</p>
-                    <h2 className="mt-2 text-2xl font-black text-white">A few quick choices make the game plan much better.</h2>
+                    <h2 className="mt-2 text-2xl font-black text-white">A few quick choices make the plan much better.</h2>
                   </div>
                   <button
                     type="button"
@@ -768,7 +799,7 @@ export function HeroPlanner({ compact = false }: { compact?: boolean }) {
                     disabled={loading}
                     className="inline-flex min-h-11 items-center justify-center gap-2 rounded-lg bg-amber-200 px-4 py-3 text-sm font-black text-black transition hover:bg-amber-100 disabled:cursor-wait disabled:opacity-70"
                   >
-                     {loading ? "Building..." : "Build My Game Plan"} {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <ArrowRight className="h-4 w-4" />}
+                     {loading ? "Planning..." : "Plan My Trip"} {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <ArrowRight className="h-4 w-4" />}
                    </button>
                    <button
                      type="button"
@@ -864,7 +895,7 @@ export function HeroPlanner({ compact = false }: { compact?: boolean }) {
                 aria-describedby={saveStatus ? "planner-build-error" : undefined}
                 className={`inline-flex min-h-12 items-center justify-center gap-2 rounded-lg px-5 py-3 font-black transition sm:min-w-56 ${plannerCtaState === "loading" ? "cursor-wait bg-amber-100/70 text-black" : plannerCtaState === "error" ? "bg-rose-200 text-rose-950 hover:bg-rose-100" : plannerCtaState === "ready" ? "bg-gradient-to-r from-amber-300 to-fuchsia-300 text-zinc-950 shadow-lg shadow-fuchsia-950/20 hover:brightness-110" : "border border-amber-200/40 bg-amber-200/10 text-amber-100 hover:bg-amber-200/20"}`}
               >
-                {loading ? "Building..." : !datesAreSet ? "Browse Vegas Ideas" : saveStatus ? "Try Building Again" : showRefinements ? "Build My Game Plan" : "Continue to Trip Details"} {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <ArrowRight className="h-4 w-4" />}
+                {loading ? "Planning..." : !datesAreSet ? "Browse Vegas Ideas" : saveStatus ? "Try Planning Again" : showRefinements ? "Plan My Trip" : "Continue to Trip Details"} {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <ArrowRight className="h-4 w-4" />}
               </button>
             </div>
             {saveStatus ? <p id="planner-build-error" role="alert" className="mt-3 text-sm font-bold text-amber-100">{saveStatus}</p> : null}
@@ -880,7 +911,7 @@ export function HeroPlanner({ compact = false }: { compact?: boolean }) {
             <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
               <div>
                 <p className="inline-flex items-center gap-2 text-sm font-black text-amber-100">
-                  <Loader2 className="h-4 w-4 animate-spin" /> Building your Vegas game plan
+                  <Loader2 className="h-4 w-4 animate-spin" /> Planning your Vegas trip
                 </p>
                 <h3 className="mt-3 text-2xl font-black text-white">Trip dates locked: {loadingDates}</h3>
                 <p className="mt-2 max-w-2xl text-sm leading-6 text-white/60">

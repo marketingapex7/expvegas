@@ -7,7 +7,7 @@ test("guessable routes and branded not-found page keep visitors oriented", async
 
   await page.goto("/this-route-does-not-exist");
   await expect(page.getByRole("heading", { level: 1 })).toContainText("Vegas plan back on track");
-  await expect(page.getByRole("main").getByRole("link", { name: "Build My Experience" })).toBeVisible();
+  await expect(page.getByRole("main").getByRole("link", { name: "Plan my trip" })).toBeVisible();
 });
 
 test("desktop dropdowns stay open while the pointer enters the menu", async ({ page }) => {
@@ -28,19 +28,19 @@ test("desktop dropdowns stay open while the pointer enters the menu", async ({ p
   await expect(submenuLink).toBeVisible();
 });
 
-test("mobile navigation hides the floating tray and empty itinerary metrics stay honest", async ({ page }) => {
+test("mobile navigation keeps the cold homepage free of itinerary chrome", async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto("/");
   await page.evaluate(() => window.localStorage.clear());
   await page.reload();
 
   const trayButton = page.getByRole("button", { name: /Open My Itinerary/ });
-  await expect(trayButton).toBeVisible();
-  const trayBox = await trayButton.boundingBox();
-  expect(trayBox?.width).toBeLessThanOrEqual(56);
+  await expect(trayButton).toBeHidden();
+  await expect(page.getByTestId("returning-trip-preview")).toBeHidden();
   await page.getByRole("button", { name: "Open navigation menu" }).click();
   await expect(page.getByRole("navigation", { name: "Mobile navigation" })).toBeVisible();
   await expect(trayButton).toBeHidden();
+  await expect(page.getByRole("navigation", { name: "Mobile navigation" }).getByRole("link", { name: "Plan my trip" })).toBeVisible();
 
   await page.goto("/my-trip");
   await expect(page.getByRole("heading", { name: "My Itinerary" })).toBeVisible();
@@ -49,22 +49,23 @@ test("mobile navigation hides the floating tray and empty itinerary metrics stay
   await expect(page.getByRole("button", { name: /Open My Itinerary/ })).toBeHidden();
 });
 
-test("mobile homepage keeps discovery lanes compact while desktop preserves depth", async ({ page }) => {
+test("homepage proves the planner first and keeps low inventory compact", async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto("/");
 
-  for (const testId of ["home-hotels", "home-restaurants", "home-free-experiences"]) {
-    const section = page.getByTestId(testId);
-    await expect(section.locator("article:visible")).toHaveCount(2);
-    await expect(section.getByRole("link", { name: "Browse all choices" })).toBeVisible();
-  }
-  await expect(page.getByTestId("home-tonight").locator("article:visible")).toHaveCount(2);
-  await expect(page.getByText("Starting prices may exclude taxes and ticket fees.")).toBeVisible();
-  await expect(page.getByTestId("home-hotels").getByText(/Est\. \$\d+-\$\d+ \/ night/).first()).toBeVisible();
+  await expect(page.getByTestId("homepage-live-plan")).toBeVisible();
+  await expect(page.getByTestId("homepage-live-plan").getByText(/Allow \d+-\d+ min between stops/).first()).toBeVisible();
+  await expect(page.getByTestId("homepage-live-plan").getByText("Event", { exact: true }).first()).toBeVisible();
+  await expect(page.getByText("Prices are planning estimates, not quotes")).toBeVisible();
+  const eventCount = await page.getByTestId("home-events").locator("article").count();
+  expect(eventCount).toBeGreaterThanOrEqual(3);
+  expect(eventCount).toBeLessThanOrEqual(6);
+  await expect(page.getByTestId("home-worth-rail").locator("article")).toHaveCount(6);
+  await expect(page.getByTestId("home-hotels")).toHaveCount(0);
+  await expect(page.getByRole("link", { name: "Browse all choices" })).toHaveCount(0);
 
   await page.setViewportSize({ width: 1280, height: 900 });
   await page.reload();
-  await expect(page.getByTestId("home-hotels").locator("article:visible")).toHaveCount(4);
-  await expect(page.getByTestId("home-restaurants").locator("article:visible")).toHaveCount(4);
-  await expect(page.getByTestId("home-free-experiences").locator("article:visible")).toHaveCount(4);
+  await expect(page.getByTestId("homepage-live-plan")).toBeVisible();
+  await expect(page.getByTestId("home-worth-rail").locator("article:visible")).toHaveCount(6);
 });

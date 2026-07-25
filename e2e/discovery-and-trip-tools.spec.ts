@@ -52,7 +52,7 @@ test("Tonight filters explain an empty combination and recover cleanly", async (
 });
 
 test("sample trip fills editable dates and multi-range preferences", async ({ page }) => {
-  await page.goto("/");
+  await page.goto("/planner");
   await page.evaluate(() => localStorage.clear());
   await page.reload();
   await page.getByRole("button", { name: "Try sample: weekend for 4" }).click();

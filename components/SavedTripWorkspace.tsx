@@ -362,7 +362,7 @@ export function SavedTripWorkspace() {
             ) : (
               <div className="flex min-h-96 flex-col items-center justify-center rounded-lg border border-dashed border-zinc-300 bg-white px-6 text-center">
                 <Plus className="h-8 w-8 text-fuchsia-700" />
-                <h2 className="mt-4 text-2xl font-black">Start building your Vegas shortlist</h2>
+                <h2 className="mt-4 text-2xl font-black">Start planning your Vegas shortlist</h2>
                 <p className="mt-2 max-w-md leading-7 text-zinc-600">Browse hotels, events, restaurants, attractions, and free experiences. Add anything you want the planner to consider.</p>
                 <Link href="/" className="mt-5 inline-flex min-h-11 items-center gap-2 rounded-lg bg-zinc-950 px-5 py-3 text-sm font-black text-white hover:bg-fuchsia-800">Browse Vegas <ArrowRight className="h-4 w-4" /></Link>
               </div>
@@ -416,7 +416,7 @@ export function SavedTripWorkspace() {
               ) : null}
               <p className="mt-2 text-xs leading-5 text-white/55">For {settings.partySize} traveler{settings.partySize === 1 ? "" : "s"}; hotel estimates assume one room. Shopping, gambling, fees, tax, and transportation are excluded until live partners provide totals.</p>
               {settings.budgetCap > 0 ? <div className="mt-4 h-2 overflow-hidden rounded-full bg-white/15"><div className={`h-full ${cost.min > settings.budgetCap ? "bg-rose-400" : "bg-amber-300"}`} style={{ width: `${Math.min(100, (cost.min / settings.budgetCap) * 100)}%` }} /></div> : null}
-              <Link href="/planner" aria-disabled={!items.length || !datesReady} className={`mt-5 flex min-h-12 items-center justify-center gap-2 rounded-lg px-4 py-3 text-sm font-black ${items.length && datesReady ? "bg-amber-300 text-zinc-950 hover:bg-amber-200" : "pointer-events-none border border-white/20 bg-white/15 text-white/65"}`}>Build My Timed Itinerary <ArrowRight className="h-4 w-4" /></Link>
+              <Link href="/planner?refine=1" aria-disabled={!items.length || !datesReady} className={`mt-5 flex min-h-12 items-center justify-center gap-2 rounded-lg px-4 py-3 text-sm font-black ${items.length && datesReady ? "bg-amber-300 text-zinc-950 hover:bg-amber-200" : "pointer-events-none border border-white/20 bg-white/15 text-white/65"}`}>Plan My Timed Itinerary <ArrowRight className="h-4 w-4" /></Link>
               <Link href="/now" className="mt-2 flex min-h-11 items-center justify-center gap-2 rounded-lg border border-white/15 px-4 py-2 text-sm font-black text-white hover:bg-white/10"><Zap className="h-4 w-4" /> What Should We Do Now?</Link>
             </div>
           </aside>

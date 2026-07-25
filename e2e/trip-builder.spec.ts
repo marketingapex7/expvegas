@@ -44,6 +44,25 @@ const plannerResponse = {
   },
 };
 
+test("homepage controls regenerate the preview and preserve the planner handoff", async ({ page }) => {
+  let plannerRequest: Record<string, unknown> = {};
+
+  await page.route("**/api/planner", async (route) => {
+    plannerRequest = route.request().postDataJSON() as Record<string, unknown>;
+    await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(plannerResponse) });
+  });
+
+  await page.goto("/");
+  await page.getByLabel("Travelers").selectOption("4");
+
+  await expect.poll(() => plannerRequest.partySize).toBe(4);
+  await expect(page).toHaveURL(/\/$/);
+
+  await page.getByRole("link", { name: "Plan this trip" }).click();
+  await expect(page).toHaveURL(/\/planner\?refine=1&budget=mid$/);
+  await expect(page.getByText("Tune your itinerary")).toBeVisible();
+});
+
 test("trip builder advances from dates through a completed game plan", async ({ page }) => {
   let plannerRequest: Record<string, string> = {};
   const arrivalDate = new Date();
@@ -62,7 +81,7 @@ test("trip builder advances from dates through a completed game plan", async ({ 
     await route.fulfill({ status: 200, contentType: "application/json", body: "{}" });
   });
 
-  await page.goto("/");
+  await page.goto("/planner");
   await page.evaluate(() => window.localStorage.clear());
   await page.reload();
 
@@ -70,11 +89,8 @@ test("trip builder advances from dates through a completed game plan", async ({ 
   const departure = page.getByTestId("departure-date");
   const primaryCta = page.getByTestId("planner-primary-cta");
 
-  await expect(page.getByTestId("date-status")).toContainText("Add your arrival and departure dates");
   await expect(primaryCta).toBeEnabled();
   await expect(primaryCta).toContainText("Browse Vegas Ideas");
-  await primaryCta.click();
-  await expect(page.locator("#browse-vegas")).toBeInViewport();
 
   await arrival.fill(arrivalValue);
   await departure.focus();
@@ -121,10 +137,10 @@ test("trip builder advances from dates through a completed game plan", async ({ 
   await expect(noGambling).toHaveAttribute("aria-pressed", "false");
   await expect(mediumBankroll).toHaveAttribute("aria-pressed", "true");
   await expect(sportsbook).toHaveAttribute("aria-pressed", "true");
-  await expect(primaryCta).toContainText("Build My Game Plan");
+  await expect(primaryCta).toContainText("Plan My Trip");
   await primaryCta.click();
 
-  await expect(page.getByText("Building your Vegas game plan")).toBeVisible();
+  await expect(page.getByText("Planning your Vegas trip")).toBeVisible();
   const analysisSelections = page.getByTestId("planner-analysis-selections");
   await expect(analysisSelections).toBeVisible();
   expect(await analysisSelections.evaluate((container) => (
@@ -173,7 +189,7 @@ test("mobile completed plan prioritizes booking and itinerary before trip detail
     await route.fulfill({ status: 200, contentType: "application/json", body: "{}" });
   });
 
-  await page.goto("/");
+  await page.goto("/planner");
   await page.evaluate(() => window.localStorage.clear());
   await page.reload();
   await page.getByTestId("arrival-date").fill(arrivalDate.toISOString().slice(0, 10));

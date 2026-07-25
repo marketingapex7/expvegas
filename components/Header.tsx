@@ -13,6 +13,7 @@ export function Header() {
   const [menuOpen, setMenuOpen] = useState(false);
   const [desktopMenu, setDesktopMenu] = useState("");
   const [mobileSection, setMobileSection] = useState("");
+  const categoryNavigation = directoryNav.filter((item) => item.label !== "Plan Your Trip");
 
   function closeMenus() {
     setMenuOpen(false);
@@ -53,7 +54,7 @@ export function Header() {
         </Link>
 
         <nav aria-label="Main navigation" className="hidden items-center gap-1 lg:flex">
-          {directoryNav.map((item) => {
+          {categoryNavigation.map((item) => {
             const open = desktopMenu === item.label;
             return (
               <div
@@ -106,12 +107,14 @@ export function Header() {
 
         <div className="flex items-center gap-2">
           <GlobalSearch />
-          <Link href="/my-trip" onClick={closeMenus} aria-label={`My Itinerary with ${items.length} saved picks`} className="relative inline-flex h-10 items-center gap-2 rounded-lg border border-white/15 px-3 text-sm font-black text-white transition hover:bg-white/10">
-            <CalendarDays className="h-4 w-4" /> <span className="hidden md:inline">My Itinerary</span>
-            {hydrated && items.length ? <span className="inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-amber-300 px-1 text-[11px] font-black text-black">{items.length}</span> : null}
-          </Link>
+          {hydrated && items.length ? (
+            <Link href="/my-trip" onClick={closeMenus} aria-label={`My trip with ${items.length} saved picks`} className="relative inline-flex h-10 items-center gap-2 rounded-lg border border-white/15 px-3 text-sm font-black text-white transition hover:bg-white/10">
+              <CalendarDays className="h-4 w-4" /> <span className="hidden md:inline">My trip</span>
+              <span className="inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-amber-300 px-1 text-[11px] font-black text-black">{items.length}</span>
+            </Link>
+          ) : null}
           <Link href="/planner" onClick={closeMenus} className="hidden min-h-10 items-center rounded-lg bg-white px-4 py-2 text-sm font-black text-black transition hover:bg-amber-100 sm:inline-flex">
-            Build My Experience
+            Plan my trip
           </Link>
           <button
             type="button"
@@ -129,7 +132,7 @@ export function Header() {
         <div className="fixed inset-x-0 bottom-0 top-[65px] z-50 bg-black/70 backdrop-blur-sm lg:hidden" onMouseDown={(event) => { if (event.currentTarget === event.target) closeMenus(); }}>
         <nav aria-label="Mobile navigation" className="h-full overflow-y-auto border-t border-white/10 bg-[#0c0a0f] px-4 py-3 shadow-2xl sm:ml-auto sm:max-w-md">
           <div className="mx-auto max-w-7xl">
-            {directoryNav.map((item) => {
+            {categoryNavigation.map((item) => {
               const open = mobileSection === item.label;
               return (
                 <div key={item.label} className="border-b border-white/10">
@@ -150,7 +153,7 @@ export function Header() {
                 </div>
               );
             })}
-            <Link href="/planner" onClick={closeMenus} className="mt-4 flex min-h-12 items-center justify-center rounded-lg bg-white px-4 py-3 font-black text-black transition hover:bg-amber-100 sm:hidden">Build My Experience</Link>
+            <Link href="/planner" onClick={closeMenus} className="mt-4 flex min-h-12 items-center justify-center rounded-lg bg-white px-4 py-3 font-black text-black transition hover:bg-amber-100 sm:hidden">Plan my trip</Link>
           </div>
         </nav>
         </div>

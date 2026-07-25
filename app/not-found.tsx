@@ -19,7 +19,7 @@ export default function NotFound() {
         <div className="mt-9 grid gap-3 sm:grid-cols-5">
           {destinations.map(({ href, label, Icon }) => <Link key={href} href={href} className="flex min-h-24 flex-col items-center justify-center gap-2 rounded-lg border border-white/15 bg-white/[0.06] p-3 font-black text-white transition hover:border-amber-200/40 hover:bg-white/10"><Icon className="h-5 w-5 text-amber-200" />{label}</Link>)}
         </div>
-        <Link href="/planner" className="mt-7 inline-flex min-h-12 items-center gap-2 rounded-lg bg-gradient-to-r from-amber-300 to-fuchsia-300 px-6 py-3 font-black text-zinc-950">Build My Experience <ArrowRight className="h-4 w-4" /></Link>
+        <Link href="/planner" className="mt-7 inline-flex min-h-12 items-center gap-2 rounded-lg bg-gradient-to-r from-amber-300 to-fuchsia-300 px-6 py-3 font-black text-zinc-950">Plan my trip <ArrowRight className="h-4 w-4" /></Link>
       </div>
     </main>
   );

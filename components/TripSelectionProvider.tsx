@@ -2,6 +2,7 @@
 
 import { createContext, ReactNode, useContext, useEffect, useMemo, useState } from "react";
 import { TripDates, TripPick, TripSettings } from "@/types/directory";
+import { trackProductEvent } from "@/lib/product-analytics";
 
 const STORAGE_KEY = "experiencevegas.trip-picks.v1";
 const DATES_STORAGE_KEY = "experiencevegas.trip-dates.v1";
@@ -104,9 +105,16 @@ export function TripSelectionProvider({ children }: { children: ReactNode }) {
     settings,
     hydrated,
     hasItem: (id) => items.some((item) => item.id === id),
-    toggleItem: (item) => setItems((current) => current.some((entry) => entry.id === item.id)
-      ? current.filter((entry) => entry.id !== item.id)
-      : [...current, normalizeItem(item)]),
+    toggleItem: (item) => {
+      const removing = items.some((entry) => entry.id === item.id);
+      trackProductEvent(removing ? "itinerary_item_removed" : "itinerary_item_saved", {
+        category: item.category,
+        itemId: item.id,
+      });
+      setItems((current) => removing
+        ? current.filter((entry) => entry.id !== item.id)
+        : [...current, normalizeItem(item)]);
+    },
     removeItem: (id) => setItems((current) => current.filter((item) => item.id !== id)),
     clearItems: () => setItems([]),
     setDates,
