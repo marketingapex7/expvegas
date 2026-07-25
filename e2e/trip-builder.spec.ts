@@ -51,7 +51,15 @@ test("homepage controls regenerate the preview and preserve the planner handoff"
     plannerRequest = route.request().postDataJSON() as Record<string, unknown>;
     await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(plannerResponse) });
   });
+  await page.route("**/api/plans", async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({ shareToken: "homepage-handoff", expiresAt: "2026-08-30T00:00:00.000Z" }),
+    });
+  });
 
+  await page.addInitScript(() => window.localStorage.clear());
   await page.goto("/");
   await page.getByLabel("Travelers").selectOption("4");
 
@@ -67,6 +75,7 @@ test("homepage controls regenerate the preview and preserve the planner handoff"
   await expect(page.getByText("Planning your Vegas trip")).toBeVisible();
   const adjustDetails = page.getByRole("button", { name: "Adjust trip details" });
   await expect(adjustDetails).toBeVisible({ timeout: 15_000 });
+  await expect(page).toHaveURL(/\/planner\?refine=1&budget=mid$/);
 
   // Tuning stays reachable from the built plan.
   await adjustDetails.click();

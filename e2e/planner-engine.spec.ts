@@ -1,5 +1,6 @@
 import { expect, test } from "@playwright/test";
-import { buildItinerary } from "../lib/itinerary-engine";
+import { buildItinerary, sanitizeSchedule } from "../lib/itinerary-engine";
+import { generatePlannerResponse } from "../lib/planner-service";
 import { VegasEvent } from "../types/event";
 
 function event(overrides: Partial<VegasEvent>): VegasEvent {
@@ -96,5 +97,49 @@ test("free and shopping stops retain their own locations", () => {
     if (block.title.includes("Forum Shops")) expect(block.location).toBe("Caesars Palace");
     if (block.title.includes("Grand Canal Shoppes")) expect(block.location).toBe("Venetian");
     if (block.title.includes("Bellagio Fountain")) expect(block.location).toBe("Bellagio");
+  }
+});
+
+test("schedule sanitation removes a stop when the minimum useful duration would overlap a fixed event", () => {
+  const blocks = sanitizeSchedule([
+    {
+      time: "6:30 PM",
+      title: "Dinner that no longer fits",
+      category: "meal",
+      location: "Bellagio",
+      durationMinutes: 90,
+      earliestStartMinutes: 18 * 60 + 30,
+    },
+    {
+      time: "7:00 PM",
+      title: "Fixed headline show",
+      category: "event",
+      location: "Bellagio",
+      durationMinutes: 120,
+    },
+  ]);
+
+  expect(blocks.map((block) => block.title)).toEqual(["Fixed headline show"]);
+  expect(blocks[0].time).toBe("7:00 PM");
+});
+
+test("planner keeps editorial picks unscheduled when no provider time is confirmed", async () => {
+  const configuredKey = process.env.TICKETMASTER_API_KEY;
+  delete process.env.TICKETMASTER_API_KEY;
+
+  try {
+    const result = await generatePlannerResponse({
+      travelDates: "2026-08-03 to 2026-08-05",
+      partySize: 2,
+      vibe: "classic Vegas show",
+    });
+    const scheduledEvents = result.itineraryDays?.flatMap((day) => day.blocks).filter((block) => block.category === "event") || [];
+
+    expect(scheduledEvents).toHaveLength(0);
+    expect(result.headline).toBe("Your Vegas Plan");
+    expect(result.sourceSummary).toContain("timed plan stays flexible");
+    expect(result.tripSummary?.whyThisPlanWorks).toContain("leaves the headline slot open");
+  } finally {
+    if (configuredKey) process.env.TICKETMASTER_API_KEY = configuredKey;
   }
 });

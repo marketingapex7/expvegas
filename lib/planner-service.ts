@@ -1,5 +1,5 @@
 import { seedEvents } from "@/data/seed-events";
-import { buildItinerary, isGoodAnchorEvent } from "@/lib/itinerary-engine";
+import { buildItinerary } from "@/lib/itinerary-engine";
 import { diversifyEventsByTicketBudget } from "@/lib/budget-preferences";
 import { isHeadlineEvent, rankEvents } from "@/lib/scoring";
 import { searchTicketmasterEvents } from "@/lib/ticketmaster";
@@ -105,38 +105,6 @@ function buildTripSummary(input: PlannerInput, itineraryDays: ItineraryDay[], sc
   };
 }
 
-function dateRange(startDate?: string, endDate?: string) {
-  if (!startDate) return [];
-  const dates: string[] = [];
-  const start = new Date(`${startDate}T12:00:00Z`);
-  const end = new Date(`${endDate || startDate}T12:00:00Z`);
-  for (const cursor = new Date(start); cursor <= end && dates.length < 7; cursor.setUTCDate(cursor.getUTCDate() + 1)) {
-    dates.push(cursor.toISOString().slice(0, 10));
-  }
-  return dates;
-}
-
-function scheduledFallbackEvents(startDate: string | undefined, endDate: string | undefined, liveEvents: VegasEvent[], input: PlannerInput) {
-  const anchors = seedEvents.filter((event) => ["shows", "comedy", "attractions"].includes(event.category));
-
-  return dateRange(startDate, endDate).flatMap((date, index) => {
-    const hasLiveAnchor = liveEvents.some(
-      (event) => event.localDate === date && isGoodAnchorEvent(event, input, index === 0),
-    );
-    if (hasLiveAnchor) return [];
-
-    const event = anchors[index % anchors.length];
-    const localTime = event.name === "O by Cirque du Soleil" ? "21:00:00" : "20:00:00";
-    return [{
-      ...event,
-      id: `curated-${date}-${event.id}`,
-      localDate: date,
-      localTime,
-      quickVerdict: `${event.quickVerdict} This is a planning slot; confirm the current performance time before booking.`,
-    }];
-  });
-}
-
 export async function generatePlannerResponse(input: PlannerInput): Promise<PlannerResponse> {
   const { startDate, endDate } = parseTravelDates(input.travelDates);
   const category = inferCategory(input);
@@ -148,11 +116,10 @@ export async function generatePlannerResponse(input: PlannerInput): Promise<Plan
     liveEvents = [];
   }
 
-  // Curated anchors are added per day rather than only when live inventory is
-  // completely empty. A day with live events but no usable evening anchor would
-  // otherwise fall through to an "open evening" placeholder.
-  const fallbackSchedule = scheduledFallbackEvents(startDate, endDate, liveEvents, input);
-  const ranked = rankEvents([...liveEvents, ...fallbackSchedule, ...seedEvents], input);
+  // Editorial picks remain useful comparison options, but they are deliberately
+  // undated. Only provider inventory with a confirmed date and time can become a
+  // timed itinerary anchor.
+  const ranked = rankEvents([...liveEvents, ...seedEvents], input);
   const headlineEvents = ranked.filter(isHeadlineEvent);
   const budgetDiversifiedEvents = diversifyEventsByTicketBudget(headlineEvents, input.budget);
   const fallbackBest = headlineEvents[0];
@@ -164,13 +131,14 @@ export async function generatePlannerResponse(input: PlannerInput): Promise<Plan
   const scheduledAnchor = firstScheduledEvent
     ? ranked.find((event) => event.name === firstScheduledEvent.title)
     : undefined;
+  const hasLiveScheduledAnchor = Boolean(scheduledAnchor?.id.startsWith("ticketmaster-"));
   const best = scheduledAnchor || fallbackBest;
   const backups = budgetDiversifiedEvents.filter((event) => event.id !== best.id).slice(0, 3);
   const liveHeadlineCount = liveEvents.filter(isHeadlineEvent).length;
   const anchorDay = itineraryDays.find((day) => day.blocks.some((block) => block.category === "event")) || itineraryDays[0];
 
   return {
-    headline: liveHeadlineCount > 0 ? "Your Vegas Plan From Live Events" : "Your Vegas Plan",
+    headline: hasLiveScheduledAnchor ? "Your Vegas Plan From Live Events" : "Your Vegas Plan",
     bestPickId: best.id,
     bestPickName: best.name,
     whyItFits: buildWhyItFits(best, input, liveHeadlineCount),
@@ -181,9 +149,11 @@ export async function generatePlannerResponse(input: PlannerInput): Promise<Plan
     premiumVersion: headlineEvents.find((event) => event.priceMin && event.priceMin >= 100)?.name,
     avoid: input.dealbreakers ? [`Avoid anything matching: ${input.dealbreakers}`] : [],
     sourceSummary:
-      liveHeadlineCount > 0
+      hasLiveScheduledAnchor
         ? `Live schedule checked for your dates. Included ${liveHeadlineCount} headline Ticketmaster event${liveHeadlineCount === 1 ? "" : "s"} to compare after removing add-ons and retail listings.`
-        : "No live Ticketmaster events were available, so this used curated ExperienceVegas picks.",
+        : liveHeadlineCount > 0
+          ? "Live inventory was checked, but no suitable timed anchor was confirmed. The plan keeps the evening flexible and shows curated picks only for comparison."
+          : "No live Ticketmaster anchor was available, so the timed plan stays flexible and curated picks remain unscheduled.",
     eventOptions: budgetDiversifiedEvents.slice(0, 20).map((event) => ({
       id: event.id,
       name: event.name,

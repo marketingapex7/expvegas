@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { rateLimit } from "@/lib/api-security";
+import { rankEvents } from "@/lib/scoring";
 import { searchTicketmasterEvents } from "@/lib/ticketmaster";
 
 const categories = ["shows", "comedy", "sports", "concerts", "attractions"] as const;
@@ -13,7 +14,7 @@ const querySchema = z.object({
 }).superRefine((query, context) => {
   if (!query.startDate || !query.endDate) return;
   const days = (Date.parse(`${query.endDate}T00:00:00Z`) - Date.parse(`${query.startDate}T00:00:00Z`)) / 86_400_000;
-  if (days < 0 || days > 31) context.addIssue({ code: "custom", path: ["endDate"], message: "Choose a range of no more than 31 days." });
+  if (days < 0 || days > 7) context.addIssue({ code: "custom", path: ["endDate"], message: "Choose a range of no more than 7 days." });
 });
 
 export async function GET(request: Request) {
@@ -33,12 +34,12 @@ export async function GET(request: Request) {
   }
 
   try {
-    const events = await searchTicketmasterEvents({
+    const inventory = await searchTicketmasterEvents({
       startDate: query.data.startDate,
       endDate: query.data.endDate,
       category: query.data.category,
-      maxResults: query.data.size,
     });
+    const events = rankEvents(inventory).slice(0, query.data.size);
 
     return NextResponse.json({ events }, { headers: { "Cache-Control": "public, s-maxage=1800, stale-while-revalidate=86400" } });
   } catch (error) {

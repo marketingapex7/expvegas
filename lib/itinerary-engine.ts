@@ -304,20 +304,25 @@ export function sanitizeSchedule(blocks: ItineraryBlock[]) {
       // Shifting earlier is bounded by floors and by the preceding block, so a
       // tight day can still leave the last stop running into the event. Trim it
       // rather than publish overlapping times.
-      const trailing = scheduled.at(-1);
-      if (trailing) {
+      let trailing = scheduled.at(-1);
+      while (trailing && trailing.block.category !== "event") {
         const mustEndBy = originalStart - bufferBetween(trailing.block, block);
-        if (trailing.start + trailing.duration > mustEndBy) {
-          const trimmed = Math.max(MIN_TRIMMED_DURATION, mustEndBy - trailing.start);
-          if (trimmed < trailing.duration) {
-            trailing.duration = trimmed;
-            trailing.block = {
-              ...trailing.block,
-              durationMinutes: trimmed,
-              timingNote: `Shortened to keep the ${block.title} start time.`,
-            };
-          }
+        if (trailing.start + trailing.duration <= mustEndBy) break;
+
+        const availableDuration = mustEndBy - trailing.start;
+        if (availableDuration < MIN_TRIMMED_DURATION) {
+          scheduled.pop();
+          trailing = scheduled.at(-1);
+          continue;
         }
+
+        trailing.duration = availableDuration;
+        trailing.block = {
+          ...trailing.block,
+          durationMinutes: availableDuration,
+          timingNote: `Shortened to keep the ${block.title} start time.`,
+        };
+        break;
       }
     }
 

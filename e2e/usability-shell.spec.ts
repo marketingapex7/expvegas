@@ -55,7 +55,10 @@ test("homepage proves the planner first and keeps low inventory compact", async 
 
   await expect(page.getByTestId("homepage-live-plan")).toBeVisible();
   await expect(page.getByTestId("homepage-live-plan").getByText(/Allow \d+-\d+ min between stops/).first()).toBeVisible();
-  await expect(page.getByTestId("homepage-live-plan").getByText("Event", { exact: true }).first()).toBeVisible();
+  const livePlan = page.getByTestId("homepage-live-plan");
+  const verifiedEvents = await livePlan.getByText("Event", { exact: true }).count();
+  const flexibleEvenings = await livePlan.getByText("Open evening for a last-minute show or lounge", { exact: true }).count();
+  expect(verifiedEvents + flexibleEvenings).toBeGreaterThan(0);
   await expect(page.getByText("Prices are planning estimates, not quotes")).toBeVisible();
   const eventCount = await page.getByTestId("home-events").locator("article").count();
   expect(eventCount).toBeGreaterThanOrEqual(3);

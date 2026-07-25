@@ -67,17 +67,12 @@ type TicketmasterSearchInput = {
   startDate?: string;
   endDate?: string;
   category?: EventCategory;
-  /**
-   * Upper bound on events returned across all pages. This is a ceiling, not a
-   * page size: the search always sweeps the whole date window so that evening
-   * inventory is reachable. Callers filter and slice afterwards.
-   */
-  maxResults?: number;
 };
 
 // Discovery API caps page size at 199 and refuses deep paging past 1000 items.
 const TICKETMASTER_PAGE_SIZE = 199;
-const TICKETMASTER_MAX_RESULTS = 995;
+const TICKETMASTER_MAX_PAGES = 5;
+const MAX_SEARCH_DAYS = 7;
 
 function slugify(value: string) {
   return value
@@ -193,10 +188,30 @@ export async function searchTicketmasterEvents(input: TicketmasterSearchInput = 
   }
 
   const apiKey: string = configuredKey;
-  const maxResults = Math.min(input.maxResults || TICKETMASTER_MAX_RESULTS, TICKETMASTER_MAX_RESULTS);
   const classificationName = categoryToClassification(input.category);
 
-  function pageParams(page: number) {
+  function searchWindows() {
+    const startValue = input.startDate || input.endDate;
+    const endValue = input.endDate || input.startDate;
+    if (!startValue || !endValue) return [{ startDate: undefined, endDate: undefined }];
+
+    const start = new Date(`${startValue}T00:00:00Z`);
+    const end = new Date(`${endValue}T00:00:00Z`);
+    const windows: Array<{ startDate: string; endDate: string }> = [];
+
+    for (
+      const cursor = new Date(start);
+      cursor <= end && windows.length < MAX_SEARCH_DAYS;
+      cursor.setUTCDate(cursor.getUTCDate() + 1)
+    ) {
+      const date = cursor.toISOString().slice(0, 10);
+      windows.push({ startDate: date, endDate: date });
+    }
+
+    return windows;
+  }
+
+  function pageParams(page: number, window: { startDate?: string; endDate?: string }) {
     const params = new URLSearchParams({
       apikey: apiKey,
       city: "Las Vegas",
@@ -208,10 +223,8 @@ export async function searchTicketmasterEvents(input: TicketmasterSearchInput = 
     });
 
     if (classificationName) params.set("classificationName", classificationName);
-    if (input.startDate || input.endDate) {
-      const startDate = input.startDate || input.endDate;
-      const endDate = input.endDate || input.startDate;
-      params.set("localStartDateTime", `${startDate}T00:00:00,${endDate}T23:59:59`);
+    if (window.startDate && window.endDate) {
+      params.set("localStartDateTime", `${window.startDate}T00:00:00,${window.endDate}T23:59:59`);
     }
 
     return params;
@@ -219,41 +232,41 @@ export async function searchTicketmasterEvents(input: TicketmasterSearchInput = 
 
   const collected: TicketmasterEvent[] = [];
   const seenIds = new Set<string>();
-  let page = 0;
-  let totalPages = 1;
 
-  // A single page sorted by date ascending only reaches the earliest events in
-  // the window, which starves evening inventory. Sweep the window instead.
-  while (page < totalPages && collected.length < maxResults) {
-    const response = await fetch(`${TICKETMASTER_BASE_URL}/events.json?${pageParams(page).toString()}`, {
-      next: { revalidate: 60 * 30 },
-    });
+  // Partition multi-day searches so a dense first day cannot consume
+  // Ticketmaster's 1,000-result deep-paging ceiling for the entire trip.
+  for (const window of searchWindows()) {
+    let page = 0;
+    let totalPages = 1;
 
-    if (!response.ok) {
-      // A failed follow-up page should not discard inventory already gathered.
-      if (page > 0) break;
-      throw new Error(`Ticketmaster request failed with ${response.status}`);
+    while (page < totalPages && page < TICKETMASTER_MAX_PAGES) {
+      const response = await fetch(`${TICKETMASTER_BASE_URL}/events.json?${pageParams(page, window).toString()}`, {
+        next: { revalidate: 60 * 30 },
+      });
+
+      if (!response.ok) {
+        // A failed follow-up page should not discard inventory already gathered.
+        if (page > 0 || collected.length > 0) break;
+        throw new Error(`Ticketmaster request failed with ${response.status}`);
+      }
+
+      const data = (await response.json()) as TicketmasterResponse;
+      const events = data._embedded?.events || [];
+
+      for (const event of events) {
+        if (seenIds.has(event.id)) continue;
+        seenIds.add(event.id);
+        collected.push(event);
+      }
+
+      if (events.length === 0) break;
+
+      totalPages = Math.min(data.page?.totalPages ?? 1, TICKETMASTER_MAX_PAGES);
+      page += 1;
     }
-
-    const data = (await response.json()) as TicketmasterResponse;
-    const events = data._embedded?.events || [];
-
-    for (const event of events) {
-      if (seenIds.has(event.id)) continue;
-      seenIds.add(event.id);
-      collected.push(event);
-    }
-
-    if (events.length === 0) break;
-
-    totalPages = Math.min(
-      data.page?.totalPages ?? 1,
-      Math.ceil(TICKETMASTER_MAX_RESULTS / TICKETMASTER_PAGE_SIZE),
-    );
-    page += 1;
   }
 
-  return collected.slice(0, maxResults).map(normalizeTicketmasterEvent);
+  return collected.map(normalizeTicketmasterEvent);
 }
 
 export async function getTicketmasterEvent(eventId: string) {

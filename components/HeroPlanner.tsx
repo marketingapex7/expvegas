@@ -339,7 +339,7 @@ export function HeroPlanner({
     if (!tripSelectionsHydrated || !datesAreSet || loading || result) return;
 
     autoBuiltRef.current = true;
-    void buildPlan();
+    void buildPlan({}, { redirectOnSave: false });
     // buildPlan reads the latest form state on each call and is guarded by a ref
     // so this only ever runs once per visit.
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -514,7 +514,10 @@ export function HeroPlanner({
     setLoading(false);
   }
 
-  async function buildPlan(overrides: Partial<Record<string, string>> = {}) {
+  async function buildPlan(
+    overrides: Partial<Record<string, string>> = {},
+    options: { redirectOnSave?: boolean } = {},
+  ) {
     if (!datesAreSet) {
       setDateError("Choose arrival and departure dates first so we can use real Vegas schedules.");
       return;
@@ -573,7 +576,7 @@ export function HeroPlanner({
       setBuildProgress(100);
       await new Promise((resolve) => window.setTimeout(resolve, 650));
 
-      if (nextToken) {
+      if (nextToken && options.redirectOnSave !== false) {
         router.replace(`/plan/${nextToken}`);
         return;
       }
