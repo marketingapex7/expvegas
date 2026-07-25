@@ -37,7 +37,7 @@ export async function GET(request: Request) {
       startDate: query.data.startDate,
       endDate: query.data.endDate,
       category: query.data.category,
-      size: query.data.size,
+      maxResults: query.data.size,
     });
 
     return NextResponse.json({ events }, { headers: { "Cache-Control": "public, s-maxage=1800, stale-while-revalidate=86400" } });

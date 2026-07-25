@@ -1,6 +1,6 @@
 import { EventCategory, VegasEvent } from "@/types/event";
 
-const TICKETMASTER_BASE_URL = "https://app.ticketmaster.com/discovery/v2";
+const TICKETMASTER_BASE_URL = process.env.TICKETMASTER_BASE_URL || "https://app.ticketmaster.com/discovery/v2";
 
 type TicketmasterImage = {
   url?: string;
@@ -55,14 +55,29 @@ type TicketmasterResponse = {
   _embedded?: {
     events?: TicketmasterEvent[];
   };
+  page?: {
+    size?: number;
+    totalElements?: number;
+    totalPages?: number;
+    number?: number;
+  };
 };
 
 type TicketmasterSearchInput = {
   startDate?: string;
   endDate?: string;
   category?: EventCategory;
-  size?: number;
+  /**
+   * Upper bound on events returned across all pages. This is a ceiling, not a
+   * page size: the search always sweeps the whole date window so that evening
+   * inventory is reachable. Callers filter and slice afterwards.
+   */
+  maxResults?: number;
 };
+
+// Discovery API caps page size at 199 and refuses deep paging past 1000 items.
+const TICKETMASTER_PAGE_SIZE = 199;
+const TICKETMASTER_MAX_RESULTS = 995;
 
 function slugify(value: string) {
   return value
@@ -163,33 +178,67 @@ export async function searchTicketmasterEvents(input: TicketmasterSearchInput = 
     throw new Error("Missing TICKETMASTER_API_KEY");
   }
 
-  const params = new URLSearchParams({
-    apikey: apiKey,
-    city: "Las Vegas",
-    stateCode: "NV",
-    countryCode: "US",
-    sort: "date,asc",
-    size: String(input.size || 20),
-  });
-
+  const maxResults = Math.min(input.maxResults || TICKETMASTER_MAX_RESULTS, TICKETMASTER_MAX_RESULTS);
   const classificationName = categoryToClassification(input.category);
-  if (classificationName) params.set("classificationName", classificationName);
-  if (input.startDate || input.endDate) {
-    const startDate = input.startDate || input.endDate;
-    const endDate = input.endDate || input.startDate;
-    params.set("localStartDateTime", `${startDate}T00:00:00,${endDate}T23:59:59`);
+
+  function pageParams(page: number) {
+    const params = new URLSearchParams({
+      apikey: apiKey!,
+      city: "Las Vegas",
+      stateCode: "NV",
+      countryCode: "US",
+      sort: "date,asc",
+      size: String(TICKETMASTER_PAGE_SIZE),
+      page: String(page),
+    });
+
+    if (classificationName) params.set("classificationName", classificationName);
+    if (input.startDate || input.endDate) {
+      const startDate = input.startDate || input.endDate;
+      const endDate = input.endDate || input.startDate;
+      params.set("localStartDateTime", `${startDate}T00:00:00,${endDate}T23:59:59`);
+    }
+
+    return params;
   }
 
-  const response = await fetch(`${TICKETMASTER_BASE_URL}/events.json?${params.toString()}`, {
-    next: { revalidate: 60 * 30 },
-  });
+  const collected: TicketmasterEvent[] = [];
+  const seenIds = new Set<string>();
+  let page = 0;
+  let totalPages = 1;
 
-  if (!response.ok) {
-    throw new Error(`Ticketmaster request failed with ${response.status}`);
+  // A single page sorted by date ascending only reaches the earliest events in
+  // the window, which starves evening inventory. Sweep the window instead.
+  while (page < totalPages && collected.length < maxResults) {
+    const response = await fetch(`${TICKETMASTER_BASE_URL}/events.json?${pageParams(page).toString()}`, {
+      next: { revalidate: 60 * 30 },
+    });
+
+    if (!response.ok) {
+      // A failed follow-up page should not discard inventory already gathered.
+      if (page > 0) break;
+      throw new Error(`Ticketmaster request failed with ${response.status}`);
+    }
+
+    const data = (await response.json()) as TicketmasterResponse;
+    const events = data._embedded?.events || [];
+
+    for (const event of events) {
+      if (seenIds.has(event.id)) continue;
+      seenIds.add(event.id);
+      collected.push(event);
+    }
+
+    if (events.length === 0) break;
+
+    totalPages = Math.min(
+      data.page?.totalPages ?? 1,
+      Math.ceil(TICKETMASTER_MAX_RESULTS / TICKETMASTER_PAGE_SIZE),
+    );
+    page += 1;
   }
 
-  const data = (await response.json()) as TicketmasterResponse;
-  return (data._embedded?.events || []).map(normalizeTicketmasterEvent);
+  return collected.slice(0, maxResults).map(normalizeTicketmasterEvent);
 }
 
 export async function getTicketmasterEvent(eventId: string) {

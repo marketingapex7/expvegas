@@ -99,20 +99,37 @@ function collapseShowtimes(events: VegasEvent[]) {
   return [...grouped.values()];
 }
 
-export async function getLiveVegasEvents(startDate: string, endDate = startDate, size = 20): Promise<LiveEventResult> {
+function applyDisplayLimit(events: VegasEvent[], displayLimit?: number) {
+  return displayLimit && displayLimit > 0 ? events.slice(0, displayLimit) : events;
+}
+
+/**
+ * `displayLimit` caps what is rendered. It is deliberately applied after the
+ * fetch and ranking, never pushed down into the Ticketmaster query: capping the
+ * query sorted by date ascending would only ever return the earliest events of
+ * the window and hide evening inventory entirely.
+ */
+export async function getLiveVegasEvents(startDate: string, endDate = startDate, displayLimit?: number): Promise<LiveEventResult> {
   if (!process.env.TICKETMASTER_API_KEY) {
-    return { events: rankEvents(seedEvents), isLive: false, startDate, endDate };
+    return { events: applyDisplayLimit(rankEvents(seedEvents), displayLimit), isLive: false, startDate, endDate };
   }
 
   try {
-    const events = await searchTicketmasterEvents({ startDate, endDate, size });
-    if (events.length) return { events: rankEvents(collapseShowtimes(events)), isLive: true, startDate, endDate };
+    const events = await searchTicketmasterEvents({ startDate, endDate });
+    if (events.length) {
+      return {
+        events: applyDisplayLimit(rankEvents(collapseShowtimes(events)), displayLimit),
+        isLive: true,
+        startDate,
+        endDate,
+      };
+    }
   } catch (error) {
     console.error("Live Ticketmaster inventory unavailable", error);
   }
 
   return {
-    events: rankEvents(seedEvents),
+    events: applyDisplayLimit(rankEvents(seedEvents), displayLimit),
     isLive: false,
     startDate,
     endDate,
@@ -145,14 +162,16 @@ export function filterTonightEvents(events: VegasEvent[], date: string, earliest
   });
 }
 
-export async function getTonightVegasEvents(date = getVegasToday(), size = 20): Promise<LiveEventResult> {
-  const result = await getLiveVegasEvents(date, date, size);
-  if (!result.isLive) return result;
+export async function getTonightVegasEvents(date = getVegasToday(), displayLimit?: number): Promise<LiveEventResult> {
+  // No display limit on the fetch: the evening filter below has to run against
+  // the full day before anything is trimmed for display.
+  const result = await getLiveVegasEvents(date, date);
+  if (!result.isLive) return { ...result, events: applyDisplayLimit(result.events, displayLimit) };
 
   const earliestStart = date === getVegasToday() ? Math.max(16 * 60, getVegasMinutesNow()) : 16 * 60;
   const events = filterTonightEvents(result.events, date, earliestStart);
 
-  return { ...result, events };
+  return { ...result, events: applyDisplayLimit(events, displayLimit) };
 }
 
 function vegasTimeLabel(date = new Date()) {
@@ -187,7 +206,7 @@ export async function getHomepageEventShelf(): Promise<HomepageEventShelf> {
   const today = getVegasToday();
   const tomorrow = addDays(today, 1);
   const earliestTonight = Math.max(16 * 60, getVegasMinutesNow() + 120);
-  const tonightResult = await getLiveVegasEvents(today, today, 40);
+  const tonightResult = await getLiveVegasEvents(today, today);
 
   if (tonightResult.isLive) {
     const tonightEvents = filterTonightEvents(tonightResult.events, today, earliestTonight);
@@ -204,11 +223,14 @@ export async function getHomepageEventShelf(): Promise<HomepageEventShelf> {
     }
   }
 
-  const tomorrowResult = await getLiveVegasEvents(tomorrow, tomorrow, 40);
+  const tomorrowResult = await getLiveVegasEvents(tomorrow, tomorrow);
   if (tomorrowResult.isLive && tomorrowResult.events.length >= 3) {
+    // Prefer evening inventory, which is what visitors are usually choosing
+    // between, but keep the full day rather than show an empty shelf.
+    const tomorrowEvening = filterTonightEvents(tomorrowResult.events, tomorrow, 16 * 60);
     lastGoodHomepageShelf = shelf(
       tomorrowResult,
-      tomorrowResult.events,
+      tomorrowEvening.length >= 3 ? tomorrowEvening : tomorrowResult.events,
       "tomorrow",
       "Coming up",
       "Worth considering tomorrow.",
@@ -218,7 +240,7 @@ export async function getHomepageEventShelf(): Promise<HomepageEventShelf> {
   }
 
   const weekend = getVegasWeekend(today);
-  const weekendResult = await getLiveVegasEvents(weekend.startDate, weekend.endDate, 50);
+  const weekendResult = await getLiveVegasEvents(weekend.startDate, weekend.endDate);
   if (weekendResult.isLive && weekendResult.events.length >= 3) {
     lastGoodHomepageShelf = shelf(
       weekendResult,
