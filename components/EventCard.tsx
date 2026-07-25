@@ -59,6 +59,7 @@ export function EventCard({
   const eventPath = ticketmasterId ? `/events/${ticketmasterId}` : `/${event.category}/${event.slug}`;
   const ticketUrl = selectedShowtime.affiliateUrl || event.affiliateUrl;
   const hasTicketUrl = Boolean(ticketUrl && ticketUrl !== "#");
+  const hasPrice = Boolean(event.priceMin);
   const taxonomyLabel = event.category === "concerts"
     ? "Concert"
     : event.category === "sports"
@@ -126,7 +127,11 @@ export function EventCard({
         <div className="mt-3 flex flex-wrap gap-2 text-xs font-bold text-zinc-700">
           {schedule ? <span className="rounded-full bg-zinc-100 px-3 py-1.5">{schedule}</span> : null}
           <span className="max-w-full truncate rounded-full bg-zinc-100 px-3 py-1.5">{event.venueName}</span>
-          <span title="Starting price; taxes and fees may be added by the ticket provider" className="rounded-full bg-emerald-50 px-3 py-1.5 text-emerald-900">{formatPrice(event.priceMin)}</span>
+          {hasPrice ? (
+            <span title="Starting price; taxes and fees may be added by the ticket provider" className="rounded-full bg-emerald-50 px-3 py-1.5 text-emerald-900">{formatPrice(event.priceMin)}</span>
+          ) : (
+            <span className="rounded-full bg-zinc-100 px-3 py-1.5 text-zinc-600">Price at checkout</span>
+          )}
           {event.ageRestriction ? <span className="rounded-full bg-zinc-100 px-3 py-1.5">{event.ageRestriction}</span> : null}
         </div>
         {showtimes.length > 1 ? (
@@ -159,7 +164,9 @@ export function EventCard({
           )}
           <TripToggleButton item={tripPick} theme="light" variant="bare" />
           <p className="text-center text-[11px] font-semibold leading-4 text-zinc-400">
-            {ticketmasterId ? "Live schedule | starting price may exclude fees" : "Editorial pick | confirm schedule and price"}
+            {ticketmasterId
+              ? hasPrice ? "Starting price may exclude fees" : "Confirm time and price with the provider"
+              : "Editorial pick | confirm schedule and price"}
           </p>
         </div>
       </div>

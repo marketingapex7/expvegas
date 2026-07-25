@@ -94,7 +94,19 @@ function categoryToClassification(category?: EventCategory) {
   return undefined;
 }
 
-function classificationToCategory(classification?: TicketmasterClassification): EventCategory {
+// Ticketmaster files several long-running Vegas residencies under Music or
+// Miscellaneous, which surfaces a dance show like Jabbawockeez as "Concert".
+const RESIDENCY_CATEGORY_OVERRIDES: Array<{ pattern: RegExp; category: EventCategory }> = [
+  { pattern: /\b(jabbawockeez|blue man group|absinthe|atomic saloon|magic mike|thunder from down under|chippendales)\b/i, category: "shows" },
+  { pattern: /\b(cirque du soleil|myst[eè]re|michael jackson one|the beatles love|mad apple)\b/i, category: "shows" },
+  { pattern: /\b(o by cirque|ka by cirque)\b/i, category: "shows" },
+  { pattern: /\b(carrot top|piff the magic dragon|penn (and|&) teller|comedy cellar|brad garrett)\b/i, category: "comedy" },
+];
+
+function classificationToCategory(classification?: TicketmasterClassification, eventName?: string): EventCategory {
+  const override = RESIDENCY_CATEGORY_OVERRIDES.find((entry) => entry.pattern.test(eventName || ""));
+  if (override) return override.category;
+
   const segment = classification?.segment?.name?.toLowerCase() || "";
   const genre = classification?.genre?.name?.toLowerCase() || "";
 
@@ -127,13 +139,15 @@ function cleanDisplayText(value?: string) {
 export function normalizeTicketmasterEvent(event: TicketmasterEvent): VegasEvent {
   const classification = event.classifications?.[0];
   const venue = event._embedded?.venues?.[0];
-  const category = classificationToCategory(classification);
+  const displayName = cleanDisplayText(event.name) || "Las Vegas event";
+  const category = classificationToCategory(classification, displayName);
   const priceRange = event.priceRanges?.[0];
   const subcategory = usableTaxonomy(classification?.genre?.name) || usableTaxonomy(classification?.subGenre?.name) || usableTaxonomy(classification?.segment?.name);
-  const displayName = cleanDisplayText(event.name) || "Las Vegas event";
   const displayVenue = cleanDisplayText(venue?.name) || "Las Vegas venue";
   const displayCategory = category === "concerts" ? "Concert" : category === "sports" ? "Live sports" : category === "comedy" ? "Comedy" : category === "shows" ? "Live show" : "Live experience";
-  const editorialDescription = `${displayCategory} at ${displayVenue}. Confirm the listed performance time and current ticket price before booking.`;
+  // The "confirm times and prices" caveat belongs in one place on the card, not
+  // repeated inside every description.
+  const editorialDescription = `${displayCategory} at ${displayVenue}.`;
 
   return {
     id: `ticketmaster-${event.id}`,

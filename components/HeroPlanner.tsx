@@ -182,6 +182,7 @@ export function HeroPlanner({
   const [dateFieldsTouched, setDateFieldsTouched] = useState({ arrival: false, departure: false });
   const buildPanelRef = useRef<HTMLDivElement>(null);
   const dateDraftEditedRef = useRef(false);
+  const autoBuiltRef = useRef(false);
   const today = new Date().toISOString().slice(0, 10);
   const maxDepartureDate = addDays(arrivalDate, 7);
   const arrivalError = !arrivalDate
@@ -330,6 +331,19 @@ export function HeroPlanner({
     setArrivalDate(savedTripDates.arrivalDate);
     setDepartureDate(savedTripDates.departureDate);
   }, [savedTripDates.arrivalDate, savedTripDates.departureDate, tripSelectionsHydrated]);
+
+  // Arriving from the homepage preview means the visitor already chose dates and
+  // was looking at a plan. Rebuild it for them instead of showing an empty form.
+  useEffect(() => {
+    if (!startAtRefinement || autoBuiltRef.current) return;
+    if (!tripSelectionsHydrated || !datesAreSet || loading || result) return;
+
+    autoBuiltRef.current = true;
+    void buildPlan();
+    // buildPlan reads the latest form state on each call and is guarded by a ref
+    // so this only ever runs once per visit.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [datesAreSet, loading, result, startAtRefinement, tripSelectionsHydrated]);
 
   useEffect(() => {
     const restoreTimer = window.setTimeout(() => {
