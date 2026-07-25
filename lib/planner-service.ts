@@ -126,7 +126,19 @@ export async function generatePlannerResponse(input: PlannerInput): Promise<Plan
 
   if (!fallbackBest) throw new Error("No Vegas events are available to build a plan right now.");
 
-  const itineraryDays = buildItinerary({ plannerInput: input, startDate, endDate, rankedEvents: headlineEvents });
+  // Offered by name only on days with no confirmed anchor. These have no
+  // verified showtime, so they inform the open evening rather than fill it.
+  const eveningSuggestions = headlineEvents.filter(
+    (event) => !event.id.startsWith("ticketmaster-") && ["shows", "comedy"].includes(event.category),
+  );
+
+  const itineraryDays = buildItinerary({
+    plannerInput: input,
+    startDate,
+    endDate,
+    rankedEvents: headlineEvents,
+    eveningSuggestions,
+  });
   const firstScheduledEvent = itineraryDays.flatMap((day) => day.blocks).find((block) => block.category === "event");
   const scheduledAnchor = firstScheduledEvent
     ? ranked.find((event) => event.name === firstScheduledEvent.title)

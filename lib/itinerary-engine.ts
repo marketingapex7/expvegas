@@ -19,6 +19,12 @@ type BuildItineraryInput = {
   startDate?: string;
   endDate?: string;
   rankedEvents: VegasEvent[];
+  /**
+   * Curated picks offered by name when a day has no confirmed provider anchor.
+   * These carry no verified showtime, so they are never scheduled as a timed
+   * block; they only tell the visitor what is worth looking up.
+   */
+  eveningSuggestions?: VegasEvent[];
 };
 
 function dateRange(startDate?: string, endDate?: string) {
@@ -349,7 +355,13 @@ export function sanitizeSchedule(blocks: ItineraryBlock[]) {
     .map(({ block, start, duration }) => ({ ...block, time: timeLabelFromMinutes(start), durationMinutes: duration }));
 }
 
-function buildBlocks(dayIndex: number, input: PlannerInput, mainEvent?: VegasEvent): ItineraryBlock[] {
+function formatList(values: string[]) {
+  if (values.length <= 1) return values[0] || "";
+  if (values.length === 2) return `${values[0]} or ${values[1]}`;
+  return `${values.slice(0, -1).join(", ")}, or ${values.at(-1)}`;
+}
+
+function buildBlocks(dayIndex: number, input: PlannerInput, mainEvent?: VegasEvent, eveningSuggestions?: VegasEvent[]): ItineraryBlock[] {
   const attraction = pickStop(attractionStops, input, dayIndex);
   const freeExperience = pickStop(freeExperienceStops, input, dayIndex);
   const secondFreeExperience = pickStop(freeExperienceStops, input, dayIndex + 3);
@@ -471,11 +483,18 @@ function buildBlocks(dayIndex: number, input: PlannerInput, mainEvent?: VegasEve
       durationMinutes: mainEventDuration,
     });
   } else {
+    const suggestionNames = (eveningSuggestions || []).slice(0, 3).map((event) => event.name);
+    const suggestionSentence = suggestionNames.length > 0
+      ? ` Worth checking tonight's showtimes for ${formatList(suggestionNames)}.`
+      : "";
+
     blocks.push({
       time: "8:00 PM",
       title: "Open evening for a last-minute show or lounge",
       category: "free",
-      description: "Keep this block flexible until live inventory or group energy makes the best choice obvious.",
+      // Named without times on purpose: no performance time has been confirmed
+      // for these, so presenting one would invent schedule data.
+      description: `Keep this block flexible until live inventory or group energy makes the best choice obvious.${suggestionSentence}`,
       durationMinutes: 120,
     });
   }
@@ -529,7 +548,7 @@ function dayTheme(dayIndex: number, event?: VegasEvent) {
   return "A classic Strip day with lunch, sightseeing, and an open evening";
 }
 
-export function buildItinerary({ plannerInput, startDate, endDate, rankedEvents }: BuildItineraryInput): ItineraryDay[] {
+export function buildItinerary({ plannerInput, startDate, endDate, rankedEvents, eveningSuggestions }: BuildItineraryInput): ItineraryDay[] {
   const dates = dateRange(startDate, endDate);
   const itineraryDates = dates.length > 0 ? dates : [new Date().toISOString().slice(0, 10)];
 
@@ -543,7 +562,7 @@ export function buildItinerary({ plannerInput, startDate, endDate, rankedEvents 
       date,
       label: formatDayLabel(date),
       theme: dayTheme(index, mainEvent),
-      blocks: buildBlocks(index, plannerInput, mainEvent),
+      blocks: buildBlocks(index, plannerInput, mainEvent, eveningSuggestions),
     };
   });
 }

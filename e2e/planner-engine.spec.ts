@@ -143,3 +143,31 @@ test("planner keeps editorial picks unscheduled when no provider time is confirm
     if (configuredKey) process.env.TICKETMASTER_API_KEY = configuredKey;
   }
 });
+
+test("an open evening names curated picks without inventing a showtime", async () => {
+  const configuredKey = process.env.TICKETMASTER_API_KEY;
+  delete process.env.TICKETMASTER_API_KEY;
+
+  try {
+    const result = await generatePlannerResponse({
+      travelDates: "2026-08-03 to 2026-08-05",
+      partySize: 2,
+      vibe: "classic Vegas show",
+    });
+    const openEvening = result.itineraryDays
+      ?.flatMap((day) => day.blocks)
+      .find((block) => block.title.startsWith("Open evening"));
+
+    expect(openEvening).toBeDefined();
+    expect(openEvening?.description).toContain("Worth checking tonight's showtimes for");
+
+    // The suggestion must stay a name only. A clock time here would be invented
+    // schedule data, which is the reason these are not scheduled as anchors.
+    const suggestionSentence = openEvening?.description?.split("Worth checking")[1] || "";
+    expect(suggestionSentence).not.toMatch(/\d{1,2}:\d{2}\s*(AM|PM)?/i);
+    expect(openEvening?.priceHint).toBeUndefined();
+    expect(openEvening?.bookingUrl).toBeUndefined();
+  } finally {
+    if (configuredKey) process.env.TICKETMASTER_API_KEY = configuredKey;
+  }
+});

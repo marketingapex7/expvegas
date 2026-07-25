@@ -56,9 +56,15 @@ test("homepage proves the planner first and keeps low inventory compact", async 
   await expect(page.getByTestId("homepage-live-plan")).toBeVisible();
   await expect(page.getByTestId("homepage-live-plan").getByText(/Allow \d+-\d+ min between stops/).first()).toBeVisible();
   const livePlan = page.getByTestId("homepage-live-plan");
-  const verifiedEvents = await livePlan.getByText("Event", { exact: true }).count();
-  const flexibleEvenings = await livePlan.getByText("Open evening for a last-minute show or lounge", { exact: true }).count();
-  expect(verifiedEvents + flexibleEvenings).toBeGreaterThan(0);
+  // Scope to day one. Day two lives inside a collapsed <details> and is still in
+  // the DOM, so counting the whole card cannot distinguish these two states.
+  const dayOneBlocks = livePlan.locator("article:not(details article)");
+  const dayOneAnchor = dayOneBlocks.filter({ has: page.getByText("Event", { exact: true }) });
+  const dayOneOpenEvening = dayOneBlocks.filter({ hasText: "Open evening for a last-minute show or lounge" });
+
+  // Day one resolves its evening exactly one way: a confirmed provider anchor,
+  // or an explicitly open slot. Never both, and never neither.
+  expect(await dayOneAnchor.count() + await dayOneOpenEvening.count()).toBe(1);
   await expect(page.getByText("Prices are planning estimates, not quotes")).toBeVisible();
   const eventCount = await page.getByTestId("home-events").locator("article").count();
   expect(eventCount).toBeGreaterThanOrEqual(3);
