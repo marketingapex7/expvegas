@@ -58,17 +58,25 @@ function normalizeItem(item: TripPick): TripPick {
   return { ...item, status: item.status || "considering", locked: Boolean(item.locked) };
 }
 
+function writeStoredValue(key: string, value: unknown) {
+  try {
+    window.localStorage.setItem(key, JSON.stringify(value));
+  } catch {
+    // Keep planning usable when storage is unavailable or full.
+  }
+}
+
 export function TripSelectionProvider({ children }: { children: ReactNode }) {
   const [items, setItems] = useState<TripPick[]>([]);
-  const [dates, setDates] = useState<TripDates>({ arrivalDate: "", departureDate: "" });
-  const [settings, setSettings] = useState<TripSettings>({ partySize: 2, budgetCap: 0 });
+  const [dates, setDatesState] = useState<TripDates>({ arrivalDate: "", departureDate: "" });
+  const [settings, setSettingsState] = useState<TripSettings>({ partySize: 2, budgetCap: 0 });
   const [hydrated, setHydrated] = useState(false);
 
   useEffect(() => {
     const restoreTimer = window.setTimeout(() => {
       setItems(readStoredItems().map(normalizeItem));
-      setDates(readStoredDates());
-      setSettings(readStoredSettings());
+      setDatesState(readStoredDates());
+      setSettingsState(readStoredSettings());
       setHydrated(true);
     }, 0);
     return () => window.clearTimeout(restoreTimer);
@@ -92,8 +100,8 @@ export function TripSelectionProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     function syncFromAnotherTab(event: StorageEvent) {
       if (event.key === STORAGE_KEY) setItems(readStoredItems());
-      if (event.key === DATES_STORAGE_KEY) setDates(readStoredDates());
-      if (event.key === SETTINGS_STORAGE_KEY) setSettings(readStoredSettings());
+      if (event.key === DATES_STORAGE_KEY) setDatesState(readStoredDates());
+      if (event.key === SETTINGS_STORAGE_KEY) setSettingsState(readStoredSettings());
     }
     window.addEventListener("storage", syncFromAnotherTab);
     return () => window.removeEventListener("storage", syncFromAnotherTab);
@@ -117,8 +125,14 @@ export function TripSelectionProvider({ children }: { children: ReactNode }) {
     },
     removeItem: (id) => setItems((current) => current.filter((item) => item.id !== id)),
     clearItems: () => setItems([]),
-    setDates,
-    setSettings,
+    setDates: (nextDates) => {
+      setDatesState(nextDates);
+      writeStoredValue(DATES_STORAGE_KEY, nextDates);
+    },
+    setSettings: (nextSettings) => {
+      setSettingsState(nextSettings);
+      writeStoredValue(SETTINGS_STORAGE_KEY, nextSettings);
+    },
     updateItem: (id, updates) => setItems((current) => current.map((item) => item.id === id ? { ...item, ...updates } : item)),
     reorderItem: (sourceId, targetId) => setItems((current) => {
       const sourceIndex = current.findIndex((item) => item.id === sourceId);
@@ -143,8 +157,12 @@ export function TripSelectionProvider({ children }: { children: ReactNode }) {
     }),
     importTrip: (nextItems, nextDates, nextSettings) => {
       setItems(nextItems.map(normalizeItem));
-      setDates(nextDates);
-      if (nextSettings) setSettings(nextSettings);
+      setDatesState(nextDates);
+      writeStoredValue(DATES_STORAGE_KEY, nextDates);
+      if (nextSettings) {
+        setSettingsState(nextSettings);
+        writeStoredValue(SETTINGS_STORAGE_KEY, nextSettings);
+      }
     },
   }), [dates, hydrated, items, settings]);
 

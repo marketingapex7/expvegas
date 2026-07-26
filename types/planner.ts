@@ -36,6 +36,12 @@ export type ItineraryBlock = {
   priceHint?: string;
   durationMinutes?: number;
   timingNote?: string;
+  /**
+   * Earliest minute-of-day this block may be moved to. Used to stop the
+   * scheduler from pulling a protected block (such as arrival and check-in)
+   * earlier than is realistic when it makes room for a fixed event start.
+   */
+  earliestStartMinutes?: number;
 };
 
 export type ItineraryDay = {

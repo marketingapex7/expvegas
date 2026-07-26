@@ -1,6 +1,6 @@
 import { EventCategory, VegasEvent } from "@/types/event";
 
-const TICKETMASTER_BASE_URL = "https://app.ticketmaster.com/discovery/v2";
+const TICKETMASTER_BASE_URL = process.env.TICKETMASTER_BASE_URL || "https://app.ticketmaster.com/discovery/v2";
 
 type TicketmasterImage = {
   url?: string;
@@ -55,14 +55,24 @@ type TicketmasterResponse = {
   _embedded?: {
     events?: TicketmasterEvent[];
   };
+  page?: {
+    size?: number;
+    totalElements?: number;
+    totalPages?: number;
+    number?: number;
+  };
 };
 
 type TicketmasterSearchInput = {
   startDate?: string;
   endDate?: string;
   category?: EventCategory;
-  size?: number;
 };
+
+// Discovery API caps page size at 199 and refuses deep paging past 1000 items.
+const TICKETMASTER_PAGE_SIZE = 199;
+const TICKETMASTER_MAX_PAGES = 5;
+const MAX_SEARCH_DAYS = 7;
 
 function slugify(value: string) {
   return value
@@ -79,7 +89,19 @@ function categoryToClassification(category?: EventCategory) {
   return undefined;
 }
 
-function classificationToCategory(classification?: TicketmasterClassification): EventCategory {
+// Ticketmaster files several long-running Vegas residencies under Music or
+// Miscellaneous, which surfaces a dance show like Jabbawockeez as "Concert".
+const RESIDENCY_CATEGORY_OVERRIDES: Array<{ pattern: RegExp; category: EventCategory }> = [
+  { pattern: /\b(jabbawockeez|blue man group|absinthe|atomic saloon|magic mike|thunder from down under|chippendales)\b/i, category: "shows" },
+  { pattern: /\b(cirque du soleil|myst[eè]re|michael jackson one|the beatles love|mad apple)\b/i, category: "shows" },
+  { pattern: /\b(o by cirque|ka by cirque)\b/i, category: "shows" },
+  { pattern: /\b(carrot top|piff the magic dragon|penn (and|&) teller|comedy cellar|brad garrett)\b/i, category: "comedy" },
+];
+
+function classificationToCategory(classification?: TicketmasterClassification, eventName?: string): EventCategory {
+  const override = RESIDENCY_CATEGORY_OVERRIDES.find((entry) => entry.pattern.test(eventName || ""));
+  if (override) return override.category;
+
   const segment = classification?.segment?.name?.toLowerCase() || "";
   const genre = classification?.genre?.name?.toLowerCase() || "";
 
@@ -112,13 +134,15 @@ function cleanDisplayText(value?: string) {
 export function normalizeTicketmasterEvent(event: TicketmasterEvent): VegasEvent {
   const classification = event.classifications?.[0];
   const venue = event._embedded?.venues?.[0];
-  const category = classificationToCategory(classification);
+  const displayName = cleanDisplayText(event.name) || "Las Vegas event";
+  const category = classificationToCategory(classification, displayName);
   const priceRange = event.priceRanges?.[0];
   const subcategory = usableTaxonomy(classification?.genre?.name) || usableTaxonomy(classification?.subGenre?.name) || usableTaxonomy(classification?.segment?.name);
-  const displayName = cleanDisplayText(event.name) || "Las Vegas event";
   const displayVenue = cleanDisplayText(venue?.name) || "Las Vegas venue";
   const displayCategory = category === "concerts" ? "Concert" : category === "sports" ? "Live sports" : category === "comedy" ? "Comedy" : category === "shows" ? "Live show" : "Live experience";
-  const editorialDescription = `${displayCategory} at ${displayVenue}. Confirm the listed performance time and current ticket price before booking.`;
+  // The "confirm times and prices" caveat belongs in one place on the card, not
+  // repeated inside every description.
+  const editorialDescription = `${displayCategory} at ${displayVenue}.`;
 
   return {
     id: `ticketmaster-${event.id}`,
@@ -158,38 +182,95 @@ export function normalizeTicketmasterEvent(event: TicketmasterEvent): VegasEvent
 }
 
 export async function searchTicketmasterEvents(input: TicketmasterSearchInput = {}) {
-  const apiKey = process.env.TICKETMASTER_API_KEY;
-  if (!apiKey) {
+  const configuredKey = process.env.TICKETMASTER_API_KEY;
+  if (!configuredKey) {
     throw new Error("Missing TICKETMASTER_API_KEY");
   }
 
-  const params = new URLSearchParams({
-    apikey: apiKey,
-    city: "Las Vegas",
-    stateCode: "NV",
-    countryCode: "US",
-    sort: "date,asc",
-    size: String(input.size || 20),
-  });
+  const apiKey: string = configuredKey;
+  // Several resident Vegas shows are filed under Music or Miscellaneous.
+  // Fetch the broader inventory for shows, then apply our normalized taxonomy.
+  const classificationName = input.category === "shows" ? undefined : categoryToClassification(input.category);
 
-  const classificationName = categoryToClassification(input.category);
-  if (classificationName) params.set("classificationName", classificationName);
-  if (input.startDate || input.endDate) {
-    const startDate = input.startDate || input.endDate;
-    const endDate = input.endDate || input.startDate;
-    params.set("localStartDateTime", `${startDate}T00:00:00,${endDate}T23:59:59`);
+  function searchWindows() {
+    const startValue = input.startDate || input.endDate;
+    const endValue = input.endDate || input.startDate;
+    if (!startValue || !endValue) return [{ startDate: undefined, endDate: undefined }];
+
+    const start = new Date(`${startValue}T00:00:00Z`);
+    const end = new Date(`${endValue}T00:00:00Z`);
+    const windows: Array<{ startDate: string; endDate: string }> = [];
+
+    for (const cursor = new Date(start); cursor <= end; cursor.setUTCDate(cursor.getUTCDate() + 1)) {
+      if (windows.length >= MAX_SEARCH_DAYS) {
+        throw new Error(`Ticketmaster search range cannot exceed ${MAX_SEARCH_DAYS} calendar days`);
+      }
+      const date = cursor.toISOString().slice(0, 10);
+      windows.push({ startDate: date, endDate: date });
+    }
+
+    return windows;
   }
 
-  const response = await fetch(`${TICKETMASTER_BASE_URL}/events.json?${params.toString()}`, {
-    next: { revalidate: 60 * 30 },
-  });
+  function pageParams(page: number, window: { startDate?: string; endDate?: string }) {
+    const params = new URLSearchParams({
+      apikey: apiKey,
+      city: "Las Vegas",
+      stateCode: "NV",
+      countryCode: "US",
+      sort: "date,asc",
+      size: String(TICKETMASTER_PAGE_SIZE),
+      page: String(page),
+    });
 
-  if (!response.ok) {
-    throw new Error(`Ticketmaster request failed with ${response.status}`);
+    if (classificationName) params.set("classificationName", classificationName);
+    if (window.startDate && window.endDate) {
+      params.set("localStartDateTime", `${window.startDate}T00:00:00,${window.endDate}T23:59:59`);
+    }
+
+    return params;
   }
 
-  const data = (await response.json()) as TicketmasterResponse;
-  return (data._embedded?.events || []).map(normalizeTicketmasterEvent);
+  const collected: TicketmasterEvent[] = [];
+  const seenIds = new Set<string>();
+
+  // Partition multi-day searches so a dense first day cannot consume
+  // Ticketmaster's 1,000-result deep-paging ceiling for the entire trip.
+  for (const window of searchWindows()) {
+    let page = 0;
+    let totalPages = 1;
+
+    while (page < totalPages && page < TICKETMASTER_MAX_PAGES) {
+      const response = await fetch(`${TICKETMASTER_BASE_URL}/events.json?${pageParams(page, window).toString()}`, {
+        next: { revalidate: 60 * 30 },
+      });
+
+      if (!response.ok) {
+        // A failed follow-up page should not discard inventory already gathered.
+        if (page > 0 || collected.length > 0) break;
+        throw new Error(`Ticketmaster request failed with ${response.status}`);
+      }
+
+      const data = (await response.json()) as TicketmasterResponse;
+      const events = data._embedded?.events || [];
+
+      for (const event of events) {
+        if (seenIds.has(event.id)) continue;
+        seenIds.add(event.id);
+        collected.push(event);
+      }
+
+      if (events.length === 0) break;
+
+      totalPages = Math.min(data.page?.totalPages ?? 1, TICKETMASTER_MAX_PAGES);
+      page += 1;
+    }
+  }
+
+  const normalized = collected.map(normalizeTicketmasterEvent);
+  return input.category
+    ? normalized.filter((event) => event.category === input.category)
+    : normalized;
 }
 
 export async function getTicketmasterEvent(eventId: string) {

@@ -3,7 +3,7 @@
 import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
 import dynamic from "next/dynamic";
 import { useRouter } from "next/navigation";
-import { ArrowRight, CalendarDays, Loader2, MapPin, Sparkles, Users, WalletCards } from "lucide-react";
+import { ArrowRight, CalendarDays, Loader2, MapPin, SlidersHorizontal, Sparkles, Users, WalletCards } from "lucide-react";
 import { PlannerInput, PlannerResponse } from "@/types/planner";
 import { useTripSelections } from "@/components/TripSelectionProvider";
 import { DateRangeFields } from "@/components/DateRangeFields";
@@ -107,6 +107,17 @@ function tripLengthInDays(arrival: string, departure: string) {
   return Math.round((Date.parse(`${departure}T00:00:00Z`) - Date.parse(`${arrival}T00:00:00Z`)) / 86_400_000);
 }
 
+function currentVegasDate() {
+  const parts = new Intl.DateTimeFormat("en-US", {
+    timeZone: "America/Los_Angeles",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).formatToParts(new Date());
+  const value = (type: Intl.DateTimeFormatPartTypes) => parts.find((part) => part.type === type)?.value || "";
+  return `${value("year")}-${value("month")}-${value("day")}`;
+}
+
 function sentenceFor(group: string, option: string) {
   if (group === "Ticket budget") return `Ticket budget: ${option}.`;
   if (group === "Group") return `Group: ${option}.`;
@@ -143,10 +154,12 @@ export function HeroPlanner({
   compact = false,
   startAtRefinement = false,
   initialBudget,
+  initialDates,
 }: {
   compact?: boolean;
   startAtRefinement?: boolean;
   initialBudget?: string;
+  initialDates?: { arrivalDate: string; departureDate: string };
 }) {
   const router = useRouter();
   const {
@@ -157,8 +170,8 @@ export function HeroPlanner({
     setDates: setSavedTripDates,
     setSettings: setTripSettings,
   } = useTripSelections();
-  const [arrivalDate, setArrivalDate] = useState("");
-  const [departureDate, setDepartureDate] = useState("");
+  const [arrivalDate, setArrivalDate] = useState(initialDates?.arrivalDate || "");
+  const [departureDate, setDepartureDate] = useState(initialDates?.departureDate || "");
   const [prompt, setPrompt] = useState(initialBudget ? `Ticket budget: ${initialBudget}.` : "");
   const [selectedHelpers, setSelectedHelpers] = useState<string[]>(initialBudget ? [`Ticket budget:${initialBudget}`] : []);
   const [result, setResult] = useState<PlannerResponse | null>(null);
@@ -182,7 +195,8 @@ export function HeroPlanner({
   const [dateFieldsTouched, setDateFieldsTouched] = useState({ arrival: false, departure: false });
   const buildPanelRef = useRef<HTMLDivElement>(null);
   const dateDraftEditedRef = useRef(false);
-  const today = new Date().toISOString().slice(0, 10);
+  const autoBuiltRef = useRef(false);
+  const today = currentVegasDate();
   const maxDepartureDate = addDays(arrivalDate, 7);
   const arrivalError = !arrivalDate
     ? "Choose your arrival date."
@@ -325,11 +339,24 @@ export function HeroPlanner({
   ];
 
   useEffect(() => {
-    if (!tripSelectionsHydrated || dateDraftEditedRef.current) return;
+    if (!tripSelectionsHydrated || dateDraftEditedRef.current || initialDates) return;
 
     setArrivalDate(savedTripDates.arrivalDate);
     setDepartureDate(savedTripDates.departureDate);
-  }, [savedTripDates.arrivalDate, savedTripDates.departureDate, tripSelectionsHydrated]);
+  }, [initialDates, savedTripDates.arrivalDate, savedTripDates.departureDate, tripSelectionsHydrated]);
+
+  // Arriving from the homepage preview means the visitor already chose dates and
+  // was looking at a plan. Rebuild it for them instead of showing an empty form.
+  useEffect(() => {
+    if (!startAtRefinement || autoBuiltRef.current) return;
+    if (!tripSelectionsHydrated || !datesAreSet || loading || result) return;
+
+    autoBuiltRef.current = true;
+    void buildPlan({}, { redirectOnSave: false });
+    // buildPlan reads the latest form state on each call and is guarded by a ref
+    // so this only ever runs once per visit.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [datesAreSet, loading, result, startAtRefinement, tripSelectionsHydrated]);
 
   useEffect(() => {
     const restoreTimer = window.setTimeout(() => {
@@ -500,7 +527,10 @@ export function HeroPlanner({
     setLoading(false);
   }
 
-  async function buildPlan(overrides: Partial<Record<string, string>> = {}) {
+  async function buildPlan(
+    overrides: Partial<Record<string, string>> = {},
+    options: { redirectOnSave?: boolean } = {},
+  ) {
     if (!datesAreSet) {
       setDateError("Choose arrival and departure dates first so we can use real Vegas schedules.");
       return;
@@ -559,7 +589,7 @@ export function HeroPlanner({
       setBuildProgress(100);
       await new Promise((resolve) => window.setTimeout(resolve, 650));
 
-      if (nextToken) {
+      if (nextToken && options.redirectOnSave !== false) {
         router.replace(`/plan/${nextToken}`);
         return;
       }
@@ -968,6 +998,21 @@ export function HeroPlanner({
                 </div>
               </div>
             </div>
+          </div>
+        ) : null}
+
+        {result ? (
+          <div className="mx-auto mt-6 flex max-w-5xl justify-end">
+            <button
+              type="button"
+              onClick={() => {
+                setResult(null);
+                setShowRefinements(true);
+              }}
+              className="inline-flex min-h-11 items-center gap-2 rounded-lg border border-white/15 px-4 py-2 text-sm font-black text-white transition hover:bg-white/10"
+            >
+              <SlidersHorizontal className="h-4 w-4" /> Adjust trip details
+            </button>
           </div>
         ) : null}
 

@@ -6,11 +6,25 @@ import { mealLevelsFromText } from "@/lib/budget-preferences";
 import { estimateVegasTravel } from "@/lib/vegas-logistics";
 import { isHeadlineEvent } from "@/lib/scoring";
 
+// Arrival day starts with a protected check-in buffer: 3:30 PM for 90 minutes.
+const ARRIVAL_BLOCK_START = 15 * 60 + 30;
+const ARRIVAL_BLOCK_DURATION = 90;
+const ARRIVAL_BLOCK_END = ARRIVAL_BLOCK_START + ARRIVAL_BLOCK_DURATION;
+// Floor for a block trimmed to clear a fixed event start; below this the stop
+// is not worth keeping on the plan.
+const MIN_TRIMMED_DURATION = 45;
+
 type BuildItineraryInput = {
   plannerInput: PlannerInput;
   startDate?: string;
   endDate?: string;
   rankedEvents: VegasEvent[];
+  /**
+   * Curated picks offered by name when a day has no confirmed provider anchor.
+   * These carry no verified showtime, so they are never scheduled as a timed
+   * block; they only tell the visitor what is worth looking up.
+   */
+  eveningSuggestions?: VegasEvent[];
 };
 
 function dateRange(startDate?: string, endDate?: string) {
@@ -172,7 +186,7 @@ function eventMatchesIntent(event: VegasEvent, input: PlannerInput) {
   return true;
 }
 
-function isGoodAnchorEvent(event: VegasEvent, input: PlannerInput, isArrivalDay = false) {
+export function isGoodAnchorEvent(event: VegasEvent, input: PlannerInput, isArrivalDay = false) {
   const hour = hourForEvent(event);
   const text = textFor(input);
   const wantsDaytime = text.includes("brunch") || text.includes("daytime") || text.includes("afternoon");
@@ -243,10 +257,14 @@ function defaultDuration(block: ItineraryBlock) {
 
 function bufferBetween(block: ItineraryBlock, nextBlock?: ItineraryBlock) {
   const activityBuffer = block.category === "event" ? 30 : block.category === "meal" ? 20 : 15;
-  if (!block.location || !nextBlock?.location) return activityBuffer;
+  if (!block.location || !nextBlock?.location) return roundUpToQuarter(activityBuffer);
 
   const travel = estimateVegasTravel(block.location, nextBlock.location);
-  return Math.max(activityBuffer, travel.maxMinutes + 5);
+  return roundUpToQuarter(Math.max(activityBuffer, travel.maxMinutes + 5));
+}
+
+function minimumUsefulDuration(block: ItineraryBlock) {
+  return block.category === "meal" ? 75 : MIN_TRIMMED_DURATION;
 }
 
 export function sanitizeSchedule(blocks: ItineraryBlock[]) {
@@ -268,7 +286,19 @@ export function sanitizeSchedule(blocks: ItineraryBlock[]) {
         if (prior.block.category === "event") break;
 
         const nextBlock = scheduled[index + 1]?.block || block;
-        const latestStart = roundDownToQuarter(cursor - prior.duration - bufferBetween(prior.block, nextBlock));
+        const beforePrior = scheduled[index - 1];
+        // Never pull a block earlier than its own floor, or back over the block
+        // in front of it - making room for the event must not create an overlap.
+        const earliestAllowed = Math.max(
+          prior.block.earliestStartMinutes ?? Number.NEGATIVE_INFINITY,
+          beforePrior
+            ? beforePrior.start + beforePrior.duration + bufferBetween(beforePrior.block, prior.block)
+            : Number.NEGATIVE_INFINITY,
+        );
+        const latestStart = Math.max(
+          roundDownToQuarter(cursor - prior.duration - bufferBetween(prior.block, nextBlock)),
+          earliestAllowed,
+        );
         if (prior.start > latestStart) {
           const oldTime = prior.block.time;
           prior.start = latestStart;
@@ -279,6 +309,30 @@ export function sanitizeSchedule(blocks: ItineraryBlock[]) {
           };
         }
         cursor = prior.start;
+      }
+
+      // Shifting earlier is bounded by floors and by the preceding block, so a
+      // tight day can still leave the last stop running into the event. Trim it
+      // rather than publish overlapping times.
+      let trailing = scheduled.at(-1);
+      while (trailing && trailing.block.category !== "event") {
+        const mustEndBy = originalStart - bufferBetween(trailing.block, block);
+        if (trailing.start + trailing.duration <= mustEndBy) break;
+
+        const availableDuration = roundDownToQuarter(mustEndBy - trailing.start);
+        if (availableDuration < minimumUsefulDuration(trailing.block)) {
+          scheduled.pop();
+          trailing = scheduled.at(-1);
+          continue;
+        }
+
+        trailing.duration = availableDuration;
+        trailing.block = {
+          ...trailing.block,
+          durationMinutes: availableDuration,
+          timingNote: `Shortened to keep the ${block.title} start time.`,
+        };
+        break;
       }
     }
 
@@ -305,7 +359,13 @@ export function sanitizeSchedule(blocks: ItineraryBlock[]) {
     .map(({ block, start, duration }) => ({ ...block, time: timeLabelFromMinutes(start), durationMinutes: duration }));
 }
 
-function buildBlocks(dayIndex: number, input: PlannerInput, mainEvent?: VegasEvent): ItineraryBlock[] {
+function formatList(values: string[]) {
+  if (values.length <= 1) return values[0] || "";
+  if (values.length === 2) return `${values[0]} or ${values[1]}`;
+  return `${values.slice(0, -1).join(", ")}, or ${values.at(-1)}`;
+}
+
+function buildBlocks(dayIndex: number, input: PlannerInput, mainEvent?: VegasEvent, eveningSuggestions?: VegasEvent[]): ItineraryBlock[] {
   const attraction = pickStop(attractionStops, input, dayIndex);
   const freeExperience = pickStop(freeExperienceStops, input, dayIndex);
   const secondFreeExperience = pickStop(freeExperienceStops, input, dayIndex + 3);
@@ -322,22 +382,60 @@ function buildBlocks(dayIndex: number, input: PlannerInput, mainEvent?: VegasEve
   const flexibleLodging = lodgingIsFlexible(input);
   const mainEventStart = eventStartMinutes(mainEvent);
   const mainEventDuration = mainEvent?.runtimeMinutes || (mainEvent?.category === "sports" || mainEvent?.category === "concerts" ? 180 : 120);
-  const dinnerTime =
-    isArrivalDay && mainEventStart && mainEventStart < 20 * 60
-      ? timeLabelFromMinutes(mainEventStart + mainEventDuration + 30)
-      : mainEventStart && mainEventStart >= 18 * 60
-        ? timeLabelFromMinutes(Math.max(16 * 60 + 30, mainEventStart - 120))
-        : "6:00 PM";
+  const dinnerLocation = dinner.venue || dinner.area;
+  const dinnerTimingBlock: ItineraryBlock = {
+    time: "",
+    title: dinner.name,
+    category: "meal",
+    location: dinnerLocation,
+  };
+  const eventTimingBlock: ItineraryBlock | undefined = mainEvent
+    ? {
+        time: "",
+        title: mainEvent.name,
+        category: "event",
+        location: mainEvent.venueName,
+      }
+    : undefined;
+  const arrivalTimingBlock: ItineraryBlock = {
+    time: "",
+    title: "Arrival, hotel check-in, and reset",
+    category: "free",
+    location: input.stayingNear && !flexibleLodging ? input.stayingNear : undefined,
+  };
+  // Vegas nights run dinner-then-show. Push dinner after the anchor only when
+  // there is genuinely no room before it, otherwise an early anchor cascades
+  // into a 10:45 PM dinner and a 1:00 AM last stop.
+  const DINNER_MINUTES = 90;
+  const arrivalToDinnerBuffer = isArrivalDay ? bufferBetween(arrivalTimingBlock, dinnerTimingBlock) : 0;
+  const dinnerToEventBuffer = eventTimingBlock ? bufferBetween(dinnerTimingBlock, eventTimingBlock) : 30;
+  const eventToDinnerBuffer = eventTimingBlock ? bufferBetween(eventTimingBlock, dinnerTimingBlock) : 30;
+  const earliestDinner = isArrivalDay ? ARRIVAL_BLOCK_END + arrivalToDinnerBuffer : 16 * 60 + 30;
+  const dinnerFitsBeforeEvent =
+    mainEventStart !== undefined && mainEventStart - earliestDinner >= DINNER_MINUTES + dinnerToEventBuffer;
+  const dinnerTime = mainEventStart === undefined
+    ? "6:00 PM"
+    : dinnerFitsBeforeEvent
+      ? timeLabelFromMinutes(Math.max(earliestDinner, mainEventStart - (DINNER_MINUTES + dinnerToEventBuffer)))
+      : timeLabelFromMinutes(mainEventStart + mainEventDuration + eventToDinnerBuffer);
+  const mainEventEnd = mainEventStart === undefined
+    ? undefined
+    : dinnerFitsBeforeEvent
+      ? mainEventStart + mainEventDuration
+      : mainEventStart + mainEventDuration + DINNER_MINUTES + eventToDinnerBuffer;
+  // A nightcap stop is only worth scheduling if it lands at a sane hour.
+  const lateStopFits = mainEventEnd === undefined || mainEventEnd <= 22 * 60 + 30;
 
   const daytimeBlocks: ItineraryBlock[] = isArrivalDay
     ? [
         {
-          time: "3:30 PM",
+          time: timeLabelFromMinutes(ARRIVAL_BLOCK_START),
           title: "Arrival, hotel check-in, and reset",
           category: "free",
           location: input.stayingNear && !flexibleLodging ? input.stayingNear : undefined,
           description: "Protected arrival time for airport delays, baggage, hotel check-in, and getting settled before the first real plan.",
-          durationMinutes: 90,
+          durationMinutes: ARRIVAL_BLOCK_DURATION,
+          earliestStartMinutes: ARRIVAL_BLOCK_START,
         },
       ]
     : [
@@ -383,7 +481,7 @@ function buildBlocks(dayIndex: number, input: PlannerInput, mainEvent?: VegasEve
       time: dinnerTime,
       title: dinner.name,
       category: "meal",
-      location: dinner.venue || dinner.area,
+      location: dinnerLocation,
       description: dinner.description,
       bookingUrl: dinner.reservationUrl,
       durationMinutes: 90,
@@ -413,16 +511,23 @@ function buildBlocks(dayIndex: number, input: PlannerInput, mainEvent?: VegasEve
       durationMinutes: mainEventDuration,
     });
   } else {
+    const suggestionNames = (eveningSuggestions || []).slice(0, 3).map((event) => event.name);
+    const suggestionSentence = suggestionNames.length > 0
+      ? ` Worth checking tonight's showtimes for ${formatList(suggestionNames)}.`
+      : "";
+
     blocks.push({
       time: "8:00 PM",
       title: "Open evening for a last-minute show or lounge",
       category: "free",
-      description: "Keep this block flexible until live inventory or group energy makes the best choice obvious.",
+      // Named without times on purpose: no performance time has been confirmed
+      // for these, so presenting one would invent schedule data.
+      description: `Keep this block flexible until live inventory or group energy makes the best choice obvious.${suggestionSentence}`,
       durationMinutes: 120,
     });
   }
 
-  blocks.push({
+  if (lateStopFits) blocks.push({
     time: "10:30 PM",
     title: noGambling ? "Dessert, views, or a walkable lounge nearby" : secondFreeExperience.name,
     category: noGambling ? "free" : secondFreeExperience.tags.includes("shopping") ? "shopping" : "free",
@@ -471,7 +576,7 @@ function dayTheme(dayIndex: number, event?: VegasEvent) {
   return "A classic Strip day with lunch, sightseeing, and an open evening";
 }
 
-export function buildItinerary({ plannerInput, startDate, endDate, rankedEvents }: BuildItineraryInput): ItineraryDay[] {
+export function buildItinerary({ plannerInput, startDate, endDate, rankedEvents, eveningSuggestions }: BuildItineraryInput): ItineraryDay[] {
   const dates = dateRange(startDate, endDate);
   const itineraryDates = dates.length > 0 ? dates : [new Date().toISOString().slice(0, 10)];
 
@@ -485,7 +590,7 @@ export function buildItinerary({ plannerInput, startDate, endDate, rankedEvents 
       date,
       label: formatDayLabel(date),
       theme: dayTheme(index, mainEvent),
-      blocks: buildBlocks(index, plannerInput, mainEvent),
+      blocks: buildBlocks(index, plannerInput, mainEvent, eveningSuggestions),
     };
   });
 }

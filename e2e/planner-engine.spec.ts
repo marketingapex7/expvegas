@@ -1,5 +1,6 @@
 import { expect, test } from "@playwright/test";
-import { buildItinerary } from "../lib/itinerary-engine";
+import { buildItinerary, sanitizeSchedule } from "../lib/itinerary-engine";
+import { generatePlannerResponse, plannerInventoryEndDate } from "../lib/planner-service";
 import { VegasEvent } from "../types/event";
 
 function event(overrides: Partial<VegasEvent>): VegasEvent {
@@ -96,5 +97,106 @@ test("free and shopping stops retain their own locations", () => {
     if (block.title.includes("Forum Shops")) expect(block.location).toBe("Caesars Palace");
     if (block.title.includes("Grand Canal Shoppes")) expect(block.location).toBe("Venetian");
     if (block.title.includes("Bellagio Fountain")) expect(block.location).toBe("Bellagio");
+  }
+});
+
+test("schedule sanitation removes a stop when the minimum useful duration would overlap a fixed event", () => {
+  const blocks = sanitizeSchedule([
+    {
+      time: "6:30 PM",
+      title: "Dinner that no longer fits",
+      category: "meal",
+      location: "Bellagio",
+      durationMinutes: 90,
+      earliestStartMinutes: 18 * 60 + 30,
+    },
+    {
+      time: "7:00 PM",
+      title: "Fixed headline show",
+      category: "event",
+      location: "Bellagio",
+      durationMinutes: 120,
+    },
+  ]);
+
+  expect(blocks.map((block) => block.title)).toEqual(["Fixed headline show"]);
+  expect(blocks[0].time).toBe("7:00 PM");
+});
+
+test("schedule sanitation keeps useful meals on quarter-hour boundaries", () => {
+  const blocks = sanitizeSchedule([
+    {
+      time: "5:08 PM",
+      title: "Dinner before the show",
+      category: "meal",
+      location: "Bellagio",
+      durationMinutes: 90,
+    },
+    {
+      time: "7:00 PM",
+      title: "Fixed headline show",
+      category: "event",
+      location: "Bellagio",
+      durationMinutes: 120,
+    },
+  ]);
+
+  expect(blocks.map((block) => block.title)).toEqual(["Dinner before the show", "Fixed headline show"]);
+  expect(blocks[0].time).toBe("5:00 PM");
+  expect(blocks[0].durationMinutes).toBeGreaterThanOrEqual(75);
+  expect(blocks.every((block) => minutes(block.time) % 15 === 0)).toBe(true);
+});
+
+test("planner searches through the final itinerary day, not the departure day", () => {
+  expect(plannerInventoryEndDate("2026-08-01", "2026-08-08")).toBe("2026-08-07");
+  expect(plannerInventoryEndDate("2026-08-01", "2026-08-01")).toBe("2026-08-01");
+});
+
+test("planner keeps editorial picks unscheduled when no provider time is confirmed", async () => {
+  const configuredKey = process.env.TICKETMASTER_API_KEY;
+  delete process.env.TICKETMASTER_API_KEY;
+
+  try {
+    const result = await generatePlannerResponse({
+      travelDates: "2026-08-03 to 2026-08-05",
+      partySize: 2,
+      vibe: "classic Vegas show",
+    });
+    const scheduledEvents = result.itineraryDays?.flatMap((day) => day.blocks).filter((block) => block.category === "event") || [];
+
+    expect(scheduledEvents).toHaveLength(0);
+    expect(result.headline).toBe("Your Vegas Plan");
+    expect(result.sourceSummary).toContain("timed plan stays flexible");
+    expect(result.tripSummary?.whyThisPlanWorks).toContain("leaves the headline slot open");
+  } finally {
+    if (configuredKey) process.env.TICKETMASTER_API_KEY = configuredKey;
+  }
+});
+
+test("an open evening names curated picks without inventing a showtime", async () => {
+  const configuredKey = process.env.TICKETMASTER_API_KEY;
+  delete process.env.TICKETMASTER_API_KEY;
+
+  try {
+    const result = await generatePlannerResponse({
+      travelDates: "2026-08-03 to 2026-08-05",
+      partySize: 2,
+      vibe: "classic Vegas show",
+    });
+    const openEvening = result.itineraryDays
+      ?.flatMap((day) => day.blocks)
+      .find((block) => block.title.startsWith("Open evening"));
+
+    expect(openEvening).toBeDefined();
+    expect(openEvening?.description).toContain("Worth checking tonight's showtimes for");
+
+    // The suggestion must stay a name only. A clock time here would be invented
+    // schedule data, which is the reason these are not scheduled as anchors.
+    const suggestionSentence = openEvening?.description?.split("Worth checking")[1] || "";
+    expect(suggestionSentence).not.toMatch(/\d{1,2}:\d{2}\s*(AM|PM)?/i);
+    expect(openEvening?.priceHint).toBeUndefined();
+    expect(openEvening?.bookingUrl).toBeUndefined();
+  } finally {
+    if (configuredKey) process.env.TICKETMASTER_API_KEY = configuredKey;
   }
 });
