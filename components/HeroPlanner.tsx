@@ -3,7 +3,7 @@
 import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
 import dynamic from "next/dynamic";
 import { useRouter } from "next/navigation";
-import { ArrowRight, CalendarDays, Loader2, MapPin, SlidersHorizontal, Sparkles, Users, WalletCards } from "lucide-react";
+import { ArrowRight, CalendarDays, Loader2, MapPin, Sparkles, Users, WalletCards } from "lucide-react";
 import { PlannerInput, PlannerResponse } from "@/types/planner";
 import { useTripSelections } from "@/components/TripSelectionProvider";
 import { DateRangeFields } from "@/components/DateRangeFields";
@@ -665,7 +665,7 @@ export function HeroPlanner({
   return (
     <section id="trip-builder" className={`relative overflow-hidden px-4 pb-10 sm:px-5 md:pb-16 ${compact ? "pt-7 sm:pt-9" : "pt-8 sm:pt-12 lg:pt-16"}`}>
       <div className="absolute inset-x-0 top-0 -z-10 h-[34rem] bg-[radial-gradient(circle_at_18%_8%,rgba(245,158,11,0.2),transparent_32%),radial-gradient(circle_at_78%_0%,rgba(217,70,239,0.18),transparent_34%),linear-gradient(180deg,rgba(255,255,255,0.06),transparent_72%)]" />
-      <div className="mx-auto max-w-5xl">
+      <div className={`mx-auto ${result ? "max-w-7xl" : "max-w-5xl"}`}>
         <div className={`mx-auto max-w-3xl text-center ${result ? "hidden md:block" : ""}`}>
           {!compact ? <p className="mx-auto mb-5 hidden max-w-full rounded-full border border-amber-200/25 bg-amber-200/10 px-4 py-2 text-xs font-black uppercase leading-5 tracking-[0.18em] text-amber-100 sm:inline-flex sm:text-sm">Vegas planning that starts with what you actually want</p> : null}
           <h1 className={`font-black leading-[1.01] text-white ${compact ? "text-3xl sm:text-4xl" : "text-4xl sm:text-5xl md:text-6xl lg:text-7xl"}`}>
@@ -1002,21 +1002,6 @@ export function HeroPlanner({
         ) : null}
 
         {result ? (
-          <div className="mx-auto mt-6 flex max-w-5xl justify-end">
-            <button
-              type="button"
-              onClick={() => {
-                setResult(null);
-                setShowRefinements(true);
-              }}
-              className="inline-flex min-h-11 items-center gap-2 rounded-lg border border-white/15 px-4 py-2 text-sm font-black text-white transition hover:bg-white/10"
-            >
-              <SlidersHorizontal className="h-4 w-4" /> Adjust trip details
-            </button>
-          </div>
-        ) : null}
-
-        {result ? (
           <PlanResult
             result={result}
             shareUrl={shareUrl}
@@ -1032,6 +1017,10 @@ export function HeroPlanner({
             saveStatus={saveStatus}
             savingPlan={savingPlan}
             onSaveRetry={retrySavePlan}
+            onEdit={() => {
+              setResult(null);
+              setShowRefinements(true);
+            }}
           />
         ) : null}
       </div>

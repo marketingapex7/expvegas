@@ -83,6 +83,7 @@ export type PlannerEventOption = {
 export type PlannerResponse = PlannerOutput & {
   bestPickName: string;
   backupPickNames: string[];
+  partySize?: number;
   sourceSummary?: string;
   eventOptions?: PlannerEventOption[];
   itineraryDays?: ItineraryDay[];

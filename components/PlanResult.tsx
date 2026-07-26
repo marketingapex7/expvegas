@@ -9,6 +9,7 @@ import { sanitizeSchedule } from "@/lib/itinerary-engine";
 import { estimateVegasTravel } from "@/lib/vegas-logistics";
 import { ItineraryBlock, ItineraryDay, PlannerEventOption, PlannerResponse } from "@/types/planner";
 import { PlanBookingChecklist } from "@/components/PlanBookingChecklist";
+import { PlanResultLayout } from "@/components/PlanResultLayout";
 import { PlanTripDetails } from "@/components/PlanTripDetails";
 import { PrintPlanButton } from "@/components/PrintPlanButton";
 import { PrintableGeneratedPlan } from "@/components/PrintableItinerary";
@@ -33,7 +34,12 @@ type PlanResultProps = {
   saveStatus?: string;
   savingPlan?: boolean;
   onSaveRetry?: () => void;
+  onEdit?: () => void;
 };
+
+function validBookingUrl(url?: string) {
+  return Boolean(url && url !== "#");
+}
 
 function actionForCategory(category: string, bookingUrl?: string) {
   if (category === "event" && bookingUrl && bookingUrl !== "#") return "Check Tickets";
@@ -47,10 +53,6 @@ function actionForCategory(category: string, bookingUrl?: string) {
 
 function fallbackExploreUrl(title: string, location?: string) {
   return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(`${title} ${location || "Las Vegas"}`)}`;
-}
-
-function validBookingUrl(url?: string) {
-  return Boolean(url && url !== "#");
 }
 
 function travelContext(previous?: ItineraryBlock, current?: ItineraryBlock) {
@@ -238,11 +240,13 @@ export function PlanResult({
   saveStatus,
   savingPlan = false,
   onSaveRetry,
+  onEdit,
 }: PlanResultProps) {
   const [swapCounts, setSwapCounts] = useState<Record<string, number>>({});
   const [copyStatus, setCopyStatus] = useState("");
   const [swapStatus, setSwapStatus] = useState("");
   const [calendarStatus, setCalendarStatus] = useState("");
+  const [activeDayIndex, setActiveDayIndex] = useState(0);
   const planId = result.bestPickId || result.bestPickName;
 
   const itineraryDays = useMemo(
@@ -347,6 +351,38 @@ export function PlanResult({
     URL.revokeObjectURL(url);
     setCalendarStatus("Calendar downloaded");
     window.setTimeout(() => setCalendarStatus(""), 2200);
+  }
+
+  if (itineraryDays?.length) {
+    return (
+      <PlanResultLayout
+        result={result}
+        itineraryDays={itineraryDays}
+        planId={planId}
+        activeDayIndex={Math.min(activeDayIndex, itineraryDays.length - 1)}
+        onDayChange={setActiveDayIndex}
+        onSwap={handleSwap}
+        shareUrl={shareUrl}
+        expiresAt={expiresAt}
+        copyStatus={copyStatus}
+        onCopyShareLink={copyShareLink}
+        onDownloadCalendar={downloadCalendar}
+        calendarStatus={calendarStatus}
+        swapStatus={swapStatus}
+        saveStatus={saveStatus}
+        savingPlan={savingPlan}
+        onSaveRetry={onSaveRetry}
+        onEdit={onEdit}
+        tuneOptions={tuneOptions}
+        onTune={onTune}
+        loading={loading}
+        email={email}
+        savingEmail={savingEmail}
+        emailMessage={emailMessage}
+        onEmailChange={onEmailChange}
+        onEmailSubmit={onEmailSubmit}
+      />
+    );
   }
 
   return (

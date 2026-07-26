@@ -73,7 +73,7 @@ test("homepage controls regenerate the preview and preserve the planner handoff"
   // plan instead of resetting the visitor to an empty first step. The builder
   // holds a six second minimum animation before the result renders.
   await expect(page.getByText("Planning your Vegas trip")).toBeVisible();
-  const adjustDetails = page.getByRole("button", { name: "Adjust trip details" });
+  const adjustDetails = page.getByRole("button", { name: "Edit trip" });
   await expect(adjustDetails).toBeVisible({ timeout: 15_000 });
   await expect(page).toHaveURL(/\/planner\?refine=1&arrival=\d{4}-\d{2}-\d{2}&departure=\d{4}-\d{2}-\d{2}&budget=mid$/);
 
@@ -179,11 +179,11 @@ test("trip builder advances from dates through a completed game plan", async ({ 
 
   await expect(bookingList.getByText("E2E Dinner")).toBeVisible();
   await expect(bookingList.getByText("E2E Vegas Show")).toBeVisible();
-  await expect(bookingList.getByRole("link", { name: "Check Tickets" })).toHaveAttribute(
+  await expect(bookingList.getByRole("link", { name: "Tickets" })).toHaveAttribute(
     "href",
     "https://tickets.example.com/e2e-vegas-show",
   );
-  await expect(bookingList.getByRole("link", { name: "Find Booking" })).toHaveAttribute(
+  await expect(bookingList.getByRole("link", { name: "Find booking" })).toHaveAttribute(
     "href",
     /google\.com\/maps\/search/,
   );
@@ -217,27 +217,29 @@ test("mobile completed plan prioritizes booking and itinerary before trip detail
   await page.getByTestId("planner-primary-cta").click();
   await page.getByTestId("planner-primary-cta").click();
 
-  const bookingList = page.getByTestId("plan-booking-checklist");
+  const bookingBar = page.getByTestId("mobile-booking-bar");
   const itinerary = page.getByTestId("timed-itinerary");
   const tripDetails = page.getByTestId("mobile-trip-details");
 
-  await expect(bookingList).toBeVisible({ timeout: 15_000 });
+  await expect(bookingBar).toBeVisible({ timeout: 15_000 });
   await expect(itinerary).toBeVisible();
   await expect(tripDetails).toBeVisible();
   await expect(tripDetails).not.toHaveAttribute("open", "");
 
   const order = await page.evaluate(() => {
-    const booking = document.querySelector('[data-testid="plan-booking-checklist"]');
     const schedule = document.querySelector('[data-testid="timed-itinerary"]');
     const details = document.querySelector('[data-testid="mobile-trip-details"]');
-    return booking && schedule && details
-      ? Boolean(booking.compareDocumentPosition(schedule) & Node.DOCUMENT_POSITION_FOLLOWING)
-        && Boolean(schedule.compareDocumentPosition(details) & Node.DOCUMENT_POSITION_FOLLOWING)
+    return schedule && details
+      ? Boolean(schedule.compareDocumentPosition(details) & Node.DOCUMENT_POSITION_FOLLOWING)
       : false;
   });
   expect(order).toBe(true);
 
-  await tripDetails.getByText("Trip details").click();
+  await tripDetails.getByText("Trip details and assumptions").click();
   await expect(tripDetails).toHaveAttribute("open", "");
-  await expect(tripDetails.getByText("Trip summary")).toBeVisible();
+  await expect(tripDetails.getByText("Why this plan works")).toBeVisible();
+
+  await bookingBar.getByRole("button", { name: "Review" }).click();
+  await expect(page.getByRole("dialog", { name: "Booking checklist" })).toBeVisible();
+  await expect(page.getByRole("dialog", { name: "Booking checklist" }).getByText("E2E Vegas Show")).toBeVisible();
 });

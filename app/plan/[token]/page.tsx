@@ -73,7 +73,7 @@ export default async function SavedPlanPage({ params }: SavedPlanPageProps) {
 
   return (
     <section className="px-5 py-14">
-      <div className="mx-auto max-w-5xl">
+      <div className="mx-auto max-w-7xl">
         <Link href="/" className="inline-flex rounded-full border border-white/10 px-4 py-2 text-sm font-bold text-white/70 transition hover:bg-white/10">
           Back to ExperienceVegas
         </Link>

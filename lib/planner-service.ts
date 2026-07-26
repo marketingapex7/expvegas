@@ -173,6 +173,7 @@ export async function generatePlannerResponse(input: PlannerInput): Promise<Plan
     timeline: anchorDay.blocks.map((block) => ({ time: block.time, title: block.title, description: block.description })),
     backupPickIds: backups.map((event) => event.id),
     backupPickNames: backups.map((event) => event.name),
+    partySize: input.partySize || 1,
     cheaperVersion: headlineEvents.find((event) => event.priceMin && event.priceMin < 60)?.name,
     premiumVersion: headlineEvents.find((event) => event.priceMin && event.priceMin >= 100)?.name,
     avoid: input.dealbreakers ? [`Avoid anything matching: ${input.dealbreakers}`] : [],
