@@ -4,6 +4,12 @@ export type PlanningStop = {
   tags: string[];
   budget: "value" | "mid" | "premium";
   description: string;
+  provider?: "go-city";
+  passTypes?: import("@/lib/go-city").GoCityPassType[];
+  bookingUrl?: string;
+  retailValue?: number;
+  reservationRequired?: boolean;
+  durationMinutes?: number;
 };
 
 export const freeExperienceStops: PlanningStop[] = [

@@ -42,6 +42,10 @@ export type ItineraryBlock = {
    * earlier than is realistic when it makes room for a fixed event start.
    */
   earliestStartMinutes?: number;
+  provider?: "go-city";
+  passTypes?: import("@/lib/go-city").GoCityPassType[];
+  providerBookingUrl?: string;
+  reservationRequired?: boolean;
 };
 
 export type ItineraryDay = {

@@ -1,4 +1,5 @@
 import { attractionStops, casinoStops, freeExperienceStops, PlanningStop } from "@/data/planning-stops";
+import { goCityFlexibleAttractions } from "@/data/go-city-attractions";
 import { restaurants, VegasRestaurant } from "@/data/restaurants";
 import { VegasEvent } from "@/types/event";
 import { ItineraryBlock, ItineraryDay, PlannerInput } from "@/types/planner";
@@ -13,6 +14,20 @@ const ARRIVAL_BLOCK_END = ARRIVAL_BLOCK_START + ARRIVAL_BLOCK_DURATION;
 // Floor for a block trimmed to clear a fixed event start; below this the stop
 // is not worth keeping on the plan.
 const MIN_TRIMMED_DURATION = 45;
+const goCityPlanningStops: PlanningStop[] = goCityFlexibleAttractions.map((item) => ({
+  name: item.name,
+  area: item.area,
+  tags: [...item.tags, "go city", ...item.passTypes],
+  budget: item.retailValue <= 35 ? "value" : item.retailValue >= 100 ? "premium" : "mid",
+  description: `${item.name} is included with eligible Go City passes. Confirm current inclusion${item.reservationRequired ? " and reservation requirements" : ""} before visiting.`,
+  provider: "go-city",
+  passTypes: item.passTypes,
+  bookingUrl: item.bookingUrl,
+  retailValue: item.retailValue,
+  reservationRequired: item.reservationRequired,
+  durationMinutes: item.durationMinutes,
+}));
+const paidAttractionStops = [...attractionStops, ...goCityPlanningStops];
 
 type BuildItineraryInput = {
   plannerInput: PlannerInput;
@@ -117,6 +132,9 @@ function scoreStop(stop: PlanningStop, input: PlannerInput) {
 
 function pickStop(stops: PlanningStop[], input: PlannerInput, offset: number) {
   const ranked = [...stops].sort((a, b) => scoreStop(b, input) - scoreStop(a, input));
+  const requestText = textFor(input);
+  const explicitlyRequested = ranked.filter((stop) => requestText.includes(stop.name.toLowerCase()));
+  if (explicitlyRequested.length > 0) return explicitlyRequested[offset % explicitlyRequested.length];
   return ranked[offset % ranked.length];
 }
 
@@ -366,7 +384,7 @@ function formatList(values: string[]) {
 }
 
 function buildBlocks(dayIndex: number, input: PlannerInput, mainEvent?: VegasEvent, eveningSuggestions?: VegasEvent[]): ItineraryBlock[] {
-  const attraction = pickStop(attractionStops, input, dayIndex);
+  const attraction = pickStop(paidAttractionStops, input, dayIndex);
   const freeExperience = pickStop(freeExperienceStops, input, dayIndex);
   const secondFreeExperience = pickStop(freeExperienceStops, input, dayIndex + 3);
   const dinner = pickRestaurant(input, dayIndex + 2, "dinner");
@@ -454,7 +472,15 @@ function buildBlocks(dayIndex: number, input: PlannerInput, mainEvent?: VegasEve
           category: shoppingFocused ? "shopping" : shoppingFocused || freeFocused ? "free" : "attraction",
           location: shoppingFocused || freeFocused ? freeExperience.area : attraction.area,
           description: shoppingFocused || freeFocused ? freeExperience.description : attraction.description,
-          durationMinutes: shoppingFocused || freeFocused ? 75 : 90,
+          durationMinutes: shoppingFocused || freeFocused ? 75 : attraction.durationMinutes || 90,
+          bookingUrl: shoppingFocused || freeFocused ? undefined : attraction.bookingUrl,
+          priceHint: !shoppingFocused && !freeFocused && attraction.provider === "go-city"
+            ? `Included with Go City; retail value up to $${attraction.retailValue}`
+            : undefined,
+          provider: shoppingFocused || freeFocused ? undefined : attraction.provider,
+          passTypes: shoppingFocused || freeFocused ? undefined : attraction.passTypes,
+          providerBookingUrl: shoppingFocused || freeFocused ? undefined : attraction.bookingUrl,
+          reservationRequired: shoppingFocused || freeFocused ? undefined : attraction.reservationRequired,
         },
         noGambling
           ? {

@@ -85,6 +85,7 @@ export const directoryNav = [
         label: "Explore",
         links: [
           { href: "/las-vegas-attractions", label: "Attractions" },
+          { href: "/go-city-las-vegas", label: "Go City passes" },
           { href: "/free-things-to-do-las-vegas", label: "Free things to do" },
           { href: "/las-vegas-shopping", label: "Shopping" },
           { href: "/las-vegas-day-trips", label: "Day trips" },

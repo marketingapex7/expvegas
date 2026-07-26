@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { ArrowDown, ArrowRight, ArrowUp, CalendarDays, CheckCircle2, Clock, Copy, GripVertical, List, Lock, Map as MapIcon, MapPin, Plus, Route, ShieldCheck, Trash2, Unlock, WalletCards, Zap } from "lucide-react";
+import { ArrowDown, ArrowRight, ArrowUp, CalendarDays, CheckCircle2, Clock, Copy, GripVertical, List, Lock, Map as MapIcon, MapPin, Plus, Route, ShieldCheck, Ticket, Trash2, Unlock, WalletCards, Zap } from "lucide-react";
 import { DragEvent as ReactDragEvent, useEffect, useMemo, useRef, useState } from "react";
 import { useTripSelections } from "@/components/TripSelectionProvider";
 import { CardImage } from "@/components/CardImage";
@@ -67,6 +67,10 @@ function directoryPick(id: string) {
     costUnit: listing.costUnit,
     bookingGuidance: listing.bookingGuidance,
     mapUrl: listing.mapUrl,
+    provider: listing.provider,
+    passTypes: listing.passTypes,
+    providerBookingUrl: listing.bookingUrl,
+    reservationRequired: listing.reservationRequired,
   } satisfies TripPick;
 }
 
@@ -346,6 +350,7 @@ export function SavedTripWorkspace() {
                             {item.priceLabel ? <span className="inline-flex items-center gap-1"><WalletCards className="h-3.5 w-3.5" /> {item.priceLabel}</span> : null}
                             {item.durationLabel ? <span className="inline-flex items-center gap-1"><Clock className="h-3.5 w-3.5" /> {item.durationLabel}</span> : null}
                             {item.mapUrl ? <a href={item.mapUrl} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 hover:text-fuchsia-700"><MapPin className="h-3.5 w-3.5" /> Map</a> : null}
+                            {item.provider === "go-city" && item.providerBookingUrl ? <a href={item.providerBookingUrl} target="_blank" rel="noopener noreferrer sponsored" className="inline-flex items-center gap-1 font-black text-fuchsia-700 hover:text-fuchsia-900"><Ticket className="h-3.5 w-3.5" /> Compare pass</a> : null}
                           </div>
                           <div className="flex gap-1">
                             <button type="button" title="Move earlier" disabled={index === 0 || item.locked || items[index - 1]?.locked} onClick={() => moveAndAnnounce(item, index, -1)} aria-label={`Move ${item.name} up`} className="inline-flex h-8 w-8 items-center justify-center rounded-md border border-zinc-200 disabled:opacity-30"><ArrowUp className="h-3.5 w-3.5" /></button>

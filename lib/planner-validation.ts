@@ -50,6 +50,10 @@ const itineraryBlockSchema = z.object({
   priceHint: z.string().max(120).optional(),
   durationMinutes: z.number().int().min(1).max(1_440).optional(),
   timingNote: z.string().max(500).optional(),
+  provider: z.literal("go-city").optional(),
+  passTypes: z.array(z.enum(["essentials", "explorer", "all-inclusive"])).max(3).optional(),
+  providerBookingUrl: safeLink.optional(),
+  reservationRequired: z.boolean().optional(),
 });
 
 const itineraryDaySchema = z.object({

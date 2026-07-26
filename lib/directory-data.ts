@@ -1,4 +1,5 @@
 import { hotels } from "@/data/hotels";
+import { goCityAttractions } from "@/data/go-city-attractions";
 import { attractionStops, freeExperienceStops } from "@/data/planning-stops";
 import { restaurants } from "@/data/restaurants";
 import { DirectoryCategory, DirectoryListing, EnvironmentType, VegasZone } from "@/types/directory";
@@ -218,7 +219,7 @@ export const restaurantListings: DirectoryListing[] = restaurants.map((restauran
 
 const experienceSource = [...freeExperienceStops, ...attractionStops];
 
-export const experienceListings: DirectoryListing[] = experienceSource
+const editorialExperienceListings: DirectoryListing[] = experienceSource
   .filter((stop, index, items) => items.findIndex((item) => item.name === stop.name) === index)
   .map((stop, index) => {
     const category = stop.tags.includes("shopping") ? "shopping" : stop.tags.includes("free") ? "free" : "attraction";
@@ -255,6 +256,58 @@ export const experienceListings: DirectoryListing[] = experienceSource
       editorialScore: category === "free" ? 88 : 84,
     } satisfies DirectoryListing;
   });
+
+export const goCityListings: DirectoryListing[] = goCityAttractions.map((item, index) => {
+  const zone = zoneFor(item.area, item.tags);
+  const environment = environmentFor("attraction", item.name, item.tags);
+  const bookingGuidance = item.reservationRequired || item.timing === "scheduled" ? "reserve" as const : "check-availability" as const;
+  const passLabel = item.passTypes.length === 3 ? "all Go City passes" : item.passTypes.map((pass) => pass.replace("-", " ")).join(" and ");
+  return {
+    id: `go-city-${slugify(item.name)}`,
+    slug: `go-city-${slugify(item.name)}`,
+    name: item.name,
+    category: "attraction",
+    area: item.area,
+    description: `${item.name} is included with ${passLabel}. Use it as ${item.timing === "scheduled" ? "a schedule-sensitive anchor after confirming a date and time" : "a flexible attraction block"} in a geographically grouped Vegas day.`,
+    imageUrl: imageFor("experience", index + editorialExperienceListings.length),
+    imageAlt: `${item.name} Las Vegas attraction`,
+    priceLabel: `Retail value up to $${item.retailValue}`,
+    bestFor: item.tags.filter((tag) => !["center strip", "south strip", "north strip", "downtown", "off strip"].includes(tag)).slice(0, 4),
+    tags: [...item.tags, "go city", ...item.passTypes],
+    bookingUrl: item.bookingUrl,
+    bookingLabel: "Compare Go City Passes",
+    durationLabel: `Allow about ${item.durationMinutes} min`,
+    planningTip: item.timing === "scheduled"
+      ? "Confirm the exact date, start time, and reservation rules before placing this around meals or another fixed event."
+      : planningTip("attraction", item.area),
+    highlights: [
+      "Included with Go City",
+      item.reservationRequired ? "Reservation required" : "Check current entry rules",
+      item.timing === "scheduled" ? "Confirm schedule" : "Flexible timing",
+    ],
+    estimatedCostMin: item.retailValue,
+    estimatedCostMax: item.retailValue,
+    costUnit: "variable",
+    bookingGuidance,
+    bookingAdvice: "Compare the pass price with the individual retail value and confirm current inclusion, hours, and reservation requirements with Go City.",
+    planningRole: item.timing === "scheduled" ? "Fixed-time anchor after confirmation" : "Flexible paid attraction",
+    zone,
+    environment,
+    idealTime: item.timing === "scheduled" ? "Confirmed provider time" : idealTimeFor("attraction", item.tags),
+    durationMinMinutes: Math.max(30, item.durationMinutes - 15),
+    durationMaxMinutes: item.durationMinutes + 30,
+    skipIf: skipIfFor("attraction", zone, environment, item.retailValue >= 100 ? "premium" : item.retailValue <= 35 ? "value" : "mid"),
+    lastVerified: "July 26, 2026",
+    mapUrl: mapUrl(item.name, item.area),
+    editorialScore: item.tags.includes("family") || item.tags.includes("views") || item.tags.includes("museum") ? 88 : 82,
+    provider: "go-city",
+    passTypes: item.passTypes,
+    reservationRequired: item.reservationRequired,
+    scheduleSensitive: item.timing === "scheduled",
+  };
+});
+
+export const experienceListings = [...editorialExperienceListings, ...goCityListings];
 
 export const directoryListings = [...hotelListings, ...restaurantListings, ...experienceListings];
 

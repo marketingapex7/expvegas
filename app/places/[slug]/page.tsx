@@ -159,6 +159,10 @@ export default async function PlaceDetailPage({ params }: { params: Promise<{ sl
     bookingGuidance: listing.bookingGuidance,
     mapUrl: listing.mapUrl,
     detailUrl,
+    provider: listing.provider,
+    passTypes: listing.passTypes,
+    providerBookingUrl: listing.bookingUrl,
+    reservationRequired: listing.reservationRequired,
   };
   const nearby = directoryListings
     .filter((item) => item.id !== listing.id && item.zone === listing.zone)
@@ -300,12 +304,12 @@ export default async function PlaceDetailPage({ params }: { params: Promise<{ sl
                 Open Map <MapPin className="h-4 w-4" />
               </a>
               {listing.bookingUrl ? (
-                <a href={listing.bookingUrl} target="_blank" rel="noopener noreferrer" className="inline-flex min-h-12 items-center justify-center gap-2 rounded-lg border border-zinc-300 bg-white px-4 py-3 text-sm font-black text-zinc-950 transition hover:bg-zinc-100">
+                <a href={listing.bookingUrl} target="_blank" rel="noopener noreferrer sponsored" className="inline-flex min-h-12 items-center justify-center gap-2 rounded-lg border border-zinc-300 bg-white px-4 py-3 text-sm font-black text-zinc-950 transition hover:bg-zinc-100">
                   {listing.bookingLabel || "Visit Provider"} <ArrowUpRight className="h-4 w-4" />
                 </a>
               ) : null}
             </div>
-            <p className="mt-4 text-xs leading-5 text-zinc-500">Provider pages open in a new tab. Confirm current hours, prices, and availability before going.</p>
+            <p className="mt-4 text-xs leading-5 text-zinc-500">Provider pages open in a new tab. Some links are affiliate links. Confirm current hours, prices, inclusion, and availability before going.</p>
           </aside>
         </div>
 

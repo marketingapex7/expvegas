@@ -71,7 +71,8 @@ function estimateSpend(itineraryDays: ItineraryDay[], partySize = 1) {
 
 function buildTripSummary(input: PlannerInput, itineraryDays: ItineraryDay[], scheduledAnchor?: VegasEvent): TripSummary {
   const blocks = itineraryDays.flatMap((day) => day.blocks);
-  const bookable = blocks.filter((block) => block.bookingUrl);
+  const goCityBlocks = blocks.filter((block) => block.provider === "go-city");
+  const bookable = blocks.filter((block) => block.bookingUrl && block.provider !== "go-city");
   const flexible = blocks.filter((block) => !block.bookingUrl && ["free", "shopping", "casino"].includes(block.category));
   const lodgingBlock = blocks.find((block) => block.title === "Lodging target before you book");
   const lodging = lodgingIsFlexible(input) ? "Not booked yet" : input.stayingNear || "Not specified";
@@ -91,7 +92,10 @@ function buildTripSummary(input: PlannerInput, itineraryDays: ItineraryDay[], sc
     input.stayingNear ? `Lodging: ${input.stayingNear}` : "Lodging zone still flexible",
     input.pace ? `Pace: ${input.pace}` : undefined,
   ].filter(Boolean).slice(0, 5) as string[];
-  const bookNow = bookable.slice(0, 5).map((block) => block.title);
+  const bookNow = [
+    ...(goCityBlocks.length > 0 ? [`Compare one Go City pass for ${goCityBlocks.length} included ${goCityBlocks.length === 1 ? "attraction" : "attractions"}`] : []),
+    ...bookable.map((block) => block.title),
+  ].slice(0, 5);
   const keepFlexible = flexible.slice(0, 5).map((block) => block.title);
   const eventVenue = scheduledAnchor?.venueName ? ` around ${scheduledAnchor.venueName}` : "";
   const logistics = lodgingIsFlexible(input)

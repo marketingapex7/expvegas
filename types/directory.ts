@@ -38,6 +38,10 @@ export type DirectoryListing = {
   lastVerified: string;
   mapUrl: string;
   editorialScore: number;
+  provider?: "go-city";
+  passTypes?: import("@/lib/go-city").GoCityPassType[];
+  reservationRequired?: boolean;
+  scheduleSensitive?: boolean;
 };
 
 export type TripPick = Pick<DirectoryListing, "id" | "slug" | "name" | "category" | "area" | "description" | "imageUrl" | "priceLabel" | "durationLabel"> & {
@@ -50,6 +54,10 @@ export type TripPick = Pick<DirectoryListing, "id" | "slug" | "name" | "category
   mapUrl?: string;
   status?: TripPickStatus;
   locked?: boolean;
+  provider?: "go-city";
+  passTypes?: import("@/lib/go-city").GoCityPassType[];
+  providerBookingUrl?: string;
+  reservationRequired?: boolean;
 };
 
 export type TripDates = {

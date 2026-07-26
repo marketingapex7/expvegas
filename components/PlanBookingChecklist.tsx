@@ -3,6 +3,7 @@
 import { Check, ExternalLink, Ticket } from "lucide-react";
 import { useCallback, useMemo, useSyncExternalStore } from "react";
 import { ItineraryDay } from "@/types/planner";
+import { goCityAffiliateLinks } from "@/lib/go-city";
 
 type PlanBookingChecklistProps = {
   planId: string;
@@ -16,9 +17,10 @@ type BookingItem = {
   title: string;
   location?: string;
   priceHint?: string;
-  category: "event" | "meal";
+  category: "event" | "meal" | "pass";
   url: string;
   direct: boolean;
+  includedTitles?: string[];
 };
 
 function isDirectBookingUrl(url?: string) {
@@ -62,9 +64,8 @@ export function PlanBookingChecklist({ planId, itineraryDays }: PlanBookingCheck
     }
   }, [storedBookings]);
 
-  const bookingItems = useMemo(
-    () =>
-      itineraryDays.flatMap((day) =>
+  const bookingItems = useMemo(() => {
+    const standardItems = itineraryDays.flatMap((day) =>
         day.blocks.flatMap((block, index): BookingItem[] => {
           if (block.category !== "event" && block.category !== "meal") return [];
 
@@ -81,9 +82,27 @@ export function PlanBookingChecklist({ planId, itineraryDays }: PlanBookingCheck
             direct,
           }];
         }),
-      ),
-    [itineraryDays, planId],
-  );
+      );
+    const goCityBlocks = itineraryDays.flatMap((day) =>
+      day.blocks.filter((block) => block.provider === "go-city"),
+    );
+
+    if (goCityBlocks.length === 0) return standardItems;
+
+    const passItem: BookingItem = {
+      key: `${planId}-go-city-pass`,
+      dayLabel: "Trip pass",
+      time: "One purchase",
+      title: `Compare a Go City pass for ${goCityBlocks.length} included ${goCityBlocks.length === 1 ? "attraction" : "attractions"}`,
+      priceHint: "Compare pass price with individual admission",
+      category: "pass",
+      url: goCityAffiliateLinks.overview,
+      direct: true,
+      includedTitles: goCityBlocks.map((block) => block.title),
+    };
+
+    return [passItem, ...standardItems];
+  }, [itineraryDays, planId]);
 
   function toggleBooked(itemKey: string) {
     const next = { ...bookedItems, [itemKey]: !bookedItems[itemKey] };
@@ -115,18 +134,19 @@ export function PlanBookingChecklist({ planId, itineraryDays }: PlanBookingCheck
           {bookingItems.map((item) => {
             const checked = Boolean(bookedItems[item.key]);
             const action = item.direct
-              ? item.category === "event" ? "Check Tickets" : "Reserve Table"
+              ? item.category === "event" ? "Check Tickets" : item.category === "pass" ? "Compare Passes" : "Reserve Table"
               : "Find Booking";
 
             return (
               <div key={item.key} className="grid gap-3 rounded-lg border border-white/10 bg-white/[0.06] p-3 sm:grid-cols-[1fr_auto] sm:items-center">
                 <div className="min-w-0">
-                  <p className="text-xs font-black uppercase tracking-[0.12em] text-amber-100">{item.dayLabel} · {item.time}</p>
+                  <p className="text-xs font-black uppercase tracking-[0.12em] text-amber-100">{item.dayLabel} / {item.time}</p>
                   <p className={`mt-1 font-black text-white ${checked ? "line-through opacity-55" : ""}`}>{item.title}</p>
                   <div className="mt-1 flex flex-wrap gap-x-3 gap-y-1 text-xs font-bold text-white/50">
                     {item.location ? <span>{item.location}</span> : null}
                     {item.priceHint ? <span className="text-white/75">{item.priceHint}</span> : null}
                   </div>
+                  {item.includedTitles?.length ? <p className="mt-2 text-xs leading-5 text-white/60">{item.includedTitles.join(" / ")}</p> : null}
                 </div>
                 <div className="flex items-center gap-2">
                   <label className="inline-flex min-h-10 cursor-pointer items-center gap-2 rounded-lg border border-white/15 px-3 text-xs font-black text-white/75 hover:bg-white/10">
@@ -143,7 +163,7 @@ export function PlanBookingChecklist({ planId, itineraryDays }: PlanBookingCheck
                   <a
                     href={item.url}
                     target="_blank"
-                    rel="noopener noreferrer"
+                    rel={item.category === "pass" ? "noopener noreferrer sponsored" : "noopener noreferrer"}
                     className="inline-flex min-h-10 flex-1 items-center justify-center gap-1.5 rounded-lg bg-amber-200 px-3 text-xs font-black text-black transition hover:bg-amber-100 sm:flex-none"
                   >
                     {item.direct ? <Ticket className="h-3.5 w-3.5" /> : <ExternalLink className="h-3.5 w-3.5" />}

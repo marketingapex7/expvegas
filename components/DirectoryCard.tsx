@@ -43,6 +43,10 @@ export function DirectoryCard({ listing, priority = false }: { listing: Director
     bookingGuidance: listing.bookingGuidance,
     mapUrl: listing.mapUrl,
     detailUrl,
+    provider: listing.provider,
+    passTypes: listing.passTypes,
+    providerBookingUrl: listing.bookingUrl,
+    reservationRequired: listing.reservationRequired,
   };
 
   return (
@@ -58,6 +62,7 @@ export function DirectoryCard({ listing, priority = false }: { listing: Director
             priority={priority}
           />
           <span className={`absolute left-3 top-3 rounded-full px-3 py-1.5 text-xs font-bold shadow-sm backdrop-blur ${details.accent}`}>{details.label}</span>
+          {listing.provider === "go-city" ? <span className="absolute right-3 top-3 rounded-full bg-teal-950/90 px-3 py-1.5 text-xs font-bold text-white shadow-sm backdrop-blur">Included with Go City</span> : null}
         </div>
       </Link>
       <div className="flex flex-1 flex-col px-3 pb-3 pt-4 sm:px-4 sm:pb-4">
@@ -68,6 +73,7 @@ export function DirectoryCard({ listing, priority = false }: { listing: Director
           <span className="rounded-full bg-zinc-100 px-3 py-1.5">{listing.area}</span>
           <span title="Editorial estimate; confirm current pricing with the provider" className="rounded-full bg-emerald-50 px-3 py-1.5 text-emerald-900">{estimatedCostLabel(listing)}</span>
           <span className="rounded-full bg-zinc-100 px-3 py-1.5">{listing.durationLabel}</span>
+          {listing.reservationRequired ? <span className="rounded-full bg-amber-100 px-3 py-1.5 text-amber-950">Reservation required</span> : null}
         </div>
         <p className="mt-4 line-clamp-3 text-sm leading-6 text-zinc-700">{listing.description}</p>
         {listing.bestFor[0] ? <p className="mt-3 text-xs font-bold text-zinc-500"><span className="text-zinc-900">Best for:</span> {listing.bestFor.slice(0, 2).join(", ")}</p> : null}

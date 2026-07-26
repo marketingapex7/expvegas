@@ -17,6 +17,7 @@ export default function sitemap(): MetadataRoute.Sitemap {
     "/concerts",
     "/sports",
     "/attractions",
+    "/go-city-las-vegas",
     "/privacy",
     "/terms",
     "/affiliate-disclosure",
