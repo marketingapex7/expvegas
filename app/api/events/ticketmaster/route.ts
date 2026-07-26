@@ -14,7 +14,7 @@ const querySchema = z.object({
 }).superRefine((query, context) => {
   if (!query.startDate || !query.endDate) return;
   const days = (Date.parse(`${query.endDate}T00:00:00Z`) - Date.parse(`${query.startDate}T00:00:00Z`)) / 86_400_000;
-  if (days < 0 || days > 7) context.addIssue({ code: "custom", path: ["endDate"], message: "Choose a range of no more than 7 days." });
+  if (days < 0 || days >= 7) context.addIssue({ code: "custom", path: ["endDate"], message: "Choose a range of no more than 7 calendar days." });
 });
 
 export async function GET(request: Request) {

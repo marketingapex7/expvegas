@@ -67,7 +67,7 @@ test("homepage controls regenerate the preview and preserve the planner handoff"
   await expect(page).toHaveURL(/\/$/);
 
   await page.getByRole("link", { name: "Plan this trip" }).click();
-  await expect(page).toHaveURL(/\/planner\?refine=1&budget=mid$/);
+  await expect(page).toHaveURL(/\/planner\?refine=1&arrival=\d{4}-\d{2}-\d{2}&departure=\d{4}-\d{2}-\d{2}&budget=mid$/);
 
   // The homepage preview carries across: arriving with known dates rebuilds the
   // plan instead of resetting the visitor to an empty first step. The builder
@@ -75,7 +75,7 @@ test("homepage controls regenerate the preview and preserve the planner handoff"
   await expect(page.getByText("Planning your Vegas trip")).toBeVisible();
   const adjustDetails = page.getByRole("button", { name: "Adjust trip details" });
   await expect(adjustDetails).toBeVisible({ timeout: 15_000 });
-  await expect(page).toHaveURL(/\/planner\?refine=1&budget=mid$/);
+  await expect(page).toHaveURL(/\/planner\?refine=1&arrival=\d{4}-\d{2}-\d{2}&departure=\d{4}-\d{2}-\d{2}&budget=mid$/);
 
   // Tuning stays reachable from the built plan.
   await adjustDetails.click();

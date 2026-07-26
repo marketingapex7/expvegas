@@ -188,7 +188,9 @@ export async function searchTicketmasterEvents(input: TicketmasterSearchInput = 
   }
 
   const apiKey: string = configuredKey;
-  const classificationName = categoryToClassification(input.category);
+  // Several resident Vegas shows are filed under Music or Miscellaneous.
+  // Fetch the broader inventory for shows, then apply our normalized taxonomy.
+  const classificationName = input.category === "shows" ? undefined : categoryToClassification(input.category);
 
   function searchWindows() {
     const startValue = input.startDate || input.endDate;
@@ -199,11 +201,10 @@ export async function searchTicketmasterEvents(input: TicketmasterSearchInput = 
     const end = new Date(`${endValue}T00:00:00Z`);
     const windows: Array<{ startDate: string; endDate: string }> = [];
 
-    for (
-      const cursor = new Date(start);
-      cursor <= end && windows.length < MAX_SEARCH_DAYS;
-      cursor.setUTCDate(cursor.getUTCDate() + 1)
-    ) {
+    for (const cursor = new Date(start); cursor <= end; cursor.setUTCDate(cursor.getUTCDate() + 1)) {
+      if (windows.length >= MAX_SEARCH_DAYS) {
+        throw new Error(`Ticketmaster search range cannot exceed ${MAX_SEARCH_DAYS} calendar days`);
+      }
       const date = cursor.toISOString().slice(0, 10);
       windows.push({ startDate: date, endDate: date });
     }
@@ -266,7 +267,10 @@ export async function searchTicketmasterEvents(input: TicketmasterSearchInput = 
     }
   }
 
-  return collected.map(normalizeTicketmasterEvent);
+  const normalized = collected.map(normalizeTicketmasterEvent);
+  return input.category
+    ? normalized.filter((event) => event.category === input.category)
+    : normalized;
 }
 
 export async function getTicketmasterEvent(eventId: string) {

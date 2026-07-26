@@ -91,7 +91,10 @@ export function HomeLivePlan({
 
   const firstDay = result.itineraryDays?.[0];
   const secondDay = result.itineraryDays?.[1];
-  const plannerHref = useMemo(() => `/planner?refine=1&budget=${controls.budget}`, [controls.budget]);
+  const plannerHref = useMemo(
+    () => `/planner?refine=1&arrival=${controls.arrivalDate}&departure=${controls.departureDate}&budget=${controls.budget}`,
+    [controls.arrivalDate, controls.budget, controls.departureDate],
+  );
 
   useEffect(() => {
     trackProductEvent("homepage_plan_preview_rendered", {

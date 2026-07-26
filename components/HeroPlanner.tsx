@@ -107,6 +107,17 @@ function tripLengthInDays(arrival: string, departure: string) {
   return Math.round((Date.parse(`${departure}T00:00:00Z`) - Date.parse(`${arrival}T00:00:00Z`)) / 86_400_000);
 }
 
+function currentVegasDate() {
+  const parts = new Intl.DateTimeFormat("en-US", {
+    timeZone: "America/Los_Angeles",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).formatToParts(new Date());
+  const value = (type: Intl.DateTimeFormatPartTypes) => parts.find((part) => part.type === type)?.value || "";
+  return `${value("year")}-${value("month")}-${value("day")}`;
+}
+
 function sentenceFor(group: string, option: string) {
   if (group === "Ticket budget") return `Ticket budget: ${option}.`;
   if (group === "Group") return `Group: ${option}.`;
@@ -143,10 +154,12 @@ export function HeroPlanner({
   compact = false,
   startAtRefinement = false,
   initialBudget,
+  initialDates,
 }: {
   compact?: boolean;
   startAtRefinement?: boolean;
   initialBudget?: string;
+  initialDates?: { arrivalDate: string; departureDate: string };
 }) {
   const router = useRouter();
   const {
@@ -157,8 +170,8 @@ export function HeroPlanner({
     setDates: setSavedTripDates,
     setSettings: setTripSettings,
   } = useTripSelections();
-  const [arrivalDate, setArrivalDate] = useState("");
-  const [departureDate, setDepartureDate] = useState("");
+  const [arrivalDate, setArrivalDate] = useState(initialDates?.arrivalDate || "");
+  const [departureDate, setDepartureDate] = useState(initialDates?.departureDate || "");
   const [prompt, setPrompt] = useState(initialBudget ? `Ticket budget: ${initialBudget}.` : "");
   const [selectedHelpers, setSelectedHelpers] = useState<string[]>(initialBudget ? [`Ticket budget:${initialBudget}`] : []);
   const [result, setResult] = useState<PlannerResponse | null>(null);
@@ -183,7 +196,7 @@ export function HeroPlanner({
   const buildPanelRef = useRef<HTMLDivElement>(null);
   const dateDraftEditedRef = useRef(false);
   const autoBuiltRef = useRef(false);
-  const today = new Date().toISOString().slice(0, 10);
+  const today = currentVegasDate();
   const maxDepartureDate = addDays(arrivalDate, 7);
   const arrivalError = !arrivalDate
     ? "Choose your arrival date."
@@ -326,11 +339,11 @@ export function HeroPlanner({
   ];
 
   useEffect(() => {
-    if (!tripSelectionsHydrated || dateDraftEditedRef.current) return;
+    if (!tripSelectionsHydrated || dateDraftEditedRef.current || initialDates) return;
 
     setArrivalDate(savedTripDates.arrivalDate);
     setDepartureDate(savedTripDates.departureDate);
-  }, [savedTripDates.arrivalDate, savedTripDates.departureDate, tripSelectionsHydrated]);
+  }, [initialDates, savedTripDates.arrivalDate, savedTripDates.departureDate, tripSelectionsHydrated]);
 
   // Arriving from the homepage preview means the visitor already chose dates and
   // was looking at a plan. Rebuild it for them instead of showing an empty form.

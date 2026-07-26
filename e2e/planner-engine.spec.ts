@@ -1,6 +1,6 @@
 import { expect, test } from "@playwright/test";
 import { buildItinerary, sanitizeSchedule } from "../lib/itinerary-engine";
-import { generatePlannerResponse } from "../lib/planner-service";
+import { generatePlannerResponse, plannerInventoryEndDate } from "../lib/planner-service";
 import { VegasEvent } from "../types/event";
 
 function event(overrides: Partial<VegasEvent>): VegasEvent {
@@ -121,6 +121,35 @@ test("schedule sanitation removes a stop when the minimum useful duration would 
 
   expect(blocks.map((block) => block.title)).toEqual(["Fixed headline show"]);
   expect(blocks[0].time).toBe("7:00 PM");
+});
+
+test("schedule sanitation keeps useful meals on quarter-hour boundaries", () => {
+  const blocks = sanitizeSchedule([
+    {
+      time: "5:08 PM",
+      title: "Dinner before the show",
+      category: "meal",
+      location: "Bellagio",
+      durationMinutes: 90,
+    },
+    {
+      time: "7:00 PM",
+      title: "Fixed headline show",
+      category: "event",
+      location: "Bellagio",
+      durationMinutes: 120,
+    },
+  ]);
+
+  expect(blocks.map((block) => block.title)).toEqual(["Dinner before the show", "Fixed headline show"]);
+  expect(blocks[0].time).toBe("5:00 PM");
+  expect(blocks[0].durationMinutes).toBeGreaterThanOrEqual(75);
+  expect(blocks.every((block) => minutes(block.time) % 15 === 0)).toBe(true);
+});
+
+test("planner searches through the final itinerary day, not the departure day", () => {
+  expect(plannerInventoryEndDate("2026-08-01", "2026-08-08")).toBe("2026-08-07");
+  expect(plannerInventoryEndDate("2026-08-01", "2026-08-01")).toBe("2026-08-01");
 });
 
 test("planner keeps editorial picks unscheduled when no provider time is confirmed", async () => {

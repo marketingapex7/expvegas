@@ -257,10 +257,14 @@ function defaultDuration(block: ItineraryBlock) {
 
 function bufferBetween(block: ItineraryBlock, nextBlock?: ItineraryBlock) {
   const activityBuffer = block.category === "event" ? 30 : block.category === "meal" ? 20 : 15;
-  if (!block.location || !nextBlock?.location) return activityBuffer;
+  if (!block.location || !nextBlock?.location) return roundUpToQuarter(activityBuffer);
 
   const travel = estimateVegasTravel(block.location, nextBlock.location);
-  return Math.max(activityBuffer, travel.maxMinutes + 5);
+  return roundUpToQuarter(Math.max(activityBuffer, travel.maxMinutes + 5));
+}
+
+function minimumUsefulDuration(block: ItineraryBlock) {
+  return block.category === "meal" ? 75 : MIN_TRIMMED_DURATION;
 }
 
 export function sanitizeSchedule(blocks: ItineraryBlock[]) {
@@ -315,8 +319,8 @@ export function sanitizeSchedule(blocks: ItineraryBlock[]) {
         const mustEndBy = originalStart - bufferBetween(trailing.block, block);
         if (trailing.start + trailing.duration <= mustEndBy) break;
 
-        const availableDuration = mustEndBy - trailing.start;
-        if (availableDuration < MIN_TRIMMED_DURATION) {
+        const availableDuration = roundDownToQuarter(mustEndBy - trailing.start);
+        if (availableDuration < minimumUsefulDuration(trailing.block)) {
           scheduled.pop();
           trailing = scheduled.at(-1);
           continue;
@@ -378,23 +382,47 @@ function buildBlocks(dayIndex: number, input: PlannerInput, mainEvent?: VegasEve
   const flexibleLodging = lodgingIsFlexible(input);
   const mainEventStart = eventStartMinutes(mainEvent);
   const mainEventDuration = mainEvent?.runtimeMinutes || (mainEvent?.category === "sports" || mainEvent?.category === "concerts" ? 180 : 120);
+  const dinnerLocation = dinner.venue || dinner.area;
+  const dinnerTimingBlock: ItineraryBlock = {
+    time: "",
+    title: dinner.name,
+    category: "meal",
+    location: dinnerLocation,
+  };
+  const eventTimingBlock: ItineraryBlock | undefined = mainEvent
+    ? {
+        time: "",
+        title: mainEvent.name,
+        category: "event",
+        location: mainEvent.venueName,
+      }
+    : undefined;
+  const arrivalTimingBlock: ItineraryBlock = {
+    time: "",
+    title: "Arrival, hotel check-in, and reset",
+    category: "free",
+    location: input.stayingNear && !flexibleLodging ? input.stayingNear : undefined,
+  };
   // Vegas nights run dinner-then-show. Push dinner after the anchor only when
   // there is genuinely no room before it, otherwise an early anchor cascades
   // into a 10:45 PM dinner and a 1:00 AM last stop.
   const DINNER_MINUTES = 90;
-  const earliestDinner = isArrivalDay ? ARRIVAL_BLOCK_END : 16 * 60 + 30;
+  const arrivalToDinnerBuffer = isArrivalDay ? bufferBetween(arrivalTimingBlock, dinnerTimingBlock) : 0;
+  const dinnerToEventBuffer = eventTimingBlock ? bufferBetween(dinnerTimingBlock, eventTimingBlock) : 30;
+  const eventToDinnerBuffer = eventTimingBlock ? bufferBetween(eventTimingBlock, dinnerTimingBlock) : 30;
+  const earliestDinner = isArrivalDay ? ARRIVAL_BLOCK_END + arrivalToDinnerBuffer : 16 * 60 + 30;
   const dinnerFitsBeforeEvent =
-    mainEventStart !== undefined && mainEventStart - earliestDinner >= DINNER_MINUTES + 15;
+    mainEventStart !== undefined && mainEventStart - earliestDinner >= DINNER_MINUTES + dinnerToEventBuffer;
   const dinnerTime = mainEventStart === undefined
     ? "6:00 PM"
     : dinnerFitsBeforeEvent
-      ? timeLabelFromMinutes(Math.max(earliestDinner, mainEventStart - (DINNER_MINUTES + 30)))
-      : timeLabelFromMinutes(mainEventStart + mainEventDuration + 30);
+      ? timeLabelFromMinutes(Math.max(earliestDinner, mainEventStart - (DINNER_MINUTES + dinnerToEventBuffer)))
+      : timeLabelFromMinutes(mainEventStart + mainEventDuration + eventToDinnerBuffer);
   const mainEventEnd = mainEventStart === undefined
     ? undefined
     : dinnerFitsBeforeEvent
       ? mainEventStart + mainEventDuration
-      : mainEventStart + mainEventDuration + DINNER_MINUTES + 30;
+      : mainEventStart + mainEventDuration + DINNER_MINUTES + eventToDinnerBuffer;
   // A nightcap stop is only worth scheduling if it lands at a sane hour.
   const lateStopFits = mainEventEnd === undefined || mainEventEnd <= 22 * 60 + 30;
 
@@ -453,7 +481,7 @@ function buildBlocks(dayIndex: number, input: PlannerInput, mainEvent?: VegasEve
       time: dinnerTime,
       title: dinner.name,
       category: "meal",
-      location: dinner.venue || dinner.area,
+      location: dinnerLocation,
       description: dinner.description,
       bookingUrl: dinner.reservationUrl,
       durationMinutes: 90,

@@ -1,12 +1,19 @@
 import { expect, test } from "@playwright/test";
 import { searchTicketmasterEvents } from "../lib/ticketmaster";
 
-function ticketmasterEvent(id: string, name: string, localDate: string, localTime: string) {
+function ticketmasterEvent(
+  id: string,
+  name: string,
+  localDate: string,
+  localTime: string,
+  segment = "Arts & Theatre",
+  genre = "Theatre",
+) {
   return {
     id,
     name,
     dates: { start: { localDate, localTime } },
-    classifications: [{ segment: { name: "Arts & Theatre" }, genre: { name: "Theatre" } }],
+    classifications: [{ segment: { name: segment }, genre: { name: genre } }],
     _embedded: {
       venues: [{ name: "Test Theater", city: { name: "Las Vegas" }, state: { stateCode: "NV" } }],
     },
@@ -50,6 +57,60 @@ test("Ticketmaster search scans later pages and partitions multi-day trips", asy
     expect(calls).toContain("2026-08-02T00:00:00,2026-08-02T23:59:59|0");
   } finally {
     globalThis.fetch = originalFetch;
+    if (configuredKey) process.env.TICKETMASTER_API_KEY = configuredKey;
+    else delete process.env.TICKETMASTER_API_KEY;
+  }
+});
+
+test("show searches use normalized Vegas categories instead of Ticketmaster's upstream segment", async () => {
+  const configuredKey = process.env.TICKETMASTER_API_KEY;
+  const originalFetch = globalThis.fetch;
+  let requestedClassification: string | null = "not-called";
+  process.env.TICKETMASTER_API_KEY = "test-key";
+
+  globalThis.fetch = (async (input: string | URL | Request) => {
+    const url = new URL(typeof input === "string" || input instanceof URL ? input.toString() : input.url);
+    requestedClassification = url.searchParams.get("classificationName");
+
+    return new Response(JSON.stringify({
+      _embedded: {
+        events: [
+          ticketmasterEvent("jabbawockeez", "Jabbawockeez", "2026-08-01", "19:00:00", "Music", "Dance/Electronic"),
+          ticketmasterEvent("concert", "Regular Concert", "2026-08-01", "20:00:00", "Music", "Rock"),
+          ticketmasterEvent("piff", "Piff the Magic Dragon", "2026-08-01", "21:00:00", "Arts & Theatre", "Comedy"),
+        ],
+      },
+      page: { totalPages: 1, number: 0 },
+    }), { status: 200, headers: { "Content-Type": "application/json" } });
+  }) as typeof fetch;
+
+  try {
+    const events = await searchTicketmasterEvents({
+      startDate: "2026-08-01",
+      endDate: "2026-08-01",
+      category: "shows",
+    });
+
+    expect(requestedClassification).toBeNull();
+    expect(events.map((event) => event.name)).toEqual(["Jabbawockeez"]);
+    expect(events.every((event) => event.category === "shows")).toBe(true);
+  } finally {
+    globalThis.fetch = originalFetch;
+    if (configuredKey) process.env.TICKETMASTER_API_KEY = configuredKey;
+    else delete process.env.TICKETMASTER_API_KEY;
+  }
+});
+
+test("Ticketmaster search rejects ranges longer than seven inclusive calendar days", async () => {
+  const configuredKey = process.env.TICKETMASTER_API_KEY;
+  process.env.TICKETMASTER_API_KEY = "test-key";
+
+  try {
+    await expect(searchTicketmasterEvents({
+      startDate: "2026-08-01",
+      endDate: "2026-08-08",
+    })).rejects.toThrow("cannot exceed 7 calendar days");
+  } finally {
     if (configuredKey) process.env.TICKETMASTER_API_KEY = configuredKey;
     else delete process.env.TICKETMASTER_API_KEY;
   }

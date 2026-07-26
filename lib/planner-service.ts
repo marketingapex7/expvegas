@@ -12,6 +12,14 @@ export function parseTravelDates(travelDates?: string) {
   return { startDate: dates[0], endDate: dates[1] || dates[0] };
 }
 
+export function plannerInventoryEndDate(startDate?: string, endDate?: string) {
+  if (!startDate || !endDate || endDate <= startDate) return endDate;
+
+  const lastItineraryDay = new Date(`${endDate}T00:00:00Z`);
+  lastItineraryDay.setUTCDate(lastItineraryDay.getUTCDate() - 1);
+  return lastItineraryDay.toISOString().slice(0, 10);
+}
+
 function inferCategory(input: PlannerInput): EventCategory | undefined {
   const text = `${input.prompt || ""} ${input.vibe || ""}`.toLowerCase();
   if (text.includes("sport") || text.includes("game") || text.includes("arena")) return "sports";
@@ -111,7 +119,11 @@ export async function generatePlannerResponse(input: PlannerInput): Promise<Plan
   let liveEvents: VegasEvent[] = [];
 
   try {
-    liveEvents = await searchTicketmasterEvents({ startDate, endDate, category });
+    liveEvents = await searchTicketmasterEvents({
+      startDate,
+      endDate: plannerInventoryEndDate(startDate, endDate),
+      category,
+    });
   } catch {
     liveEvents = [];
   }
