@@ -2,6 +2,7 @@ export type EventCategory = "shows" | "comedy" | "sports" | "concerts" | "attrac
 
 export type VegasEvent = {
   id: string;
+  seriesId?: string;
   name: string;
   slug: string;
   category: EventCategory;

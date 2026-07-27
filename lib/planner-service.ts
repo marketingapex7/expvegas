@@ -3,6 +3,7 @@ import { buildItinerary } from "@/lib/itinerary-engine";
 import { diversifyEventsByTicketBudget } from "@/lib/budget-preferences";
 import { isHeadlineEvent, rankEvents } from "@/lib/scoring";
 import { searchTicketmasterEvents } from "@/lib/ticketmaster";
+import { canonicalEventKey, collapseEventShowtimes } from "@/lib/event-identity";
 import { EventCategory, VegasEvent } from "@/types/event";
 import { ItineraryDay, PlannerInput, PlannerResponse, TripSummary } from "@/types/planner";
 
@@ -135,7 +136,7 @@ export async function generatePlannerResponse(input: PlannerInput): Promise<Plan
   // Editorial picks remain useful comparison options, but they are deliberately
   // undated. Only provider inventory with a confirmed date and time can become a
   // timed itinerary anchor.
-  const ranked = rankEvents([...liveEvents, ...seedEvents], input);
+  const ranked = rankEvents(collapseEventShowtimes([...liveEvents, ...seedEvents]), input);
   const headlineEvents = ranked.filter(isHeadlineEvent);
   const budgetDiversifiedEvents = diversifyEventsByTicketBudget(headlineEvents, input.budget);
   const fallbackBest = headlineEvents[0];
@@ -161,7 +162,8 @@ export async function generatePlannerResponse(input: PlannerInput): Promise<Plan
     : undefined;
   const hasLiveScheduledAnchor = Boolean(scheduledAnchor?.id.startsWith("ticketmaster-"));
   const best = scheduledAnchor || fallbackBest;
-  const backups = budgetDiversifiedEvents.filter((event) => event.id !== best.id).slice(0, 3);
+  const bestKey = canonicalEventKey(best);
+  const backups = budgetDiversifiedEvents.filter((event) => canonicalEventKey(event) !== bestKey).slice(0, 3);
   const liveHeadlineCount = liveEvents.filter(isHeadlineEvent).length;
   const anchorDay = itineraryDays.find((day) => day.blocks.some((block) => block.category === "event")) || itineraryDays[0];
 

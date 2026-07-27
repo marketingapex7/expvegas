@@ -1,11 +1,12 @@
 import { attractionStops, casinoStops, freeExperienceStops, PlanningStop } from "@/data/planning-stops";
 import { goCityFlexibleAttractions } from "@/data/go-city-attractions";
-import { restaurants, VegasRestaurant } from "@/data/restaurants";
+import { RestaurantMealPeriod, restaurants, VegasRestaurant } from "@/data/restaurants";
 import { VegasEvent } from "@/types/event";
 import { ItineraryBlock, ItineraryDay, PlannerInput } from "@/types/planner";
 import { mealLevelsFromText, ticketBandsFromText } from "@/lib/budget-preferences";
 import { estimateVegasTravel } from "@/lib/vegas-logistics";
 import { isAgeRestrictedEvent, isHeadlineEvent, scoreEvent } from "@/lib/scoring";
+import { canonicalEventKey } from "@/lib/event-identity";
 
 // Arrival day starts with a protected check-in buffer: 3:30 PM for 90 minutes.
 const ARRIVAL_BLOCK_START = 15 * 60 + 30;
@@ -202,12 +203,22 @@ function scoreRestaurant(restaurant: VegasRestaurant, input: PlannerInput) {
   return score;
 }
 
-type MealPeriod = "breakfast" | "brunch" | "lunch" | "dinner" | "late night";
-
-function pickRestaurant(input: PlannerInput, offset: number, mealPeriod: MealPeriod) {
+function pickRestaurant(input: PlannerInput, offset: number, mealPeriod: RestaurantMealPeriod) {
   const eligible = restaurants.filter((restaurant) => restaurant.mealTypes.includes(mealPeriod));
   const ranked = [...eligible].sort((a, b) => scoreRestaurant(b, input) - scoreRestaurant(a, input));
   return ranked[offset % ranked.length];
+}
+
+const DEFAULT_SERVICE_WINDOWS: Record<RestaurantMealPeriod, { earliestStartMinutes: number; latestStartMinutes: number }> = {
+  breakfast: { earliestStartMinutes: 7 * 60, latestStartMinutes: 10 * 60 + 30 },
+  brunch: { earliestStartMinutes: 9 * 60, latestStartMinutes: 13 * 60 + 30 },
+  lunch: { earliestStartMinutes: 11 * 60, latestStartMinutes: 14 * 60 + 30 },
+  dinner: { earliestStartMinutes: 16 * 60 + 30, latestStartMinutes: 21 * 60 },
+  "late night": { earliestStartMinutes: 21 * 60, latestStartMinutes: 23 * 60 + 30 },
+};
+
+function serviceWindowFor(restaurant: VegasRestaurant, mealPeriod: RestaurantMealPeriod) {
+  return restaurant.serviceWindows?.[mealPeriod] || DEFAULT_SERVICE_WINDOWS[mealPeriod];
 }
 
 function eventTime(event: VegasEvent, fallback: string) {
@@ -253,13 +264,13 @@ function eventsForDay(
   events: VegasEvent[],
   date: string,
   input: PlannerInput,
-  usedEventNames = new Set<string>(),
+  usedEventKeys = new Set<string>(),
   isArrivalDay = false,
   usedVenueNames = new Set<string>(),
 ) {
   const dated = events.filter((event) => event.localDate === date);
   const anchorable = dated.filter(
-    (event) => isGoodAnchorEvent(event, input, isArrivalDay) && !usedEventNames.has(event.name.toLowerCase()),
+    (event) => isGoodAnchorEvent(event, input, isArrivalDay) && !usedEventKeys.has(canonicalEventKey(event)),
   );
 
   const bestMatch = anchorable[0];
@@ -398,6 +409,7 @@ export function sanitizeSchedule(blocks: ItineraryBlock[]) {
       ? updatedPrevious.start + updatedPrevious.duration + bufferBetween(updatedPrevious.block, block)
       : 0;
     const nextStart = isFixedStart ? originalStart : roundUpToQuarter(Math.max(originalStart, updatedPreviousEnd));
+    if (block.latestStartMinutes !== undefined && nextStart > block.latestStartMinutes) continue;
     const adjustedBlock: ItineraryBlock = {
       ...block,
       time: timeLabelFromMinutes(nextStart),
@@ -426,7 +438,8 @@ function buildBlocks(dayIndex: number, input: PlannerInput, mainEvent?: VegasEve
   const attraction = pickStop(paidAttractionStops, input, dayIndex);
   const freeExperience = pickStop(freeExperienceStops, input, dayIndex);
   const secondFreeExperience = pickStop(freeExperienceStops, input, dayIndex + 3);
-  const dinner = pickRestaurant(input, dayIndex + 2, "dinner");
+  const standardDinner = pickRestaurant(input, dayIndex + 2, "dinner");
+  const lateNightDinner = pickRestaurant(input, dayIndex + 2, "late night");
   const lunchRestaurant = pickRestaurant(input, dayIndex + 6, "lunch");
   const casino = pickStop(casinoStops, input, dayIndex);
   const text = textFor(input);
@@ -439,12 +452,12 @@ function buildBlocks(dayIndex: number, input: PlannerInput, mainEvent?: VegasEve
   const flexibleLodging = lodgingIsFlexible(input);
   const mainEventStart = eventStartMinutes(mainEvent);
   const mainEventDuration = mainEvent?.runtimeMinutes || (mainEvent?.category === "sports" || mainEvent?.category === "concerts" ? 180 : 120);
-  const dinnerLocation = dinner.venue || dinner.area;
-  const dinnerTimingBlock: ItineraryBlock = {
+  const standardDinnerLocation = standardDinner.venue || standardDinner.area;
+  const standardDinnerTimingBlock: ItineraryBlock = {
     time: "",
-    title: dinner.name,
+    title: standardDinner.name,
     category: "meal",
-    location: dinnerLocation,
+    location: standardDinnerLocation,
   };
   const eventTimingBlock: ItineraryBlock | undefined = mainEvent
     ? {
@@ -464,22 +477,35 @@ function buildBlocks(dayIndex: number, input: PlannerInput, mainEvent?: VegasEve
   // there is genuinely no room before it, otherwise an early anchor cascades
   // into a 10:45 PM dinner and a 1:00 AM last stop.
   const DINNER_MINUTES = 90;
-  const arrivalToDinnerBuffer = isArrivalDay ? bufferBetween(arrivalTimingBlock, dinnerTimingBlock) : 0;
-  const dinnerToEventBuffer = eventTimingBlock ? bufferBetween(dinnerTimingBlock, eventTimingBlock) : 30;
-  const eventToDinnerBuffer = eventTimingBlock ? bufferBetween(eventTimingBlock, dinnerTimingBlock) : 30;
+  const arrivalToDinnerBuffer = isArrivalDay ? bufferBetween(arrivalTimingBlock, standardDinnerTimingBlock) : 0;
+  const dinnerToEventBuffer = eventTimingBlock ? bufferBetween(standardDinnerTimingBlock, eventTimingBlock) : 30;
   const earliestDinner = isArrivalDay ? ARRIVAL_BLOCK_END + arrivalToDinnerBuffer : 16 * 60 + 30;
   const dinnerFitsBeforeEvent =
     mainEventStart !== undefined && mainEventStart - earliestDinner >= DINNER_MINUTES + dinnerToEventBuffer;
-  const dinnerTime = mainEventStart === undefined
-    ? "6:00 PM"
+  const dinnerPeriod: RestaurantMealPeriod = mainEventStart !== undefined && !dinnerFitsBeforeEvent ? "late night" : "dinner";
+  const dinner = dinnerPeriod === "late night" ? lateNightDinner : standardDinner;
+  const dinnerLocation = dinner.venue || dinner.area;
+  const dinnerTimingBlock: ItineraryBlock = {
+    time: "",
+    title: dinner.name,
+    category: "meal",
+    location: dinnerLocation,
+  };
+  const eventToDinnerBuffer = eventTimingBlock ? bufferBetween(eventTimingBlock, dinnerTimingBlock) : 30;
+  const dinnerWindow = serviceWindowFor(dinner, dinnerPeriod);
+  const proposedDinnerStart = mainEventStart === undefined
+    ? 18 * 60
     : dinnerFitsBeforeEvent
-      ? timeLabelFromMinutes(Math.max(earliestDinner, mainEventStart - (DINNER_MINUTES + dinnerToEventBuffer)))
-      : timeLabelFromMinutes(mainEventStart + mainEventDuration + eventToDinnerBuffer);
+      ? Math.max(earliestDinner, mainEventStart - (DINNER_MINUTES + dinnerToEventBuffer))
+      : mainEventStart + mainEventDuration + eventToDinnerBuffer;
+  const dinnerStart = Math.max(proposedDinnerStart, dinnerWindow.earliestStartMinutes);
+  const dinnerTime = timeLabelFromMinutes(dinnerStart);
+  const dinnerIsCredible = dinnerStart < 24 * 60 && dinnerStart <= dinnerWindow.latestStartMinutes;
   const mainEventEnd = mainEventStart === undefined
     ? undefined
     : dinnerFitsBeforeEvent
       ? mainEventStart + mainEventDuration
-      : mainEventStart + mainEventDuration + DINNER_MINUTES + eventToDinnerBuffer;
+      : mainEventStart + mainEventDuration + (dinnerIsCredible ? DINNER_MINUTES + eventToDinnerBuffer : 0);
   // A nightcap stop is only worth scheduling if it lands at a sane hour.
   const lateStopFits = mainEventEnd === undefined || mainEventEnd <= 22 * 60 + 30;
 
@@ -504,6 +530,8 @@ function buildBlocks(dayIndex: number, input: PlannerInput, mainEvent?: VegasEve
           description: lunchRestaurant.description,
           bookingUrl: lunchRestaurant.reservationUrl,
           durationMinutes: 90,
+          earliestStartMinutes: serviceWindowFor(lunchRestaurant, "lunch").earliestStartMinutes,
+          latestStartMinutes: serviceWindowFor(lunchRestaurant, "lunch").latestStartMinutes,
         },
         {
           time: slowMorning ? "2:00 PM" : "1:00 PM",
@@ -542,7 +570,7 @@ function buildBlocks(dayIndex: number, input: PlannerInput, mainEvent?: VegasEve
 
   const blocks: ItineraryBlock[] = [
     ...daytimeBlocks,
-    {
+    ...(dinnerIsCredible ? [{
       time: dinnerTime,
       title: dinner.name,
       category: "meal",
@@ -550,7 +578,10 @@ function buildBlocks(dayIndex: number, input: PlannerInput, mainEvent?: VegasEve
       description: dinner.description,
       bookingUrl: dinner.reservationUrl,
       durationMinutes: 90,
-    },
+      earliestStartMinutes: dinnerWindow.earliestStartMinutes,
+      latestStartMinutes: dinnerWindow.latestStartMinutes,
+      timingNote: dinnerPeriod === "late night" ? "Late-night food selected because a full dinner does not fit before the event." : undefined,
+    } satisfies ItineraryBlock] : []),
   ];
 
   if (flexibleLodging && dayIndex === 0) {
@@ -645,13 +676,13 @@ export function buildItinerary({ plannerInput, startDate, endDate, rankedEvents,
   const dates = dateRange(startDate, endDate);
   const itineraryDates = dates.length > 0 ? dates : [new Date().toISOString().slice(0, 10)];
 
-  const usedEventNames = new Set<string>();
+  const usedEventKeys = new Set<string>();
   const usedVenueNames = new Set<string>();
 
   return itineraryDates.map((date, index) => {
-    const mainEvent = eventsForDay(rankedEvents, date, plannerInput, usedEventNames, index === 0, usedVenueNames)[0];
+    const mainEvent = eventsForDay(rankedEvents, date, plannerInput, usedEventKeys, index === 0, usedVenueNames)[0];
     if (mainEvent) {
-      usedEventNames.add(mainEvent.name.toLowerCase());
+      usedEventKeys.add(canonicalEventKey(mainEvent));
       usedVenueNames.add(mainEvent.venueName.toLowerCase());
     }
 

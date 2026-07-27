@@ -93,9 +93,9 @@ export function EventCard({
   };
 
   return (
-    <article className="group flex min-h-full flex-col overflow-hidden rounded-lg border border-zinc-200/90 bg-white p-2 shadow-[0_8px_30px_rgba(24,24,27,0.08)] transition duration-300 hover:-translate-y-1 hover:shadow-[0_18px_44px_rgba(24,24,27,0.14)]">
+    <article className="group flex min-h-0 snap-start flex-col overflow-hidden rounded-lg border border-zinc-200/90 bg-white p-2 shadow-[0_8px_30px_rgba(24,24,27,0.08)] transition duration-300 hover:-translate-y-1 hover:shadow-[0_18px_44px_rgba(24,24,27,0.14)] lg:min-h-full">
       <Link href={eventPath} className="block">
-        <div className="relative aspect-[16/10] overflow-hidden rounded-lg bg-zinc-100">
+        <div className="relative aspect-[16/9] overflow-hidden rounded-lg bg-zinc-100 sm:aspect-[16/10]">
           {showImage ? (
             <CardImage
               src={imageUrl}
@@ -120,11 +120,11 @@ export function EventCard({
           </span>
         </div>
       </Link>
-      <div className="flex flex-1 flex-col px-3 pb-3 pt-4 sm:px-4 sm:pb-4">
+      <div className="flex flex-1 flex-col px-3 pb-3 pt-3 sm:px-4 sm:pb-4 sm:pt-4">
         <Link href={eventPath} className="rounded-sm outline-none focus-visible:ring-2 focus-visible:ring-fuchsia-600">
-          <h3 className="text-2xl font-black leading-[1.08] text-zinc-950 transition group-hover:text-fuchsia-800">{event.name}</h3>
+          <h3 className="text-xl font-black leading-[1.08] text-zinc-950 transition group-hover:text-fuchsia-800 sm:text-2xl">{event.name}</h3>
         </Link>
-        <div className="mt-3 flex flex-wrap gap-2 text-xs font-bold text-zinc-700">
+        <div className="mt-2.5 flex flex-wrap gap-2 text-xs font-bold text-zinc-700 sm:mt-3">
           {schedule ? <span className="rounded-full bg-zinc-100 px-3 py-1.5">{schedule}</span> : null}
           <span className="max-w-full truncate rounded-full bg-zinc-100 px-3 py-1.5">{event.venueName}</span>
           {hasPrice ? (
@@ -145,8 +145,8 @@ export function EventCard({
             </select>
           </label>
         ) : null}
-        <p className="mt-4 line-clamp-3 text-sm leading-6 text-zinc-700">{event.quickVerdict}</p>
-        <div className="mt-auto grid gap-2 pt-6">
+        <p className="mt-3 line-clamp-2 text-sm leading-6 text-zinc-700 sm:mt-4 sm:line-clamp-3">{event.quickVerdict}</p>
+        <div className="mt-auto grid gap-2 pt-4 sm:pt-6">
           {hasTicketUrl ? (
             <a
               href={ticketUrl}

@@ -1,4 +1,10 @@
 export type RestaurantPriceLevel = "value" | "mid" | "premium";
+export type RestaurantMealPeriod = "breakfast" | "brunch" | "lunch" | "dinner" | "late night";
+
+export type RestaurantServiceWindow = {
+  earliestStartMinutes: number;
+  latestStartMinutes: number;
+};
 
 export type VegasRestaurant = {
   name: string;
@@ -8,7 +14,8 @@ export type VegasRestaurant = {
   cuisine: string[];
   categories: string[];
   priceLevel: RestaurantPriceLevel;
-  mealTypes: string[];
+  mealTypes: RestaurantMealPeriod[];
+  serviceWindows?: Partial<Record<RestaurantMealPeriod, RestaurantServiceWindow>>;
   bestFor: string[];
   vibeTags: string[];
   dietaryTags?: string[];
@@ -57,6 +64,9 @@ export const restaurants: VegasRestaurant[] = [
     categories: ["steakhouse", "classic vegas"],
     priceLevel: "premium",
     mealTypes: ["dinner"],
+    serviceWindows: {
+      dinner: { earliestStartMinutes: 16 * 60 + 30, latestStartMinutes: 20 * 60 + 15 },
+    },
     bestFor: ["couples", "steakhouse fans", "splurge dinners"],
     vibeTags: ["classic", "steak", "splurge", "old school vegas"],
     reservationUrl: "https://www.goldensteerlasvegas.com/",
@@ -202,6 +212,10 @@ export const restaurants: VegasRestaurant[] = [
     categories: ["quick breakfast", "casual"],
     priceLevel: "value",
     mealTypes: ["breakfast", "brunch"],
+    serviceWindows: {
+      breakfast: { earliestStartMinutes: 7 * 60, latestStartMinutes: 10 * 60 + 30 },
+      brunch: { earliestStartMinutes: 9 * 60, latestStartMinutes: 13 * 60 + 30 },
+    },
     bestFor: ["couples", "friends", "quick mornings"],
     vibeTags: ["breakfast", "quick", "cosmopolitan", "value"],
     editorialScore: 80,

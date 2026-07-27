@@ -5,7 +5,10 @@ import { seoPillarContent } from "@/data/seo-pillar-content";
 import { BrowseResults } from "@/components/BrowseResults";
 import { experienceListings, hotelListings, restaurantListings } from "@/lib/directory-data";
 import { rankEvents } from "@/lib/scoring";
+import { collapseEventShowtimes } from "@/lib/event-identity";
+import { getLiveVegasEvents, getVegasToday } from "@/lib/live-events";
 import { DirectoryListing } from "@/types/directory";
+import { VegasEvent } from "@/types/event";
 import { JsonLd } from "@/components/JsonLd";
 
 export type SeoTopic = {
@@ -61,7 +64,7 @@ function comparePoints(topic: SeoTopic) {
   return ["Ticketed versus free options", "Location and time commitment", "What fits your group and vibe"];
 }
 
-function eventMatchesTopic(event: (typeof seedEvents)[number], topic: SeoTopic) {
+function eventMatchesTopic(event: VegasEvent, topic: SeoTopic) {
   const text = `${topic.title} ${topic.primaryKeyword}`.toLowerCase();
   if (topic.cluster === "entertainment") {
     if (text.includes("comedy")) return event.category === "comedy";
@@ -99,9 +102,22 @@ function listingsForTopic(topic: SeoTopic): DirectoryListing[] {
   return (filtered.length ? filtered : source).sort((a, b) => b.editorialScore - a.editorialScore).slice(0, 6);
 }
 
-export function SeoLandingPage({ topic, relatedTopics }: { topic: SeoTopic; relatedTopics: SeoTopic[] }) {
+function addDays(date: string, days: number) {
+  const value = new Date(`${date}T00:00:00Z`);
+  value.setUTCDate(value.getUTCDate() + days);
+  return value.toISOString().slice(0, 10);
+}
+
+export async function SeoLandingPage({ topic, relatedTopics }: { topic: SeoTopic; relatedTopics: SeoTopic[] }) {
   const points = comparePoints(topic);
-  const events = rankEvents(seedEvents.filter((event) => eventMatchesTopic(event, topic))).slice(0, 6);
+  const editorialEvents = seedEvents.filter((event) => eventMatchesTopic(event, topic));
+  let liveEvents: VegasEvent[] = [];
+  if (topic.cluster === "entertainment") {
+    const startDate = getVegasToday();
+    const inventory = await getLiveVegasEvents(startDate, addDays(startDate, 6));
+    liveEvents = inventory.isLive ? inventory.events.filter((event) => eventMatchesTopic(event, topic)) : [];
+  }
+  const events = rankEvents(collapseEventShowtimes([...liveEvents, ...editorialEvents])).slice(0, 18);
   const directory = listingsForTopic(topic);
   const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://experiencevegas.com";
   const pageUrl = `${baseUrl}/${topic.slug}`;

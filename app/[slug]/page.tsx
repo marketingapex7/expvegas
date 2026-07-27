@@ -5,6 +5,7 @@ import { seoPillarContent } from "@/data/seo-pillar-content";
 import { SeoLandingPage, SeoTopic } from "@/components/SeoLandingPage";
 
 const topics = topicalMap as SeoTopic[];
+export const revalidate = 1800;
 
 export function generateStaticParams() {
   return topics.map((topic) => ({ slug: topic.slug }));

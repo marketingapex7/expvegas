@@ -59,9 +59,9 @@ export function HomeWorthRail({ listings }: { listings: DirectoryListing[] }) {
             Browse everything <ArrowRight className="h-4 w-4" />
           </Link>
         </div>
-        <div className="mt-7 grid auto-cols-[88%] grid-flow-col gap-4 overflow-x-auto pb-3 sm:auto-cols-auto sm:grid-flow-row sm:grid-cols-2 sm:overflow-visible lg:grid-cols-3">
+        <div className="mt-7 grid snap-x snap-mandatory auto-cols-[84%] grid-flow-col items-start gap-4 overflow-x-auto pb-3 sm:auto-cols-auto sm:grid-flow-row sm:grid-cols-2 sm:overflow-visible lg:grid-cols-3">
           {listings.slice(0, 6).map((listing) => (
-            <article key={listing.id} className="flex min-h-64 flex-col rounded-lg border border-zinc-200 bg-white p-5 shadow-[0_8px_25px_rgba(24,24,27,0.06)]">
+            <article key={listing.id} className="flex min-h-0 snap-start flex-col rounded-lg border border-zinc-200 bg-white p-5 shadow-[0_8px_25px_rgba(24,24,27,0.06)] sm:min-h-64">
               <div className="flex items-start justify-between gap-3">
                 <span className="rounded-full bg-fuchsia-50 px-3 py-1.5 text-xs font-black text-fuchsia-900">{labels[listing.category]}</span>
                 <span className="text-xs font-black text-emerald-800">{costLabel(listing)}</span>
@@ -70,7 +70,7 @@ export function HomeWorthRail({ listings }: { listings: DirectoryListing[] }) {
                 <h3 className="text-2xl font-black leading-tight text-zinc-950 hover:text-fuchsia-800">{listing.name}</h3>
               </Link>
               <p className="mt-2 flex items-center gap-1.5 text-xs font-bold text-zinc-500"><MapPin className="h-3.5 w-3.5 text-fuchsia-700" /> {listing.area}</p>
-              <p className="mt-4 line-clamp-3 text-sm leading-6 text-zinc-600">{listing.description}</p>
+              <p className="mt-4 line-clamp-2 text-sm leading-6 text-zinc-600 sm:line-clamp-3">{listing.description}</p>
               <div className="mt-auto grid gap-2 pt-5">
                 <TripToggleButton item={tripPick(listing)} theme="light" />
                 <Link href={`/places/${listing.slug}`} className="inline-flex min-h-10 items-center justify-center gap-2 text-sm font-black text-zinc-600 hover:text-fuchsia-800">

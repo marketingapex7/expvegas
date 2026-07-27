@@ -72,9 +72,9 @@ export default async function HomePage() {
       <section className="border-y border-zinc-200 bg-white px-4 py-4 text-zinc-950 sm:px-5">
         <div className="mx-auto flex max-w-7xl flex-wrap items-center justify-center gap-x-3 gap-y-1 text-center text-xs font-bold leading-5 text-zinc-600 sm:text-sm">
           <span>{eventShelf.isLive ? "Live schedules from Ticketmaster" : "Curated schedule from ExperienceVegas"}</span>
-          <span aria-hidden="true" className="text-zinc-300">·</span>
+          <span aria-hidden="true" className="text-zinc-300">/</span>
           <span>Prices are planning estimates, not quotes</span>
-          <span aria-hidden="true" className="text-zinc-300">·</span>
+          <span aria-hidden="true" className="text-zinc-300">/</span>
           <span>No booking required; providers handle checkout</span>
         </div>
       </section>
@@ -95,9 +95,9 @@ export default async function HomePage() {
               </Link>
             </div>
           </div>
-          <div className="grid auto-cols-[88%] grid-flow-col gap-5 overflow-x-auto pb-3 sm:auto-cols-[46%] lg:grid-flow-row lg:grid-cols-3 lg:overflow-visible">
+          <div className="grid snap-x snap-mandatory auto-cols-[84%] grid-flow-col items-start gap-5 overflow-x-auto pb-3 sm:auto-cols-[46%] lg:grid-flow-row lg:grid-cols-3 lg:overflow-visible">
             {eventShelf.events.slice(0, 6).map((event, index) => (
-              <EventCard key={event.id} event={event} priority={index === 0} showImage={eventShelf.isLive} analyticsContext="homepage_event_shelf" />
+              <EventCard key={event.id} event={event} priority={index < 3} showImage={eventShelf.isLive} analyticsContext="homepage_event_shelf" />
             ))}
           </div>
         </div>

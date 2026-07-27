@@ -1,4 +1,5 @@
 import { EventCategory, VegasEvent } from "@/types/event";
+import { collapseEventShowtimes } from "@/lib/event-identity";
 
 const TICKETMASTER_BASE_URL = process.env.TICKETMASTER_BASE_URL || "https://app.ticketmaster.com/discovery/v2";
 
@@ -48,6 +49,7 @@ type TicketmasterEvent = {
   classifications?: TicketmasterClassification[];
   _embedded?: {
     venues?: TicketmasterVenue[];
+    attractions?: Array<{ id?: string; name?: string }>;
   };
 };
 
@@ -95,6 +97,7 @@ const RESIDENCY_CATEGORY_OVERRIDES: Array<{ pattern: RegExp; category: EventCate
   { pattern: /\b(jabbawockeez|blue man group|absinthe|atomic saloon|magic mike|thunder from down under|chippendales)\b/i, category: "shows" },
   { pattern: /\b(cirque du soleil|myst[eè]re|michael jackson one|the beatles love|mad apple)\b/i, category: "shows" },
   { pattern: /\b(o by cirque|ka by cirque)\b/i, category: "shows" },
+  { pattern: /\b(australian bee gees|rat pack is back|piano man|mj live|colors of mexico|purple reign|legends in concert|king returns)\b/i, category: "shows" },
   { pattern: /\b(carrot top|piff the magic dragon|penn (and|&) teller|comedy cellar|brad garrett)\b/i, category: "comedy" },
 ];
 
@@ -122,6 +125,12 @@ function bestImage(images?: TicketmasterImage[]) {
   return images
     ?.filter((image) => image.url)
     .sort((a, b) => (b.width || 0) * (b.height || 0) - (a.width || 0) * (a.height || 0))[0]?.url;
+}
+
+function ageRestrictionFor(event: TicketmasterEvent) {
+  const text = `${event.name} ${event.info || ""} ${event.pleaseNote || ""}`;
+  const match = text.match(/\b(18|21)\s*\+/i) || text.match(/\bages?\s+(18|21)\b/i);
+  return match ? `${match[1]}+` : undefined;
 }
 
 // Ticketmaster copy arrives with typographic punctuation, occasional broken
@@ -157,6 +166,7 @@ export function normalizeTicketmasterEvent(event: TicketmasterEvent): VegasEvent
 
   return {
     id: `ticketmaster-${event.id}`,
+    seriesId: event._embedded?.attractions?.[0]?.id,
     name: displayName,
     slug: slugify(displayName),
     category,
@@ -165,6 +175,7 @@ export function normalizeTicketmasterEvent(event: TicketmasterEvent): VegasEvent
     area: venue?.city?.name === "Las Vegas" ? "Las Vegas" : venue?.city?.name || "Las Vegas",
     priceMin: priceRange?.min,
     priceMax: priceRange?.max,
+    ageRestriction: ageRestrictionFor(event),
     startDateTime: event.dates?.start?.dateTime,
     localDate: event.dates?.start?.localDate,
     localTime: event.dates?.start?.localTime,
@@ -278,7 +289,7 @@ export async function searchTicketmasterEvents(input: TicketmasterSearchInput = 
     }
   }
 
-  const normalized = collected.map(normalizeTicketmasterEvent);
+  const normalized = collapseEventShowtimes(collected.map(normalizeTicketmasterEvent));
   return input.category
     ? normalized.filter((event) => event.category === input.category)
     : normalized;

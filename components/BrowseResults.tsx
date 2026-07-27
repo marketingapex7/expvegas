@@ -141,6 +141,7 @@ export function BrowseResults({ directory, events, title }: { directory: Directo
   const [comparisonIds, setComparisonIds] = useState<string[]>([]);
   const [comparisonOpen, setComparisonOpen] = useState(false);
   const source = useMemo(() => normalizedResults(directory, events), [directory, events]);
+  const compactInventory = source.length < 5;
   const zones = useMemo(() => [...new Set(source.map((result) => result.zone))].sort(), [source]);
   const hasDurationChoices = source.some((result) => result.durationMax > 0);
   const activeFilterCount = [zone, price, audience, duration, environment, booking, vibe].filter((value) => value !== "all").length + Number(Boolean(query));
@@ -251,6 +252,17 @@ export function BrowseResults({ directory, events, title }: { directory: Directo
 
   return (
     <div>
+      {compactInventory ? (
+        <div data-testid="compact-inventory-note" className="flex flex-col gap-3 rounded-lg border border-zinc-200 bg-white p-4 shadow-sm sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <p className="text-xs font-black uppercase tracking-[0.16em] text-fuchsia-700">Featured editorial picks</p>
+            <p className="mt-1 text-sm leading-6 text-zinc-600">A focused starting point. Use the live schedule for date-specific performances and additional choices.</p>
+          </div>
+          <Link href="/tonight" className="inline-flex min-h-11 shrink-0 items-center justify-center rounded-lg border border-zinc-300 px-4 text-sm font-black text-zinc-900 transition hover:bg-zinc-100">
+            Browse live schedule
+          </Link>
+        </div>
+      ) : (
       <div className="rounded-lg border border-zinc-200 bg-white p-3 shadow-sm sm:p-4">
         <div className="grid gap-3 lg:grid-cols-[minmax(14rem,1fr)_repeat(4,minmax(0,auto))]">
           <label className="relative block">
@@ -366,6 +378,7 @@ export function BrowseResults({ directory, events, title }: { directory: Directo
           </div>
         </div>
       </div>
+      )}
 
       {comparisonResults.length ? (
         <div data-testid="comparison-bar" className="mt-4 flex flex-col gap-3 border-y border-zinc-300 bg-white px-4 py-3 sm:flex-row sm:items-center sm:justify-between">

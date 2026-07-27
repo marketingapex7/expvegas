@@ -50,9 +50,9 @@ export function DirectoryCard({ listing, priority = false }: { listing: Director
   };
 
   return (
-    <article className="group flex min-h-full flex-col overflow-hidden rounded-lg border border-zinc-200/90 bg-white p-2 shadow-[0_8px_30px_rgba(24,24,27,0.08)] transition duration-300 hover:-translate-y-1 hover:shadow-[0_18px_44px_rgba(24,24,27,0.14)]">
+    <article className="group flex min-h-0 snap-start flex-col overflow-hidden rounded-lg border border-zinc-200/90 bg-white p-2 shadow-[0_8px_30px_rgba(24,24,27,0.08)] transition duration-300 hover:-translate-y-1 hover:shadow-[0_18px_44px_rgba(24,24,27,0.14)] lg:min-h-full">
       <Link href={detailUrl} className="block">
-        <div className="relative aspect-[16/10] overflow-hidden rounded-lg bg-zinc-100">
+        <div className="relative aspect-[16/9] overflow-hidden rounded-lg bg-zinc-100 sm:aspect-[16/10]">
           <CardImage
             src={listing.imageUrl}
             alt={listing.imageAlt}
@@ -67,7 +67,7 @@ export function DirectoryCard({ listing, priority = false }: { listing: Director
       </Link>
       <div className="flex flex-1 flex-col px-3 pb-3 pt-4 sm:px-4 sm:pb-4">
         <Link href={detailUrl} className="rounded-sm outline-none focus-visible:ring-2 focus-visible:ring-fuchsia-600">
-          <h3 className="text-2xl font-black leading-[1.08] text-zinc-950 transition group-hover:text-fuchsia-800">{listing.name}</h3>
+          <h3 className="text-xl font-black leading-[1.08] text-zinc-950 transition group-hover:text-fuchsia-800 sm:text-2xl">{listing.name}</h3>
         </Link>
         <div className="mt-3 flex flex-wrap gap-2 text-xs font-bold text-zinc-700">
           <span className="rounded-full bg-zinc-100 px-3 py-1.5">{listing.area}</span>
@@ -75,9 +75,9 @@ export function DirectoryCard({ listing, priority = false }: { listing: Director
           <span className="rounded-full bg-zinc-100 px-3 py-1.5">{listing.durationLabel}</span>
           {listing.reservationRequired ? <span className="rounded-full bg-amber-100 px-3 py-1.5 text-amber-950">Reservation required</span> : null}
         </div>
-        <p className="mt-4 line-clamp-3 text-sm leading-6 text-zinc-700">{listing.description}</p>
+        <p className="mt-3 line-clamp-2 text-sm leading-6 text-zinc-700 sm:mt-4 sm:line-clamp-3">{listing.description}</p>
         {listing.bestFor[0] ? <p className="mt-3 text-xs font-bold text-zinc-500"><span className="text-zinc-900">Best for:</span> {listing.bestFor.slice(0, 2).join(", ")}</p> : null}
-        <div className="mt-auto grid gap-2 pt-6">
+        <div className="mt-auto grid gap-2 pt-4 sm:pt-6">
           <Link href={detailUrl} className="inline-flex min-h-12 items-center justify-center gap-2 rounded-lg bg-gradient-to-r from-amber-300 to-amber-400 px-4 py-3 text-sm font-black text-zinc-950 shadow-sm transition hover:from-amber-200 hover:to-amber-300">
             View Details <ArrowRight className="h-4 w-4" />
           </Link>

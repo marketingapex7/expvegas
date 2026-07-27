@@ -1,5 +1,6 @@
 import { seedEvents } from "@/data/seed-events";
 import { rankEvents } from "@/lib/scoring";
+import { collapseEventShowtimes } from "@/lib/event-identity";
 import { searchTicketmasterEvents } from "@/lib/ticketmaster";
 import { VegasEvent } from "@/types/event";
 
@@ -72,33 +73,6 @@ export type HomepageEventShelf = LiveEventResult & {
 
 let lastGoodHomepageShelf: HomepageEventShelf | null = null;
 
-function collapseShowtimes(events: VegasEvent[]) {
-  const grouped = new Map<string, VegasEvent>();
-
-  for (const event of events) {
-    const key = `${event.name.trim().toLowerCase()}|${event.venueName.trim().toLowerCase()}`;
-    const showtime = {
-      id: event.id,
-      localDate: event.localDate,
-      localTime: event.localTime,
-      startDateTime: event.startDateTime,
-      affiliateUrl: event.affiliateUrl,
-    };
-    const existing = grouped.get(key);
-
-    if (!existing) {
-      grouped.set(key, { ...event, showtimes: [showtime] });
-      continue;
-    }
-
-    existing.showtimes = [...(existing.showtimes || []), showtime]
-      .filter((item, index, values) => values.findIndex((value) => value.id === item.id) === index)
-      .sort((a, b) => `${a.localDate || ""}T${a.localTime || ""}`.localeCompare(`${b.localDate || ""}T${b.localTime || ""}`));
-  }
-
-  return [...grouped.values()];
-}
-
 function applyDisplayLimit(events: VegasEvent[], displayLimit?: number) {
   return displayLimit && displayLimit > 0 ? events.slice(0, displayLimit) : events;
 }
@@ -118,7 +92,7 @@ export async function getLiveVegasEvents(startDate: string, endDate = startDate,
     const events = await searchTicketmasterEvents({ startDate, endDate });
     if (events.length) {
       return {
-        events: applyDisplayLimit(rankEvents(collapseShowtimes(events)), displayLimit),
+        events: applyDisplayLimit(rankEvents(collapseEventShowtimes(events)), displayLimit),
         isLive: true,
         startDate,
         endDate,

@@ -81,6 +81,65 @@ test("planner rejects retail popups, avoids duplicate anchors, and respects meal
   expect(blocks.every((block) => minutes(block.time) % 15 === 0)).toBe(true);
 });
 
+test("an early long event uses a real late-night restaurant instead of a closed dinner venue", () => {
+  const days = buildItinerary({
+    plannerInput: {
+      travelDates: "2026-08-01 to 2026-08-02",
+      prompt: "A classic steakhouse and a headline concert",
+      foodPreference: "steakhouse",
+      groupType: "friends trip",
+      stayingNear: "center Strip",
+    },
+    startDate: "2026-08-01",
+    endDate: "2026-08-02",
+    rankedEvents: [
+      event({
+        id: "long-concert",
+        category: "concerts",
+        localDate: "2026-08-01",
+        localTime: "19:00:00",
+        runtimeMinutes: 180,
+      }),
+    ],
+  });
+
+  const meal = days[0].blocks.find((block) => block.category === "meal");
+  expect(meal).toBeDefined();
+  expect(meal?.title).not.toBe("Golden Steer Steakhouse");
+  expect(minutes(meal?.time || "")).toBeGreaterThanOrEqual(21 * 60);
+  expect(minutes(meal?.time || "")).toBeLessThanOrEqual(23 * 60 + 30);
+});
+
+test("canonical event identity prevents title variants from anchoring multiple days", () => {
+  const days = buildItinerary({
+    plannerInput: {
+      travelDates: "2026-08-01 to 2026-08-03",
+      groupType: "friends trip",
+      stayingNear: "center Strip",
+    },
+    startDate: "2026-08-01",
+    endDate: "2026-08-03",
+    rankedEvents: [
+      event({
+        id: "first-performance",
+        seriesId: "same-production",
+        name: "Headline Show",
+        localDate: "2026-08-01",
+        localTime: "20:00:00",
+      }),
+      event({
+        id: "second-performance",
+        seriesId: "same-production",
+        name: "Headline Show (21+ Event)",
+        localDate: "2026-08-02",
+        localTime: "20:00:00",
+      }),
+    ],
+  });
+
+  expect(days.flatMap((day) => day.blocks).filter((block) => block.category === "event")).toHaveLength(1);
+});
+
 test("free and shopping stops retain their own locations", () => {
   const days = buildItinerary({
     plannerInput: {
@@ -121,6 +180,28 @@ test("schedule sanitation removes a stop when the minimum useful duration would 
 
   expect(blocks.map((block) => block.title)).toEqual(["Fixed headline show"]);
   expect(blocks[0].time).toBe("7:00 PM");
+});
+
+test("schedule sanitation drops a meal shifted beyond its service window", () => {
+  const blocks = sanitizeSchedule([
+    {
+      time: "8:00 PM",
+      title: "Fixed headline show",
+      category: "event",
+      location: "Bellagio",
+      durationMinutes: 180,
+    },
+    {
+      time: "9:30 PM",
+      title: "Dinner-only restaurant",
+      category: "meal",
+      location: "West of Strip",
+      durationMinutes: 90,
+      latestStartMinutes: 20 * 60 + 15,
+    },
+  ]);
+
+  expect(blocks.map((block) => block.title)).toEqual(["Fixed headline show"]);
 });
 
 test("schedule sanitation keeps useful meals on quarter-hour boundaries", () => {

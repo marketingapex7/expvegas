@@ -66,7 +66,7 @@ test("homepage controls regenerate the preview and preserve the planner handoff"
   await expect.poll(() => plannerRequest.partySize).toBe(4);
   await expect(page).toHaveURL(/\/$/);
 
-  await page.getByRole("link", { name: "Plan this trip" }).click();
+  await page.getByRole("link", { name: "Build my plan" }).click();
   await expect(page).toHaveURL(/\/planner\?refine=1&arrival=\d{4}-\d{2}-\d{2}&departure=\d{4}-\d{2}-\d{2}&budget=mid$/);
 
   // The homepage preview carries across: arriving with known dates rebuilds the

@@ -8,6 +8,7 @@ function ticketmasterEvent(
   localTime: string,
   segment = "Arts & Theatre",
   genre = "Theatre",
+  attractionId?: string,
 ) {
   return {
     id,
@@ -16,9 +17,37 @@ function ticketmasterEvent(
     classifications: [{ segment: { name: segment }, genre: { name: genre } }],
     _embedded: {
       venues: [{ name: "Test Theater", city: { name: "Las Vegas" }, state: { stateCode: "NV" } }],
+      attractions: attractionId ? [{ id: attractionId, name }] : undefined,
     },
   };
 }
+
+test("Ticketmaster performances for one attraction become a single event with showtimes", async () => {
+  const configuredKey = process.env.TICKETMASTER_API_KEY;
+  const originalFetch = globalThis.fetch;
+  process.env.TICKETMASTER_API_KEY = "test-key";
+
+  globalThis.fetch = (async () => new Response(JSON.stringify({
+    _embedded: {
+      events: [
+        ticketmasterEvent("early", "Resident Headliner", "2026-08-01", "19:00:00", "Arts & Theatre", "Theatre", "resident-1"),
+        ticketmasterEvent("late", "Resident Headliner (21+ Event)", "2026-08-01", "21:30:00", "Arts & Theatre", "Theatre", "resident-1"),
+      ],
+    },
+    page: { totalPages: 1, number: 0 },
+  }), { status: 200, headers: { "Content-Type": "application/json" } })) as typeof fetch;
+
+  try {
+    const events = await searchTicketmasterEvents({ startDate: "2026-08-01", endDate: "2026-08-01" });
+    expect(events).toHaveLength(1);
+    expect(events[0].seriesId).toBe("resident-1");
+    expect(events[0].showtimes).toHaveLength(2);
+  } finally {
+    globalThis.fetch = originalFetch;
+    if (configuredKey) process.env.TICKETMASTER_API_KEY = configuredKey;
+    else delete process.env.TICKETMASTER_API_KEY;
+  }
+});
 
 test("Ticketmaster search scans later pages and partitions multi-day trips", async () => {
   const configuredKey = process.env.TICKETMASTER_API_KEY;

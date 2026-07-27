@@ -42,6 +42,11 @@ export type ItineraryBlock = {
    * earlier than is realistic when it makes room for a fixed event start.
    */
   earliestStartMinutes?: number;
+  /**
+   * Latest credible start for a time-sensitive block such as a meal service.
+   * The sanitizer drops the block instead of publishing a closed-venue time.
+   */
+  latestStartMinutes?: number;
   provider?: "go-city";
   passTypes?: import("@/lib/go-city").GoCityPassType[];
   providerBookingUrl?: string;
