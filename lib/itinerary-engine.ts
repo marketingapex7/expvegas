@@ -203,10 +203,31 @@ function scoreRestaurant(restaurant: VegasRestaurant, input: PlannerInput) {
   return score;
 }
 
-function pickRestaurant(input: PlannerInput, offset: number, mealPeriod: RestaurantMealPeriod) {
+function rankRestaurants(input: PlannerInput, mealPeriod: RestaurantMealPeriod) {
   const eligible = restaurants.filter((restaurant) => restaurant.mealTypes.includes(mealPeriod));
-  const ranked = [...eligible].sort((a, b) => scoreRestaurant(b, input) - scoreRestaurant(a, input));
-  return ranked[offset % ranked.length];
+  return [...eligible].sort((a, b) => scoreRestaurant(b, input) - scoreRestaurant(a, input));
+}
+
+// Each day starts from a different point in the ranked list so a multi-day trip
+// does not repeat the same table, while still preferring the strongest matches.
+function restaurantCandidates(input: PlannerInput, offset: number, mealPeriod: RestaurantMealPeriod) {
+  const ranked = rankRestaurants(input, mealPeriod);
+  if (ranked.length === 0) return ranked;
+
+  const start = offset % ranked.length;
+  return [...ranked.slice(start), ...ranked.slice(0, start)];
+}
+
+function pickRestaurant(input: PlannerInput, offset: number, mealPeriod: RestaurantMealPeriod) {
+  return restaurantCandidates(input, offset, mealPeriod)[0];
+}
+
+// Counter-service and cheap-eats spots that work as a real pre-show stop when a
+// full sit-down dinner cannot fit before a fixed curtain.
+const QUICK_SERVICE_CATEGORIES = ["quick", "cheap eats", "casual"];
+
+function isQuickService(restaurant: VegasRestaurant) {
+  return restaurant.categories.some((category) => QUICK_SERVICE_CATEGORIES.includes(category));
 }
 
 const DEFAULT_SERVICE_WINDOWS: Record<RestaurantMealPeriod, { earliestStartMinutes: number; latestStartMinutes: number }> = {
@@ -438,7 +459,8 @@ function buildBlocks(dayIndex: number, input: PlannerInput, mainEvent?: VegasEve
   const attraction = pickStop(paidAttractionStops, input, dayIndex);
   const freeExperience = pickStop(freeExperienceStops, input, dayIndex);
   const secondFreeExperience = pickStop(freeExperienceStops, input, dayIndex + 3);
-  const standardDinner = pickRestaurant(input, dayIndex + 2, "dinner");
+  const dinnerCandidates = restaurantCandidates(input, dayIndex + 2, "dinner");
+  const standardDinner = dinnerCandidates[0];
   const lateNightDinner = pickRestaurant(input, dayIndex + 2, "late night");
   const lunchRestaurant = pickRestaurant(input, dayIndex + 6, "lunch");
   const casino = pickStop(casinoStops, input, dayIndex);
@@ -452,13 +474,6 @@ function buildBlocks(dayIndex: number, input: PlannerInput, mainEvent?: VegasEve
   const flexibleLodging = lodgingIsFlexible(input);
   const mainEventStart = eventStartMinutes(mainEvent);
   const mainEventDuration = mainEvent?.runtimeMinutes || (mainEvent?.category === "sports" || mainEvent?.category === "concerts" ? 180 : 120);
-  const standardDinnerLocation = standardDinner.venue || standardDinner.area;
-  const standardDinnerTimingBlock: ItineraryBlock = {
-    time: "",
-    title: standardDinner.name,
-    category: "meal",
-    location: standardDinnerLocation,
-  };
   const eventTimingBlock: ItineraryBlock | undefined = mainEvent
     ? {
         time: "",
@@ -477,26 +492,48 @@ function buildBlocks(dayIndex: number, input: PlannerInput, mainEvent?: VegasEve
   // there is genuinely no room before it, otherwise an early anchor cascades
   // into a 10:45 PM dinner and a 1:00 AM last stop.
   const DINNER_MINUTES = 90;
-  const arrivalToDinnerBuffer = isArrivalDay ? bufferBetween(arrivalTimingBlock, standardDinnerTimingBlock) : 0;
-  const dinnerToEventBuffer = eventTimingBlock ? bufferBetween(standardDinnerTimingBlock, eventTimingBlock) : 30;
-  const earliestDinner = isArrivalDay ? ARRIVAL_BLOCK_END + arrivalToDinnerBuffer : 16 * 60 + 30;
-  const dinnerFitsBeforeEvent =
-    mainEventStart !== undefined && mainEventStart - earliestDinner >= DINNER_MINUTES + dinnerToEventBuffer;
+  const QUICK_BITE_MINUTES = 60;
+
+  function mealTimingBlock(restaurant: VegasRestaurant): ItineraryBlock {
+    return { time: "", title: restaurant.name, category: "meal", location: restaurant.venue || restaurant.area };
+  }
+
+  // Evaluated per candidate: an off-Strip table carries a larger arrival and
+  // travel buffer than an on-property one, so whether a meal fits before the
+  // anchor depends on which table it is.
+  function earliestMealStart(restaurant: VegasRestaurant) {
+    const arrivalBuffer = isArrivalDay ? bufferBetween(arrivalTimingBlock, mealTimingBlock(restaurant)) : 0;
+    const dayFloor = isArrivalDay ? ARRIVAL_BLOCK_END + arrivalBuffer : 16 * 60 + 30;
+    return Math.max(dayFloor, serviceWindowFor(restaurant, "dinner").earliestStartMinutes);
+  }
+
+  function mealFitsBeforeEvent(restaurant: VegasRestaurant, mealMinutes: number) {
+    if (mainEventStart === undefined) return false;
+    const toEvent = eventTimingBlock ? bufferBetween(mealTimingBlock(restaurant), eventTimingBlock) : 30;
+    return mainEventStart - earliestMealStart(restaurant) >= mealMinutes + toEvent;
+  }
+
+  // Prefer a full dinner before the anchor, then a quick counter-service stop,
+  // and only then food after the show. Scanning the pool matters because the
+  // day's default pick can be the single table that does not fit.
+  const preEventDinner = dinnerCandidates.find((restaurant) => mealFitsBeforeEvent(restaurant, DINNER_MINUTES));
+  const preEventBite = preEventDinner
+    ? undefined
+    : dinnerCandidates.find((restaurant) => isQuickService(restaurant) && mealFitsBeforeEvent(restaurant, QUICK_BITE_MINUTES));
+  const preEventMeal = preEventDinner || preEventBite;
+  const dinnerFitsBeforeEvent = Boolean(preEventMeal);
+  const dinnerDurationMinutes = preEventBite ? QUICK_BITE_MINUTES : DINNER_MINUTES;
   const dinnerPeriod: RestaurantMealPeriod = mainEventStart !== undefined && !dinnerFitsBeforeEvent ? "late night" : "dinner";
-  const dinner = dinnerPeriod === "late night" ? lateNightDinner : standardDinner;
+  const dinner = dinnerPeriod === "late night" ? lateNightDinner : preEventMeal || standardDinner;
   const dinnerLocation = dinner.venue || dinner.area;
-  const dinnerTimingBlock: ItineraryBlock = {
-    time: "",
-    title: dinner.name,
-    category: "meal",
-    location: dinnerLocation,
-  };
+  const dinnerTimingBlock = mealTimingBlock(dinner);
   const eventToDinnerBuffer = eventTimingBlock ? bufferBetween(eventTimingBlock, dinnerTimingBlock) : 30;
+  const dinnerToEventBuffer = eventTimingBlock ? bufferBetween(dinnerTimingBlock, eventTimingBlock) : 30;
   const dinnerWindow = serviceWindowFor(dinner, dinnerPeriod);
   const proposedDinnerStart = mainEventStart === undefined
     ? 18 * 60
     : dinnerFitsBeforeEvent
-      ? Math.max(earliestDinner, mainEventStart - (DINNER_MINUTES + dinnerToEventBuffer))
+      ? Math.max(earliestMealStart(dinner), mainEventStart - (dinnerDurationMinutes + dinnerToEventBuffer))
       : mainEventStart + mainEventDuration + eventToDinnerBuffer;
   const dinnerStart = Math.max(proposedDinnerStart, dinnerWindow.earliestStartMinutes);
   const dinnerTime = timeLabelFromMinutes(dinnerStart);
@@ -505,7 +542,7 @@ function buildBlocks(dayIndex: number, input: PlannerInput, mainEvent?: VegasEve
     ? undefined
     : dinnerFitsBeforeEvent
       ? mainEventStart + mainEventDuration
-      : mainEventStart + mainEventDuration + (dinnerIsCredible ? DINNER_MINUTES + eventToDinnerBuffer : 0);
+      : mainEventStart + mainEventDuration + (dinnerIsCredible ? dinnerDurationMinutes + eventToDinnerBuffer : 0);
   // A nightcap stop is only worth scheduling if it lands at a sane hour.
   const lateStopFits = mainEventEnd === undefined || mainEventEnd <= 22 * 60 + 30;
 
@@ -577,10 +614,14 @@ function buildBlocks(dayIndex: number, input: PlannerInput, mainEvent?: VegasEve
       location: dinnerLocation,
       description: dinner.description,
       bookingUrl: dinner.reservationUrl,
-      durationMinutes: 90,
+      durationMinutes: dinnerDurationMinutes,
       earliestStartMinutes: dinnerWindow.earliestStartMinutes,
       latestStartMinutes: dinnerWindow.latestStartMinutes,
-      timingNote: dinnerPeriod === "late night" ? "Late-night food selected because a full dinner does not fit before the event." : undefined,
+      timingNote: dinnerPeriod === "late night"
+        ? "Late-night food selected because a full dinner does not fit before the event."
+        : preEventBite
+          ? "Quick pre-show bite: a full sit-down dinner does not fit before the event."
+          : undefined,
     } satisfies ItineraryBlock] : []),
   ];
 
