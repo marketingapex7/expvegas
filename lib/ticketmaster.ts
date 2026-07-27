@@ -124,9 +124,20 @@ function bestImage(images?: TicketmasterImage[]) {
     .sort((a, b) => (b.width || 0) * (b.height || 0) - (a.width || 0) * (a.height || 0))[0]?.url;
 }
 
-function cleanDisplayText(value?: string) {
+// Ticketmaster copy arrives with typographic punctuation, occasional broken
+// encoding, and invisible formatting characters. Normalize and strip the junk,
+// but keep printable Unicode: amputating everything non-ASCII turned "Mystère"
+// into "Myst re" and "rock’s" into "rock s", and broke the residency overrides
+// that expect accented names. Exported for regression tests.
+export function cleanDisplayText(value?: string) {
   return (value || "")
-    .replace(/[^\x20-\x7E]+/g, " ")
+    .normalize("NFKC")
+    // Zero-width characters, directional marks, word joiners, and BOMs vanish
+    // entirely so their removal cannot split a word.
+    .replace(/[\u200B-\u200F\u2060\uFEFF]/g, "")
+    // Control characters, line/paragraph separators, and the U+FFFD mojibake
+    // marker become spaces, then whitespace collapses.
+    .replace(/[\u0000-\u001F\u007F-\u009F\u2028\u2029\uFFFD]/g, " ")
     .replace(/\s+/g, " ")
     .trim();
 }

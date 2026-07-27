@@ -3,9 +3,9 @@ import { goCityFlexibleAttractions } from "@/data/go-city-attractions";
 import { restaurants, VegasRestaurant } from "@/data/restaurants";
 import { VegasEvent } from "@/types/event";
 import { ItineraryBlock, ItineraryDay, PlannerInput } from "@/types/planner";
-import { mealLevelsFromText } from "@/lib/budget-preferences";
+import { mealLevelsFromText, ticketBandsFromText } from "@/lib/budget-preferences";
 import { estimateVegasTravel } from "@/lib/vegas-logistics";
-import { isHeadlineEvent } from "@/lib/scoring";
+import { isAgeRestrictedEvent, isHeadlineEvent, scoreEvent } from "@/lib/scoring";
 
 // Arrival day starts with a protected check-in buffer: 3:30 PM for 90 minutes.
 const ARRIVAL_BLOCK_START = 15 * 60 + 30;
@@ -74,6 +74,26 @@ function textFor(input: PlannerInput) {
   }`.toLowerCase();
 }
 
+// Qualitative intent lives in what the visitor typed or picked as a vibe.
+// Quantitative fields (ticket budget, meal budget) are parsed as bands by
+// budget-preferences and must not leak keywords into intent flags: the ticket
+// chip "Under $100 per person" once set the free-focus flag through the word
+// "under" and silently deleted the paid attraction from every day.
+function intentTextFor(input: PlannerInput) {
+  return `${input.prompt || ""} ${input.vibe || ""} ${input.additionalDetails || ""}`.toLowerCase();
+}
+
+const FREE_FOCUS_PATTERN = /\b(free|cheap|no[- ]tickets?|budget[- ]friendly|on a budget|low[- ]cost)\b/;
+
+// "Flexible daytime stops" describes free daytime filler, not a daytime
+// headliner. Only an explicit daytime-event intent lowers the anchor floor
+// below the evening hours.
+const DAYTIME_ANCHOR_PATTERN = /\b(day ?club|day ?party|pool party|brunch|matinee|(daytime|afternoon) (show|event|party|headliner))\b/;
+
+function isFamilyGroup(input: PlannerInput) {
+  return (input.groupType || "").toLowerCase().includes("family");
+}
+
 function lodgingIsFlexible(input: PlannerInput) {
   const lodging = `${input.stayingNear || ""} ${input.prompt || ""} ${input.additionalDetails || ""}`.toLowerCase();
   return lodging.includes("not booked") || lodging.includes("haven't booked") || lodging.includes("havent booked");
@@ -107,8 +127,19 @@ function lodgingRecommendation(input: PlannerInput, event?: VegasEvent) {
 }
 
 function budgetPreference(input: PlannerInput): PlanningStop["budget"] | undefined {
-  const text = `${input.prompt || ""} ${input.budget || ""} ${input.mealBudget || ""}`.toLowerCase();
-  if (text.includes("under") || text.includes("cheap") || text.includes("value") || text.includes("$50")) return "value";
+  // The ticket-budget chip is a quantitative band. Parse it as one instead of
+  // keyword-matching the label, which read "Under $100 per person" as a
+  // request for value-tier everything. A mixed selection maps to its highest
+  // band, since the visitor has said they will pay that much for the right pick.
+  const bands = ticketBandsFromText(input.budget);
+  if (bands.length > 0) {
+    if (bands.includes("350-plus") || bands.includes("200-350")) return "premium";
+    if (bands.includes("100-200")) return "mid";
+    return "value";
+  }
+
+  const text = intentTextFor(input);
+  if (FREE_FOCUS_PATTERN.test(text) || text.includes("value") || text.includes("$50")) return "value";
   if (text.includes("premium") || text.includes("splurge") || text.includes("worth it")) return "premium";
   return "mid";
 }
@@ -206,14 +237,14 @@ function eventMatchesIntent(event: VegasEvent, input: PlannerInput) {
 
 export function isGoodAnchorEvent(event: VegasEvent, input: PlannerInput, isArrivalDay = false) {
   const hour = hourForEvent(event);
-  const text = textFor(input);
-  const wantsDaytime = text.includes("brunch") || text.includes("daytime") || text.includes("afternoon");
+  const wantsDaytimeAnchor = DAYTIME_ANCHOR_PATTERN.test(intentTextFor(input));
 
   if (!isHeadlineEvent(event)) return false;
+  if (isFamilyGroup(input) && isAgeRestrictedEvent(event)) return false;
   if (!eventMatchesIntent(event, input)) return false;
   if (hour === undefined) return false;
   if (isArrivalDay) return hour >= 19;
-  if (wantsDaytime) return hour >= 11;
+  if (wantsDaytimeAnchor) return hour >= 11;
 
   return hour >= 17;
 }
@@ -224,14 +255,22 @@ function eventsForDay(
   input: PlannerInput,
   usedEventNames = new Set<string>(),
   isArrivalDay = false,
+  usedVenueNames = new Set<string>(),
 ) {
   const dated = events.filter((event) => event.localDate === date);
   const anchorable = dated.filter(
     (event) => isGoodAnchorEvent(event, input, isArrivalDay) && !usedEventNames.has(event.name.toLowerCase()),
   );
 
-  if (anchorable.length > 0) return anchorable;
-  return [];
+  const bestMatch = anchorable[0];
+  if (!bestMatch || !usedVenueNames.has(bestMatch.venueName.toLowerCase())) return anchorable;
+
+  // Prefer a fresh venue only when it remains close to the best recommendation.
+  // Variety should not replace a strong match with a materially weaker event.
+  const freshVenue = anchorable.find((event) => !usedVenueNames.has(event.venueName.toLowerCase()));
+  if (!freshVenue || scoreEvent(bestMatch, input) - scoreEvent(freshVenue, input) > 10) return anchorable;
+
+  return [freshVenue, ...anchorable.filter((event) => event.id !== freshVenue.id)];
 }
 
 function priceHint(event: VegasEvent) {
@@ -396,7 +435,7 @@ function buildBlocks(dayIndex: number, input: PlannerInput, mainEvent?: VegasEve
   const packed = text.includes("packed");
   const noGambling = text.includes("no gambling");
   const shoppingFocused = text.includes("shopping") || text.includes("shop");
-  const freeFocused = text.includes("free") || text.includes("cheap") || text.includes("budget") || text.includes("under");
+  const freeFocused = FREE_FOCUS_PATTERN.test(intentTextFor(input));
   const flexibleLodging = lodgingIsFlexible(input);
   const mainEventStart = eventStartMinutes(mainEvent);
   const mainEventDuration = mainEvent?.runtimeMinutes || (mainEvent?.category === "sports" || mainEvent?.category === "concerts" ? 180 : 120);
@@ -607,10 +646,14 @@ export function buildItinerary({ plannerInput, startDate, endDate, rankedEvents,
   const itineraryDates = dates.length > 0 ? dates : [new Date().toISOString().slice(0, 10)];
 
   const usedEventNames = new Set<string>();
+  const usedVenueNames = new Set<string>();
 
   return itineraryDates.map((date, index) => {
-    const mainEvent = eventsForDay(rankedEvents, date, plannerInput, usedEventNames, index === 0)[0];
-    if (mainEvent) usedEventNames.add(mainEvent.name.toLowerCase());
+    const mainEvent = eventsForDay(rankedEvents, date, plannerInput, usedEventNames, index === 0, usedVenueNames)[0];
+    if (mainEvent) {
+      usedEventNames.add(mainEvent.name.toLowerCase());
+      usedVenueNames.add(mainEvent.venueName.toLowerCase());
+    }
 
     return {
       date,

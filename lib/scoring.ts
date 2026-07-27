@@ -12,9 +12,18 @@ const groupScoreMap: Record<string, keyof VegasEvent> = {
 const NON_HEADLINE_EVENT_PATTERN =
   /\b(pop[- ]?up|merch(?:andise)?|shop|parking|vip package|add-on|upgrade|hospitality|meet and greet)\b/i;
 
+// Age gates show up in listing names and notes ("(21+ Event)", "ages 21 and
+// over"). A family plan must never anchor a day on one of these.
+const AGE_RESTRICTED_EVENT_PATTERN = /(\b(?:21|18)\s*\+)|(\b(?:21|18)\s*(?:and|&)\s*(?:over|up)\b)|(\bages?\s*(?:21|18)\b)/i;
+
 export function isHeadlineEvent(event: VegasEvent) {
   const text = `${event.name} ${event.subcategory || ""} ${event.shortDescription}`;
   return !NON_HEADLINE_EVENT_PATTERN.test(text);
+}
+
+export function isAgeRestrictedEvent(event: VegasEvent) {
+  const text = `${event.name} ${event.subcategory || ""} ${event.shortDescription} ${event.ageRestriction || ""}`;
+  return AGE_RESTRICTED_EVENT_PATTERN.test(text);
 }
 
 export function scoreEvent(event: VegasEvent, input?: Partial<PlannerInput>) {
@@ -24,6 +33,9 @@ export function scoreEvent(event: VegasEvent, input?: Partial<PlannerInput>) {
   const groupKey = input?.groupType?.toLowerCase() || "";
   const groupMetric = Object.entries(groupScoreMap).find(([key]) => groupKey.includes(key))?.[1];
   if (groupMetric) score += Number(event[groupMetric]) * 0.2;
+  // Rank age-gated events to the bottom for family groups so they stay out of
+  // the comparison shelf as well as the anchor slot.
+  if (groupKey.includes("family") && isAgeRestrictedEvent(event)) score -= 100;
 
   const vibe = input?.vibe?.toLowerCase() || "";
   for (const tag of event.tags) {

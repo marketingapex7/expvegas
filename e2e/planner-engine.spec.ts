@@ -1,5 +1,5 @@
 import { expect, test } from "@playwright/test";
-import { buildItinerary, sanitizeSchedule } from "../lib/itinerary-engine";
+import { buildItinerary, isGoodAnchorEvent, sanitizeSchedule } from "../lib/itinerary-engine";
 import { generatePlannerResponse, plannerInventoryEndDate } from "../lib/planner-service";
 import { VegasEvent } from "../types/event";
 
@@ -199,4 +199,185 @@ test("an open evening names curated picks without inventing a showtime", async (
   } finally {
     if (configuredKey) process.env.TICKETMASTER_API_KEY = configuredKey;
   }
+});
+
+test("a ticket budget band keeps paid attractions in the plan", () => {
+  // "Under $100 per person" is a ticket band, not a request for a
+  // free-stops-only trip. The word "under" once leaked into the free-focus
+  // flag and silently replaced the paid attraction on every non-arrival day.
+  const days = buildItinerary({
+    plannerInput: {
+      travelDates: "2026-08-01 to 2026-08-03",
+      partySize: 4,
+      prompt: "big Vegas spectacle with one standout dinner and flexible daytime stops",
+      groupType: "friends trip",
+      budget: "Mix ticket options across Under $100 per person and $100-$200 per person; include choices from each selection when available",
+      vibe: "big Vegas spectacle",
+      stayingNear: "not booked yet",
+    },
+    startDate: "2026-08-01",
+    endDate: "2026-08-03",
+    rankedEvents: [],
+  });
+
+  const blocks = days.flatMap((day) => day.blocks);
+  expect(blocks.some((block) => block.category === "attraction")).toBe(true);
+});
+
+test("a typed free-focus request still swaps attractions for free stops", () => {
+  const days = buildItinerary({
+    plannerInput: {
+      travelDates: "2026-08-01 to 2026-08-03",
+      prompt: "keep it cheap with free things to do",
+      groupType: "friends trip",
+      stayingNear: "not booked yet",
+    },
+    startDate: "2026-08-01",
+    endDate: "2026-08-03",
+    rankedEvents: [],
+  });
+
+  const blocks = days.flatMap((day) => day.blocks);
+  expect(blocks.some((block) => block.category === "attraction")).toBe(false);
+});
+
+test("the word daytime in a stops request does not lower the anchor floor", () => {
+  const poolParty = event({
+    id: "pool-party",
+    name: "The Chainsmokers (21+ Event)",
+    category: "concerts",
+    venueName: "Encore Beach Club",
+    localDate: "2026-08-02",
+    localTime: "11:00:00",
+  });
+  const input = {
+    prompt: "big Vegas spectacle with one standout dinner and flexible daytime stops",
+    vibe: "big Vegas spectacle",
+    groupType: "friends trip",
+  };
+
+  // "Flexible daytime stops" describes free daytime filler, so an 11 AM
+  // dayclub set must not become the day's headline anchor.
+  expect(isGoodAnchorEvent(poolParty, input)).toBe(false);
+
+  // An explicit daytime-event intent still unlocks daytime anchors.
+  expect(isGoodAnchorEvent(poolParty, { ...input, vibe: "pool party energy" })).toBe(true);
+});
+
+test("age-restricted events never anchor a family trip", () => {
+  const lateRevue = event({
+    id: "late-revue",
+    name: "Late Night Revue (21+ Event)",
+    localDate: "2026-08-02",
+    localTime: "20:00:00",
+  });
+
+  expect(isGoodAnchorEvent(lateRevue, { groupType: "family with teens" })).toBe(false);
+  expect(isGoodAnchorEvent(lateRevue, { groupType: "friends trip" })).toBe(true);
+
+  const structuredRestriction = event({
+    id: "structured-restriction",
+    name: "Comedy Cellar Las Vegas",
+    subcategory: "Stand-up comedy",
+    shortDescription: "A rotating lineup of stand-up comics.",
+    ageRestriction: "18+",
+    localDate: "2026-08-02",
+    localTime: "20:00:00",
+  });
+
+  expect(isGoodAnchorEvent(structuredRestriction, { groupType: "family with teens" })).toBe(false);
+  expect(isGoodAnchorEvent(structuredRestriction, { groupType: "friends trip" })).toBe(true);
+});
+
+test("consecutive days prefer anchors at venues the trip has not used", () => {
+  const events = [
+    event({
+      id: "tribute-one",
+      name: "1969 Live Concert: The King Returns",
+      category: "concerts",
+      venueName: "Westgate Las Vegas Resort & Casino",
+      localDate: "2026-08-01",
+      localTime: "20:00:00",
+    }),
+    event({
+      id: "tribute-two",
+      name: "The King Comes Home",
+      category: "concerts",
+      venueName: "Westgate Las Vegas Resort & Casino",
+      localDate: "2026-08-02",
+      localTime: "20:00:00",
+    }),
+    event({
+      id: "different-venue",
+      name: "Absinthe",
+      venueName: "Caesars Palace",
+      localDate: "2026-08-02",
+      localTime: "20:00:00",
+    }),
+  ];
+
+  const days = buildItinerary({
+    plannerInput: {
+      travelDates: "2026-08-01 to 2026-08-03",
+      groupType: "friends trip",
+      vibe: "big Vegas spectacle",
+      stayingNear: "not booked yet",
+    },
+    startDate: "2026-08-01",
+    endDate: "2026-08-03",
+    rankedEvents: events,
+  });
+
+  const anchors = days.flatMap((day) => day.blocks).filter((block) => block.category === "event");
+  expect(anchors.map((block) => block.location)).toEqual([
+    "Westgate Las Vegas Resort & Casino",
+    "Caesars Palace",
+  ]);
+});
+
+test("venue variety does not replace a materially stronger event", () => {
+  const events = [
+    event({
+      id: "first-night",
+      name: "First Night Headliner",
+      venueName: "Bellagio",
+      localDate: "2026-08-01",
+      localTime: "20:00:00",
+    }),
+    event({
+      id: "strong-repeat",
+      name: "Second Night Spectacle",
+      venueName: "Bellagio",
+      localDate: "2026-08-02",
+      localTime: "20:00:00",
+      editorialScore: 100,
+      valueScore: 100,
+      wowScore: 100,
+    }),
+    event({
+      id: "weak-fresh-venue",
+      name: "Minor Fresh Venue Event",
+      venueName: "Off Strip Theater",
+      localDate: "2026-08-02",
+      localTime: "20:00:00",
+      editorialScore: 10,
+      valueScore: 10,
+      wowScore: 10,
+    }),
+  ];
+
+  const days = buildItinerary({
+    plannerInput: {
+      travelDates: "2026-08-01 to 2026-08-03",
+      groupType: "friends trip",
+      vibe: "big Vegas spectacle",
+      stayingNear: "not booked yet",
+    },
+    startDate: "2026-08-01",
+    endDate: "2026-08-03",
+    rankedEvents: events,
+  });
+
+  const anchors = days.flatMap((day) => day.blocks).filter((block) => block.category === "event");
+  expect(anchors.map((block) => block.location)).toEqual(["Bellagio", "Bellagio"]);
 });
