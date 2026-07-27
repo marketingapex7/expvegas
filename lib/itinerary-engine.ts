@@ -5,7 +5,7 @@ import { VegasEvent } from "@/types/event";
 import { ItineraryBlock, ItineraryDay, PlannerInput } from "@/types/planner";
 import { mealLevelsFromText, ticketBandsFromText } from "@/lib/budget-preferences";
 import { estimateVegasTravel } from "@/lib/vegas-logistics";
-import { isAgeRestrictedEvent, isHeadlineEvent } from "@/lib/scoring";
+import { isAgeRestrictedEvent, isHeadlineEvent, scoreEvent } from "@/lib/scoring";
 
 // Arrival day starts with a protected check-in buffer: 3:30 PM for 90 minutes.
 const ARRIVAL_BLOCK_START = 15 * 60 + 30;
@@ -262,11 +262,15 @@ function eventsForDay(
     (event) => isGoodAnchorEvent(event, input, isArrivalDay) && !usedEventNames.has(event.name.toLowerCase()),
   );
 
-  // Prefer an anchor at a venue the trip has not used yet, so a weekend does
-  // not headline the same theater twice, but fall back to a repeat venue
-  // rather than drop the only available anchor.
-  const freshVenue = anchorable.filter((event) => !usedVenueNames.has(event.venueName.toLowerCase()));
-  return freshVenue.length > 0 ? freshVenue : anchorable;
+  const bestMatch = anchorable[0];
+  if (!bestMatch || !usedVenueNames.has(bestMatch.venueName.toLowerCase())) return anchorable;
+
+  // Prefer a fresh venue only when it remains close to the best recommendation.
+  // Variety should not replace a strong match with a materially weaker event.
+  const freshVenue = anchorable.find((event) => !usedVenueNames.has(event.venueName.toLowerCase()));
+  if (!freshVenue || scoreEvent(bestMatch, input) - scoreEvent(freshVenue, input) > 10) return anchorable;
+
+  return [freshVenue, ...anchorable.filter((event) => event.id !== freshVenue.id)];
 }
 
 function priceHint(event: VegasEvent) {

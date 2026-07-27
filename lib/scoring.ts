@@ -22,7 +22,7 @@ export function isHeadlineEvent(event: VegasEvent) {
 }
 
 export function isAgeRestrictedEvent(event: VegasEvent) {
-  const text = `${event.name} ${event.subcategory || ""} ${event.shortDescription}`;
+  const text = `${event.name} ${event.subcategory || ""} ${event.shortDescription} ${event.ageRestriction || ""}`;
   return AGE_RESTRICTED_EVENT_PATTERN.test(text);
 }
 

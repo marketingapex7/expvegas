@@ -274,6 +274,19 @@ test("age-restricted events never anchor a family trip", () => {
 
   expect(isGoodAnchorEvent(lateRevue, { groupType: "family with teens" })).toBe(false);
   expect(isGoodAnchorEvent(lateRevue, { groupType: "friends trip" })).toBe(true);
+
+  const structuredRestriction = event({
+    id: "structured-restriction",
+    name: "Comedy Cellar Las Vegas",
+    subcategory: "Stand-up comedy",
+    shortDescription: "A rotating lineup of stand-up comics.",
+    ageRestriction: "18+",
+    localDate: "2026-08-02",
+    localTime: "20:00:00",
+  });
+
+  expect(isGoodAnchorEvent(structuredRestriction, { groupType: "family with teens" })).toBe(false);
+  expect(isGoodAnchorEvent(structuredRestriction, { groupType: "friends trip" })).toBe(true);
 });
 
 test("consecutive days prefer anchors at venues the trip has not used", () => {
@@ -320,4 +333,51 @@ test("consecutive days prefer anchors at venues the trip has not used", () => {
     "Westgate Las Vegas Resort & Casino",
     "Caesars Palace",
   ]);
+});
+
+test("venue variety does not replace a materially stronger event", () => {
+  const events = [
+    event({
+      id: "first-night",
+      name: "First Night Headliner",
+      venueName: "Bellagio",
+      localDate: "2026-08-01",
+      localTime: "20:00:00",
+    }),
+    event({
+      id: "strong-repeat",
+      name: "Second Night Spectacle",
+      venueName: "Bellagio",
+      localDate: "2026-08-02",
+      localTime: "20:00:00",
+      editorialScore: 100,
+      valueScore: 100,
+      wowScore: 100,
+    }),
+    event({
+      id: "weak-fresh-venue",
+      name: "Minor Fresh Venue Event",
+      venueName: "Off Strip Theater",
+      localDate: "2026-08-02",
+      localTime: "20:00:00",
+      editorialScore: 10,
+      valueScore: 10,
+      wowScore: 10,
+    }),
+  ];
+
+  const days = buildItinerary({
+    plannerInput: {
+      travelDates: "2026-08-01 to 2026-08-03",
+      groupType: "friends trip",
+      vibe: "big Vegas spectacle",
+      stayingNear: "not booked yet",
+    },
+    startDate: "2026-08-01",
+    endDate: "2026-08-03",
+    rankedEvents: events,
+  });
+
+  const anchors = days.flatMap((day) => day.blocks).filter((block) => block.category === "event");
+  expect(anchors.map((block) => block.location)).toEqual(["Bellagio", "Bellagio"]);
 });
