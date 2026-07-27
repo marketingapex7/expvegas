@@ -100,7 +100,9 @@ function TimelineCard({
             {block.priceHint ? <span className="rounded-full bg-zinc-100 px-2.5 py-1 text-[11px] font-black text-zinc-600">{block.priceHint}</span> : null}
             {label ? <span className="rounded-full bg-emerald-50 px-2.5 py-1 text-[11px] font-black text-emerald-800">{label}</span> : null}
           </div>
-          {block.description ? <p className="mt-3 hidden text-sm leading-6 text-zinc-600 sm:block">{block.description}</p> : null}
+          {/* Clamped rather than hidden on mobile: for a flexible block the
+              description is the only content the card carries. */}
+          {block.description ? <p className="mt-3 line-clamp-3 text-sm leading-6 text-zinc-600 sm:line-clamp-none">{block.description}</p> : null}
           {block.timingNote ? <p className="mt-2 text-xs font-bold text-amber-800">{block.timingNote}</p> : null}
           <div className="mt-3 flex flex-wrap gap-2">
             <a
