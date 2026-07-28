@@ -254,6 +254,20 @@ test("planner keeps editorial picks unscheduled when no provider time is confirm
   }
 });
 
+test("day one resolves its evening exactly one way", async () => {
+  const result = await generatePlannerResponse({
+    travelDates: "2026-08-03 to 2026-08-05",
+    partySize: 2,
+    vibe: "classic Vegas with one strong anchor",
+  });
+
+  const dayOne = result.itineraryDays?.[0];
+  const anchors = dayOne?.blocks.filter((block) => block.category === "event") || [];
+  const openEvenings = dayOne?.blocks.filter((block) => block.title.startsWith("Open evening")) || [];
+
+  expect(anchors.length + openEvenings.length).toBe(1);
+});
+
 test("an open evening names curated picks without inventing a showtime", async () => {
   const configuredKey = process.env.TICKETMASTER_API_KEY;
   delete process.env.TICKETMASTER_API_KEY;

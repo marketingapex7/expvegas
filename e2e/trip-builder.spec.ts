@@ -44,13 +44,11 @@ const plannerResponse = {
   },
 };
 
-test("homepage controls regenerate the preview and preserve the planner handoff", async ({ page }) => {
-  let plannerRequest: Record<string, unknown> = {};
+test("homepage controls preserve the planner handoff without generating a preview", async ({ page }) => {
   let plannerRequestCount = 0;
 
   await page.route("**/api/planner", async (route) => {
     plannerRequestCount += 1;
-    plannerRequest = route.request().postDataJSON() as Record<string, unknown>;
     await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(plannerResponse) });
   });
   await page.route("**/api/plans", async (route) => {
@@ -65,10 +63,11 @@ test("homepage controls regenerate the preview and preserve the planner handoff"
   await page.goto("/");
   await page.getByLabel("Travelers").selectOption("4");
 
-  await expect.poll(() => plannerRequest.partySize).toBe(4);
+  await expect(page.getByText("Selections updated")).toBeVisible();
+  expect(plannerRequestCount).toBe(0);
   await expect(page).toHaveURL(/\/$/);
 
-  await page.getByRole("link", { name: "Build my plan" }).click();
+  await page.getByRole("link", { name: "Continue to trip options" }).click();
   await expect(page).toHaveURL(/\/planner\?refine=1&arrival=\d{4}-\d{2}-\d{2}&departure=\d{4}-\d{2}-\d{2}&budget=mid$/);
 
   // The homepage choices carry across, but the visitor still gets the preference

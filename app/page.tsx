@@ -1,18 +1,17 @@
 import Link from "next/link";
 import { ArrowRight } from "lucide-react";
 import { EventCard } from "@/components/EventCard";
-import { HomeLivePlan } from "@/components/HomeLivePlan";
+import { HomePlanStarter } from "@/components/HomePlanStarter";
 import { HomeTripPreview } from "@/components/HomeTripPreview";
 import { HomeWorthRail } from "@/components/HomeWorthRail";
 import { SectionHeader } from "@/components/SectionHeader";
 import { bestForLinks, nearLinks } from "@/data/nav";
 import { experienceListings, hotelListings, restaurantListings } from "@/lib/directory-data";
 import { getHomepageEventShelf, getVegasToday, getVegasWeekend } from "@/lib/live-events";
-import { generatePlannerResponse } from "@/lib/planner-service";
 
 export const metadata = {
   title: { absolute: "ExperienceVegas | Personalized Las Vegas Trip Planner" },
-  description: "See a timed Las Vegas itinerary immediately, then refine the dates, group size, budget, meals, events, and flexible stops that fit your trip.",
+  description: "Choose your Las Vegas dates, travelers, and budget, then build a timed itinerary around the preferences that matter to your trip.",
   alternates: { canonical: "/" },
 };
 
@@ -35,23 +34,7 @@ export default async function HomePage() {
     partySize: 2,
     budget: "mid" as const,
   };
-  const defaultInput = {
-    travelDates: `${weekend.startDate} to ${weekend.endDate}`,
-    partySize: 2,
-    budget: "event tickets from $100-$200 per person",
-    groupType: "two travelers",
-    stayingNear: "center Strip",
-    vibe: "classic Vegas with one strong anchor, a useful meal, a free stop, and easy logistics",
-    mealBudget: "$30-$60 per person",
-    pace: "Balanced",
-    logistics: "Keep it walkable",
-    prompt: "Build a geographically coherent Vegas trip with realistic timing and no unnecessary backtracking.",
-  };
-
-  const [defaultPlan, eventShelf] = await Promise.all([
-    generatePlannerResponse(defaultInput),
-    getHomepageEventShelf(),
-  ]);
+  const eventShelf = await getHomepageEventShelf();
 
   const worthAdding = [
     ...hotelListings.slice(0, 2),
@@ -66,7 +49,7 @@ export default async function HomePage() {
 
   return (
     <>
-      <HomeLivePlan initialResult={defaultPlan} initialControls={defaultControls} minDate={getVegasToday()} />
+      <HomePlanStarter initialControls={defaultControls} minDate={getVegasToday()} />
       <HomeTripPreview />
 
       <section className="border-y border-zinc-200 bg-white px-4 py-4 text-zinc-950 sm:px-5">
