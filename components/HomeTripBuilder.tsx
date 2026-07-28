@@ -364,6 +364,15 @@ export function HomeTripBuilder({
             title="Tell us about the trip"
             description="Who is going, where you are staying, and what you are here for."
           >
+            <label className="mt-4 block">
+              <span className="mb-2 block text-xs font-black uppercase tracking-[0.16em] text-amber-100">In your own words <span className="text-white/40">(optional)</span></span>
+              <textarea
+                value={additionalDetails}
+                onChange={(event) => setAdditionalDetails(event.target.value)}
+                className="min-h-32 w-full resize-y rounded-lg border border-white/14 bg-black/35 px-4 py-4 text-base leading-7 text-white outline-none transition placeholder:text-white/42 focus:border-amber-100/70 focus:placeholder:text-transparent"
+                placeholder="Describe your perfect Vegas trip..."
+              />
+            </label>
             <div className="mt-4 grid gap-3 md:grid-cols-3">
               {tripDetailGroups.map((group) => (
                 <PreferenceGroup
@@ -413,15 +422,6 @@ export function HomeTripBuilder({
               </div>
             </details>
 
-            <label className="mt-4 grid gap-2 text-sm font-bold text-white/70">
-              Anything else we should know?
-              <textarea
-                value={additionalDetails}
-                onChange={(event) => setAdditionalDetails(event.target.value)}
-                className="min-h-20 resize-none rounded-lg border border-white/10 bg-black/35 px-4 py-3 text-white outline-none transition placeholder:text-white/35 focus:border-amber-100/70"
-                placeholder="Dietary restrictions, must-see restaurants, no late nights, celebrating a birthday..."
-              />
-            </label>
           </StepPanel>
 
           <div className="mt-4 rounded-lg border border-white/12 bg-white/[0.07] p-4 shadow-2xl shadow-black/30 sm:mt-5 sm:p-6">

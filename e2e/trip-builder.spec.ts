@@ -70,15 +70,18 @@ test("homepage collects all three steps and builds the itinerary only on submit"
   // preference questions used to cost a click and a navigation.
   const stepTwo = page.getByTestId("home-step-two");
   const stepThree = page.getByTestId("home-step-three");
+  const tripDescription = page.getByPlaceholder("Describe your perfect Vegas trip...");
   await expect(page.getByTestId("home-step-one")).toBeVisible();
   await expect(stepTwo).toBeVisible();
   await expect(stepThree).toBeVisible();
+  await expect(tripDescription).toHaveValue("");
 
   await page.getByLabel("Travelers", { exact: true }).selectOption("4");
   await stepTwo.getByRole("button", { name: "friends trip" }).click();
   await stepThree.getByRole("button", { name: "Steakhouse", exact: true }).click();
   await stepThree.getByRole("button", { name: "Late nights", exact: true }).click();
-  await page.getByLabel("Anything else we should know?").fill("Celebrating a birthday.");
+  await expect(tripDescription).toHaveValue("");
+  await tripDescription.fill("A lively birthday weekend with one unforgettable show.");
 
   // Filling the form plans nothing. Every answer is held until one submit, so a
   // visitor working down the page never triggers a build they did not ask for.
@@ -97,7 +100,7 @@ test("homepage collects all three steps and builds the itinerary only on submit"
   expect(plannerRequest.groupType).toBe("friends trip");
   expect(plannerRequest.foodPreference).toBe("Steakhouse");
   expect(plannerRequest.pace).toBe("Late nights");
-  expect(plannerRequest.additionalDetails).toContain("birthday");
+  expect(plannerRequest.additionalDetails).toBe("A lively birthday weekend with one unforgettable show.");
   expect(savedInput.partySize).toBe(4);
   expect(savedInput.groupType).toBe("friends trip");
 });
