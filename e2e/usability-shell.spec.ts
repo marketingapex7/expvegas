@@ -78,3 +78,43 @@ test("homepage proves the planner first and keeps low inventory compact", async 
   await expect(page.getByTestId("homepage-live-plan")).toBeVisible();
   await expect(page.getByTestId("home-worth-rail").locator("article:visible")).toHaveCount(6);
 });
+
+test("homepage plan controls drop down from anywhere in the control, including the chevron", async ({ page }) => {
+  await page.setViewportSize({ width: 1280, height: 900 });
+  await page.goto("/");
+
+  for (const name of ["Travelers", "Budget"]) {
+    const select = page.getByLabel(name, { exact: true });
+    await expect(select).toBeVisible();
+
+    // A native select cannot be opened programmatically, so what is worth
+    // asserting is hit testing: every point inside the control has to land on
+    // the select. Beside it the icons were topmost over their own area, and a
+    // label forwards a click to a select as focus only, so the menu never
+    // dropped. The corners matter too, because the control is a grid item that
+    // stretches taller than the select's own line height.
+    const misses = await select.evaluate((element) => {
+      const label = element.closest("label");
+      if (!label) return ["no label"];
+
+      const bounds = label.getBoundingClientRect();
+      const icons = [...label.querySelectorAll("svg")].map((icon) => {
+        const box = icon.getBoundingClientRect();
+        return { name: "icon", x: box.left + box.width / 2, y: box.top + box.height / 2 };
+      });
+      const corners = [
+        { name: "top-left", x: bounds.left + 2, y: bounds.top + 2 },
+        { name: "top-right", x: bounds.right - 2, y: bounds.top + 2 },
+        { name: "bottom-left", x: bounds.left + 2, y: bounds.bottom - 2 },
+        { name: "bottom-right", x: bounds.right - 2, y: bounds.bottom - 2 },
+        { name: "center", x: bounds.left + bounds.width / 2, y: bounds.top + bounds.height / 2 },
+      ];
+
+      return [...icons, ...corners]
+        .filter((point) => document.elementFromPoint(point.x, point.y) !== element)
+        .map((point) => `${point.name} hits ${document.elementFromPoint(point.x, point.y)?.tagName.toLowerCase() || "nothing"}`);
+    });
+
+    expect(misses, `${name} control has unclickable areas`).toEqual([]);
+  }
+});

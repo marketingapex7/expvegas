@@ -177,29 +177,35 @@ export function HomeLivePlan({
                 <input type="date" min={controls.arrivalDate || minDate} value={controls.departureDate} onChange={(event) => updateDate("departureDate", event.target.value)} className="min-h-10 min-w-0 rounded-md bg-white/10 px-2 text-sm font-bold normal-case tracking-normal text-white [color-scheme:dark]" />
               </label>
             </div>
-            <label className="relative flex min-h-14 items-center gap-2 rounded-lg border border-white/10 bg-black/25 px-3 text-sm font-black text-white">
-              <Users className="h-4 w-4 text-amber-100" />
+            {/* The select is stretched over the whole control and the icons sit on top
+                of it as pointer-transparent overlays. Laid out beside the select they
+                ate the click instead: a label forwards a click to a select as focus
+                only, so hitting the chevron never opened the menu. Anything short of
+                full coverage leaves the same dead zone, hence inset-0 rather than a
+                height the surrounding grid row can outgrow. */}
+            <label className="relative block min-h-14 min-w-0 rounded-lg border border-white/10 bg-black/25 text-sm font-black text-white focus-within:border-amber-100/70">
+              <Users className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-amber-100" />
               <select
                 aria-label="Travelers"
                 value={controls.partySize}
                 onChange={(event) => void regenerate({ ...controls, partySize: Number(event.target.value) }, "partySize")}
-                className="h-full min-w-0 flex-1 appearance-none bg-transparent outline-none"
+                className="absolute inset-0 h-full w-full appearance-none bg-transparent pl-9 pr-9 outline-none"
               >
                 {[1, 2, 3, 4, 5, 6, 8].map((size) => <option key={size} value={size} className="bg-zinc-950">{size} traveler{size === 1 ? "" : "s"}</option>)}
               </select>
-              <ChevronDown className="h-4 w-4 text-white/50" />
+              <ChevronDown className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-white/50" />
             </label>
-            <label className="relative flex min-h-14 items-center gap-2 rounded-lg border border-white/10 bg-black/25 px-3 text-sm font-black text-white">
-              <WalletCards className="h-4 w-4 text-amber-100" />
+            <label className="relative block min-h-14 min-w-0 rounded-lg border border-white/10 bg-black/25 text-sm font-black text-white focus-within:border-amber-100/70">
+              <WalletCards className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-amber-100" />
               <select
                 aria-label="Budget"
                 value={controls.budget}
                 onChange={(event) => void regenerate({ ...controls, budget: event.target.value as HomePlanControls["budget"] }, "budget")}
-                className="h-full min-w-0 flex-1 appearance-none bg-transparent outline-none"
+                className="absolute inset-0 h-full w-full appearance-none bg-transparent pl-9 pr-9 outline-none"
               >
                 {Object.entries(budgetLabels).map(([value, label]) => <option key={value} value={value} className="bg-zinc-950">{label}</option>)}
               </select>
-              <ChevronDown className="h-4 w-4 text-white/50" />
+              <ChevronDown className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-white/50" />
             </label>
             <Link href={plannerHref} onClick={handoffToPlanner} className="col-span-2 inline-flex min-h-14 items-center justify-center gap-2 rounded-lg bg-gradient-to-r from-amber-300 to-fuchsia-300 px-5 py-3 text-sm font-black text-zinc-950 transition hover:brightness-110 md:col-span-1">
               {hasCustomized ? "Build my plan" : "Customize this plan"} <ArrowRight className="h-4 w-4" />
