@@ -3,7 +3,7 @@
 import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
 import dynamic from "next/dynamic";
 import { useRouter } from "next/navigation";
-import { ArrowRight, CalendarDays, Loader2, MapPin, Sparkles, Users, WalletCards } from "lucide-react";
+import { ArrowRight, CalendarDays, Check, Loader2, MapPin, Sparkles, Users, WalletCards } from "lucide-react";
 import { PlannerInput, PlannerResponse } from "@/types/planner";
 import { useTripSelections } from "@/components/TripSelectionProvider";
 import { DateRangeFields } from "@/components/DateRangeFields";
@@ -772,11 +772,16 @@ export function HeroPlanner({
                               type="button"
                               onClick={() => addHelper(group.label, option)}
                               aria-pressed={isSelected}
-                              className={`rounded-full px-3 py-2 text-left text-xs font-bold leading-5 transition md:w-full ${
-                                isSelected ? "bg-amber-200 text-black" : "bg-white/10 text-white/72 hover:bg-white/15"
+                              className={`group/option inline-flex min-h-11 items-center gap-2.5 rounded-md border px-3 py-2 text-left text-sm font-bold leading-5 shadow-sm transition md:w-full ${
+                                isSelected
+                                  ? "border-amber-100 bg-amber-200 text-zinc-950 shadow-[0_7px_18px_rgba(251,191,36,0.16)]"
+                                  : "border-white/14 bg-black/25 text-white/80 hover:border-amber-100/45 hover:bg-white/10 hover:text-white"
                               }`}
                             >
-                              {option}
+                              <span aria-hidden="true" className={`inline-flex h-4 w-4 shrink-0 items-center justify-center rounded-[3px] border transition ${isSelected ? "border-zinc-950/30 bg-zinc-950 text-amber-100" : "border-white/25 bg-white/[0.04] group-hover/option:border-amber-100/60"}`}>
+                                {isSelected ? <Check className="h-3 w-3 stroke-[3]" /> : null}
+                              </span>
+                              <span>{option}</span>
                             </button>
                           );
                         })}
@@ -843,11 +848,16 @@ export function HeroPlanner({
                               type="button"
                               onClick={() => (group.multi ? toggleMultiRefinement(group.key, option) : setRefinement(group.key, option))}
                               aria-pressed={isSelected}
-                              className={`rounded-full px-3 py-2 text-left text-xs font-bold leading-5 transition ${
-                                isSelected ? "bg-amber-200 text-black" : "bg-white/10 text-white/72 hover:bg-white/15"
+                              className={`group/option inline-flex min-h-11 items-center gap-2.5 rounded-md border px-3 py-2 text-left text-sm font-bold leading-5 shadow-sm transition ${
+                                isSelected
+                                  ? "border-amber-100 bg-amber-200 text-zinc-950 shadow-[0_7px_18px_rgba(251,191,36,0.16)]"
+                                  : "border-white/14 bg-black/25 text-white/80 hover:border-amber-100/45 hover:bg-white/10 hover:text-white"
                               }`}
                             >
-                              {option}
+                              <span aria-hidden="true" className={`inline-flex h-4 w-4 shrink-0 items-center justify-center rounded-[3px] border transition ${isSelected ? "border-zinc-950/30 bg-zinc-950 text-amber-100" : "border-white/25 bg-white/[0.04] group-hover/option:border-amber-100/60"}`}>
+                                {isSelected ? <Check className="h-3 w-3 stroke-[3]" /> : null}
+                              </span>
+                              <span>{option}</span>
                             </button>
                           );
                         })}
@@ -874,11 +884,16 @@ export function HeroPlanner({
                                 type="button"
                                 onClick={() => (group.multi ? toggleMultiRefinement(group.key, option) : setRefinement(group.key, option))}
                                 aria-pressed={isSelected}
-                                className={`rounded-full px-3 py-2 text-left text-xs font-bold leading-5 transition ${
-                                  isSelected ? "bg-amber-200 text-black" : "bg-white/10 text-white/72 hover:bg-white/15"
+                                className={`group/option inline-flex min-h-11 items-center gap-2.5 rounded-md border px-3 py-2 text-left text-sm font-bold leading-5 shadow-sm transition ${
+                                  isSelected
+                                    ? "border-amber-100 bg-amber-200 text-zinc-950 shadow-[0_7px_18px_rgba(251,191,36,0.16)]"
+                                    : "border-white/14 bg-black/25 text-white/80 hover:border-amber-100/45 hover:bg-white/10 hover:text-white"
                                 }`}
                               >
-                                {option}
+                                <span aria-hidden="true" className={`inline-flex h-4 w-4 shrink-0 items-center justify-center rounded-[3px] border transition ${isSelected ? "border-zinc-950/30 bg-zinc-950 text-amber-100" : "border-white/25 bg-white/[0.04] group-hover/option:border-amber-100/60"}`}>
+                                  {isSelected ? <Check className="h-3 w-3 stroke-[3]" /> : null}
+                                </span>
+                                <span>{option}</span>
                               </button>
                             );
                           })}
