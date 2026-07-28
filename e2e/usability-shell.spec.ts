@@ -49,22 +49,21 @@ test("mobile navigation keeps the cold homepage free of itinerary chrome", async
   await expect(page.getByRole("button", { name: /Open My Itinerary/ })).toBeHidden();
 });
 
-test("homepage proves the planner first and keeps low inventory compact", async ({ page }) => {
+test("homepage puts the whole builder first and keeps low inventory compact", async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto("/");
 
-  await expect(page.getByTestId("homepage-live-plan")).toBeVisible();
-  await expect(page.getByTestId("homepage-live-plan").getByText(/Allow \d+-\d+ min between stops/).first()).toBeVisible();
-  const livePlan = page.getByTestId("homepage-live-plan");
-  // Scope to day one. Day two lives inside a collapsed <details> and is still in
-  // the DOM, so counting the whole card cannot distinguish these two states.
-  const dayOneBlocks = livePlan.locator("article:not(details article)");
-  const dayOneAnchor = dayOneBlocks.filter({ has: page.getByText("Event", { exact: true }) });
-  const dayOneOpenEvening = dayOneBlocks.filter({ hasText: "Open evening for a last-minute show or lounge" });
+  // The three steps are the homepage. Day-one evening resolution moved to
+  // planner-engine.spec.ts when the sample itinerary stopped being rendered.
+  for (const [step, testId] of [[1, "home-step-one"], [2, "home-step-two"], [3, "home-step-three"]] as const) {
+    await expect(page.getByRole("heading", { level: 2, name: new RegExp(`^Step ${step}:`) })).toBeVisible();
+    await expect(page.getByTestId(testId)).toBeVisible();
+  }
 
-  // Day one resolves its evening exactly one way: a confirmed provider anchor,
-  // or an explicitly open slot. Never both, and never neither.
-  expect(await dayOneAnchor.count() + await dayOneOpenEvening.count()).toBe(1);
+  // Exactly one thing to press. The steps are filled in, then submitted.
+  await expect(page.getByTestId("home-create-itinerary")).toBeVisible();
+  await expect(page.locator("#trip-builder").getByRole("button").filter({ hasText: /Itinerary|plan/i })).toHaveCount(1);
+
   await expect(page.getByText("Prices are planning estimates, not quotes")).toBeVisible();
   const eventCount = await page.getByTestId("home-events").locator("article").count();
   expect(eventCount).toBeGreaterThanOrEqual(3);
@@ -75,6 +74,46 @@ test("homepage proves the planner first and keeps low inventory compact", async 
 
   await page.setViewportSize({ width: 1280, height: 900 });
   await page.reload();
-  await expect(page.getByTestId("homepage-live-plan")).toBeVisible();
+  await expect(page.getByTestId("home-step-one")).toBeVisible();
   await expect(page.getByTestId("home-worth-rail").locator("article:visible")).toHaveCount(6);
+});
+
+test("homepage plan controls drop down from anywhere in the control, including the chevron", async ({ page }) => {
+  await page.setViewportSize({ width: 1280, height: 900 });
+  await page.goto("/");
+
+  for (const name of ["Travelers", "Budget"]) {
+    const select = page.getByLabel(name, { exact: true });
+    await expect(select).toBeVisible();
+
+    // A native select cannot be opened programmatically, so what is worth
+    // asserting is hit testing: every point inside the control has to land on
+    // the select. Beside it the icons were topmost over their own area, and a
+    // label forwards a click to a select as focus only, so the menu never
+    // dropped. The corners matter too, because the control is a grid item that
+    // stretches taller than the select's own line height.
+    const misses = await select.evaluate((element) => {
+      const label = element.closest("label");
+      if (!label) return ["no label"];
+
+      const bounds = label.getBoundingClientRect();
+      const icons = [...label.querySelectorAll("svg")].map((icon) => {
+        const box = icon.getBoundingClientRect();
+        return { name: "icon", x: box.left + box.width / 2, y: box.top + box.height / 2 };
+      });
+      const corners = [
+        { name: "top-left", x: bounds.left + 2, y: bounds.top + 2 },
+        { name: "top-right", x: bounds.right - 2, y: bounds.top + 2 },
+        { name: "bottom-left", x: bounds.left + 2, y: bounds.bottom - 2 },
+        { name: "bottom-right", x: bounds.right - 2, y: bounds.bottom - 2 },
+        { name: "center", x: bounds.left + bounds.width / 2, y: bounds.top + bounds.height / 2 },
+      ];
+
+      return [...icons, ...corners]
+        .filter((point) => document.elementFromPoint(point.x, point.y) !== element)
+        .map((point) => `${point.name} hits ${document.elementFromPoint(point.x, point.y)?.tagName.toLowerCase() || "nothing"}`);
+    });
+
+    expect(misses, `${name} control has unclickable areas`).toEqual([]);
+  }
 });

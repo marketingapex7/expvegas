@@ -44,9 +44,10 @@ const plannerResponse = {
   },
 };
 
-test("homepage controls regenerate the preview and preserve the planner handoff", async ({ page }) => {
+test("homepage collects all three steps and builds the itinerary only on submit", async ({ page }) => {
   let plannerRequest: Record<string, unknown> = {};
   let plannerRequestCount = 0;
+  let savedInput: Record<string, unknown> = {};
 
   await page.route("**/api/planner", async (route) => {
     plannerRequestCount += 1;
@@ -54,37 +55,51 @@ test("homepage controls regenerate the preview and preserve the planner handoff"
     await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(plannerResponse) });
   });
   await page.route("**/api/plans", async (route) => {
+    savedInput = (route.request().postDataJSON() as { input: Record<string, unknown> }).input;
     await route.fulfill({
       status: 200,
       contentType: "application/json",
-      body: JSON.stringify({ shareToken: "homepage-handoff", expiresAt: "2026-08-30T00:00:00.000Z" }),
+      body: JSON.stringify({ shareToken: "homepage-build", expiresAt: "2026-08-30T00:00:00.000Z" }),
     });
   });
 
   await page.addInitScript(() => window.localStorage.clear());
   await page.goto("/");
-  await page.getByLabel("Travelers").selectOption("4");
 
-  await expect.poll(() => plannerRequest.partySize).toBe(4);
+  // All three steps are on the page from the first paint. Reaching the
+  // preference questions used to cost a click and a navigation.
+  const stepTwo = page.getByTestId("home-step-two");
+  const stepThree = page.getByTestId("home-step-three");
+  await expect(page.getByTestId("home-step-one")).toBeVisible();
+  await expect(stepTwo).toBeVisible();
+  await expect(stepThree).toBeVisible();
+
+  await page.getByLabel("Travelers", { exact: true }).selectOption("4");
+  await stepTwo.getByRole("button", { name: "friends trip" }).click();
+  await stepThree.getByRole("button", { name: "Steakhouse", exact: true }).click();
+  await stepThree.getByRole("button", { name: "Late nights", exact: true }).click();
+  await page.getByLabel("Anything else we should know?").fill("Celebrating a birthday.");
+
+  // Filling the form plans nothing. Every answer is held until one submit, so a
+  // visitor working down the page never triggers a build they did not ask for.
+  await page.waitForTimeout(1_000);
+  expect(plannerRequestCount).toBe(0);
   await expect(page).toHaveURL(/\/$/);
 
-  await page.getByRole("link", { name: "Build my plan" }).click();
-  await expect(page).toHaveURL(/\/planner\?refine=1&arrival=\d{4}-\d{2}-\d{2}&departure=\d{4}-\d{2}-\d{2}&budget=mid$/);
+  await page.getByTestId("home-create-itinerary").click();
+  // The saved-plan route is force-dynamic and compiles on first hit in dev, so
+  // this is a slow navigation rather than the default assertion window.
+  await expect(page).toHaveURL(/\/plan\/homepage-build$/, { timeout: 20_000 });
 
-  // The homepage choices carry across, but the visitor still gets the preference
-  // step before the planner generates a new itinerary.
-  const requestCountBeforeHandoff = plannerRequestCount;
-  const primaryCta = page.getByTestId("planner-primary-cta");
-  await expect(page.getByText("Tune your itinerary")).toBeVisible();
-  await expect(primaryCta).toContainText("Plan My Trip");
-  await expect(page.getByText("Planning your Vegas trip")).not.toBeVisible();
-  await page.waitForTimeout(750);
-  expect(plannerRequestCount).toBe(requestCountBeforeHandoff);
-  await expect(page).toHaveURL(/\/planner\?refine=1&arrival=\d{4}-\d{2}-\d{2}&departure=\d{4}-\d{2}-\d{2}&budget=mid$/);
-
-  await primaryCta.click();
-  await expect(page.getByText("Planning your Vegas trip")).toBeVisible();
-  await expect.poll(() => plannerRequestCount).toBe(requestCountBeforeHandoff + 1);
+  // One build, carrying every answer, and the saved plan is that same trip.
+  expect(plannerRequestCount).toBe(1);
+  expect(plannerRequest.partySize).toBe(4);
+  expect(plannerRequest.groupType).toBe("friends trip");
+  expect(plannerRequest.foodPreference).toBe("Steakhouse");
+  expect(plannerRequest.pace).toBe("Late nights");
+  expect(plannerRequest.additionalDetails).toContain("birthday");
+  expect(savedInput.partySize).toBe(4);
+  expect(savedInput.groupType).toBe("friends trip");
 });
 
 test("trip builder advances from dates through a completed game plan", async ({ page }) => {

@@ -8,6 +8,7 @@ import { PlannerInput, PlannerResponse } from "@/types/planner";
 import { useTripSelections } from "@/components/TripSelectionProvider";
 import { DateRangeFields } from "@/components/DateRangeFields";
 import { trackProductEvent } from "@/lib/product-analytics";
+import { mixedSelectionText, preferenceOptions, toggleGamblingSelection } from "@/lib/planner-preferences";
 
 const PlanResult = dynamic(
   () => import("@/components/PlanResult").then((module) => module.PlanResult),
@@ -25,63 +26,18 @@ const tuneOptions = [
 ];
 
 const refinementGroups = [
-  {
-    label: "Food",
-    key: "foodPreference",
-    multi: true,
-    options: ["Steakhouse", "Buffet", "Celebrity chef", "Casual and fast", "Italian", "Asian", "Mexican", "Cheap eats", "Surprise me"],
-  },
-  {
-    label: "Food spend",
-    key: "mealBudget",
-    multi: true,
-    options: ["Under $30 per person", "$30-$60 per person", "$60-$120 per person", "$120+ splurge meal"],
-  },
-  {
-    label: "Gambling bankroll",
-    key: "gamblingPreference",
-    multi: true,
-    options: ["No gambling", "Casino atmosphere only", "Bankroll under $100", "Bankroll $100-$300", "Bankroll $300-$750", "Bankroll $750+", "Slots", "Table games", "Poker", "Sportsbook"],
-  },
-  {
-    label: "Pace",
-    key: "pace",
-    multi: false,
-    options: ["Packed schedule", "Balanced", "Slow mornings", "Late nights", "Family-friendly pace"],
-  },
-  {
-    label: "Logistics",
-    key: "logistics",
-    multi: false,
-    options: ["Keep it walkable", "Rideshares are fine", "Stay near hotel", "Avoid long lines"],
-  },
+  { label: "Food", key: "foodPreference", multi: true, options: preferenceOptions.food },
+  { label: "Food spend", key: "mealBudget", multi: true, options: preferenceOptions.foodSpend },
+  { label: "Gambling bankroll", key: "gamblingPreference", multi: true, options: preferenceOptions.gambling },
+  { label: "Pace", key: "pace", multi: false, options: preferenceOptions.pace },
+  { label: "Logistics", key: "logistics", multi: false, options: preferenceOptions.logistics },
 ] as const;
 
 const helperGroups = [
-  {
-    label: "Ticket budget",
-    icon: WalletCards,
-    multi: true,
-    options: ["Under $100 per person", "$100-$200 per person", "$200-$350 per person", "$350+ splurge"],
-  },
-  {
-    label: "Group",
-    icon: Users,
-    multi: false,
-    options: ["couple", "friends trip", "family with teens", "bachelor party"],
-  },
-  {
-    label: "Lodging",
-    icon: MapPin,
-    multi: false,
-    options: ["haven't booked lodging yet", "center Strip", "near Bellagio", "near Caesars", "near Sphere", "near T-Mobile Arena", "Downtown"],
-  },
-  {
-    label: "Vibe",
-    icon: Sparkles,
-    multi: false,
-    options: ["big Vegas spectacle", "easy laughs", "sports energy", "not too touristy"],
-  },
+  { label: "Ticket budget", icon: WalletCards, multi: true, options: preferenceOptions.ticketBudget },
+  { label: "Group", icon: Users, multi: false, options: preferenceOptions.group },
+  { label: "Lodging", icon: MapPin, multi: false, options: preferenceOptions.lodging },
+  { label: "Vibe", icon: Sparkles, multi: false, options: preferenceOptions.vibe },
 ];
 
 const starterPrompt =
@@ -125,17 +81,6 @@ function sentenceFor(group: string, option: string) {
     return option.includes("haven't booked") ? "Lodging: not booked yet." : `Lodging: near ${option}.`;
   }
   return `Vibe: ${option}.`;
-}
-
-function mixedSelectionText(kind: "ticket" | "meal" | "gambling", values: string[]) {
-  if (values.length === 0) return undefined;
-  if (kind === "gambling" && values.length === 1 && values[0] === "No gambling") return "No gambling";
-  if (kind === "gambling" && values.length === 1 && values[0] === "Casino atmosphere only") {
-    return "Casino atmosphere only, with no gambling bankroll";
-  }
-
-  const label = kind === "ticket" ? "ticket options" : kind === "meal" ? "meals" : "gambling preferences";
-  return `Mix ${label} across ${values.join(" and ")}; include choices from each selection when available`;
 }
 
 function upsertPromptSentence(current: string, label: string, sentence: string) {
@@ -387,21 +332,9 @@ export function HeroPlanner({
   function toggleMultiRefinement(key: string, value: string) {
     setMultiRefinements((current) => {
       const values = current[key] || [];
-      let nextValues: string[];
-
-      if (key === "gamblingPreference") {
-        const exclusiveOptions = ["No gambling", "Casino atmosphere only"];
-        if (exclusiveOptions.includes(value)) {
-          nextValues = values.includes(value) ? [] : [value];
-        } else {
-          const compatibleValues = values.filter((item) => !exclusiveOptions.includes(item));
-          nextValues = compatibleValues.includes(value)
-            ? compatibleValues.filter((item) => item !== value)
-            : [...compatibleValues, value];
-        }
-      } else {
-        nextValues = values.includes(value) ? values.filter((item) => item !== value) : [...values, value];
-      }
+      const nextValues = key === "gamblingPreference"
+        ? toggleGamblingSelection(values, value)
+        : values.includes(value) ? values.filter((item) => item !== value) : [...values, value];
 
       return { ...current, [key]: nextValues };
     });
