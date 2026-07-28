@@ -44,7 +44,7 @@ const plannerResponse = {
   },
 };
 
-test("homepage lists every step and builds the plan without a second page", async ({ page }) => {
+test("homepage collects all three steps and builds the itinerary only on submit", async ({ page }) => {
   let plannerRequest: Record<string, unknown> = {};
   let plannerRequestCount = 0;
   let savedInput: Record<string, unknown> = {};
@@ -66,42 +66,40 @@ test("homepage lists every step and builds the plan without a second page", asyn
   await page.addInitScript(() => window.localStorage.clear());
   await page.goto("/");
 
-  // Every step is on the page from the first paint. Reaching the preference
-  // questions used to cost a click and a navigation.
+  // All three steps are on the page from the first paint. Reaching the
+  // preference questions used to cost a click and a navigation.
   const stepTwo = page.getByTestId("home-step-two");
   const stepThree = page.getByTestId("home-step-three");
+  await expect(page.getByTestId("home-step-one")).toBeVisible();
   await expect(stepTwo).toBeVisible();
   await expect(stepThree).toBeVisible();
 
   await page.getByLabel("Travelers", { exact: true }).selectOption("4");
-  await expect.poll(() => plannerRequest.partySize).toBe(4);
-  await expect(page).toHaveURL(/\/$/);
-
-  // A step 2 or step 3 answer reaches the engine and rebuilds the preview in
-  // place, rather than being held until some later submit.
   await stepTwo.getByRole("button", { name: "friends trip" }).click();
   await stepThree.getByRole("button", { name: "Steakhouse", exact: true }).click();
-  await expect.poll(() => plannerRequest.groupType).toBe("friends trip");
-  await expect.poll(() => plannerRequest.foodPreference).toBe("Steakhouse");
+  await stepThree.getByRole("button", { name: "Late nights", exact: true }).click();
+  await page.getByLabel("Anything else we should know?").fill("Celebrating a birthday.");
+
+  // Filling the form plans nothing. Every answer is held until one submit, so a
+  // visitor working down the page never triggers a build they did not ask for.
+  await page.waitForTimeout(1_000);
+  expect(plannerRequestCount).toBe(0);
   await expect(page).toHaveURL(/\/$/);
 
-  // Bursts of clicks coalesce into one plan request instead of one per tap.
-  const requestsBeforeBurst = plannerRequestCount;
-  await stepThree.getByRole("button", { name: "Balanced", exact: true }).click();
-  await stepThree.getByRole("button", { name: "Late nights", exact: true }).click();
-  await expect.poll(() => plannerRequest.pace).toBe("Late nights");
-  expect(plannerRequestCount).toBe(requestsBeforeBurst + 1);
-
-  await page.getByTestId("home-build-plan").click();
+  await page.getByTestId("home-create-itinerary").click();
   // The saved-plan route is force-dynamic and compiles on first hit in dev, so
   // this is a slow navigation rather than the default assertion window.
   await expect(page).toHaveURL(/\/plan\/homepage-build$/, { timeout: 20_000 });
 
-  // The saved plan is the one the visitor actually assembled, not the sample.
+  // One build, carrying every answer, and the saved plan is that same trip.
+  expect(plannerRequestCount).toBe(1);
+  expect(plannerRequest.partySize).toBe(4);
+  expect(plannerRequest.groupType).toBe("friends trip");
+  expect(plannerRequest.foodPreference).toBe("Steakhouse");
+  expect(plannerRequest.pace).toBe("Late nights");
+  expect(plannerRequest.additionalDetails).toContain("birthday");
   expect(savedInput.partySize).toBe(4);
   expect(savedInput.groupType).toBe("friends trip");
-  expect(savedInput.foodPreference).toBe("Steakhouse");
-  expect(savedInput.pace).toBe("Late nights");
 });
 
 test("trip builder advances from dates through a completed game plan", async ({ page }) => {

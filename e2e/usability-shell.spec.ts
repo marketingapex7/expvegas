@@ -49,22 +49,21 @@ test("mobile navigation keeps the cold homepage free of itinerary chrome", async
   await expect(page.getByRole("button", { name: /Open My Itinerary/ })).toBeHidden();
 });
 
-test("homepage proves the planner first and keeps low inventory compact", async ({ page }) => {
+test("homepage puts the whole builder first and keeps low inventory compact", async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto("/");
 
-  await expect(page.getByTestId("homepage-live-plan")).toBeVisible();
-  await expect(page.getByTestId("homepage-live-plan").getByText(/Allow \d+-\d+ min between stops/).first()).toBeVisible();
-  const livePlan = page.getByTestId("homepage-live-plan");
-  // Scope to day one. Day two lives inside a collapsed <details> and is still in
-  // the DOM, so counting the whole card cannot distinguish these two states.
-  const dayOneBlocks = livePlan.locator("article:not(details article)");
-  const dayOneAnchor = dayOneBlocks.filter({ has: page.getByText("Event", { exact: true }) });
-  const dayOneOpenEvening = dayOneBlocks.filter({ hasText: "Open evening for a last-minute show or lounge" });
+  // The three steps are the homepage. Day-one evening resolution moved to
+  // planner-engine.spec.ts when the sample itinerary stopped being rendered.
+  for (const [step, testId] of [[1, "home-step-one"], [2, "home-step-two"], [3, "home-step-three"]] as const) {
+    await expect(page.getByRole("heading", { level: 2, name: new RegExp(`^Step ${step}:`) })).toBeVisible();
+    await expect(page.getByTestId(testId)).toBeVisible();
+  }
 
-  // Day one resolves its evening exactly one way: a confirmed provider anchor,
-  // or an explicitly open slot. Never both, and never neither.
-  expect(await dayOneAnchor.count() + await dayOneOpenEvening.count()).toBe(1);
+  // Exactly one thing to press. The steps are filled in, then submitted.
+  await expect(page.getByTestId("home-create-itinerary")).toBeVisible();
+  await expect(page.locator("#trip-builder").getByRole("button").filter({ hasText: /Itinerary|plan/i })).toHaveCount(1);
+
   await expect(page.getByText("Prices are planning estimates, not quotes")).toBeVisible();
   const eventCount = await page.getByTestId("home-events").locator("article").count();
   expect(eventCount).toBeGreaterThanOrEqual(3);
@@ -75,7 +74,7 @@ test("homepage proves the planner first and keeps low inventory compact", async 
 
   await page.setViewportSize({ width: 1280, height: 900 });
   await page.reload();
-  await expect(page.getByTestId("homepage-live-plan")).toBeVisible();
+  await expect(page.getByTestId("home-step-one")).toBeVisible();
   await expect(page.getByTestId("home-worth-rail").locator("article:visible")).toHaveCount(6);
 });
 
