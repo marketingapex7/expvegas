@@ -46,8 +46,10 @@ const plannerResponse = {
 
 test("homepage controls regenerate the preview and preserve the planner handoff", async ({ page }) => {
   let plannerRequest: Record<string, unknown> = {};
+  let plannerRequestCount = 0;
 
   await page.route("**/api/planner", async (route) => {
+    plannerRequestCount += 1;
     plannerRequest = route.request().postDataJSON() as Record<string, unknown>;
     await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(plannerResponse) });
   });
@@ -69,17 +71,20 @@ test("homepage controls regenerate the preview and preserve the planner handoff"
   await page.getByRole("link", { name: "Build my plan" }).click();
   await expect(page).toHaveURL(/\/planner\?refine=1&arrival=\d{4}-\d{2}-\d{2}&departure=\d{4}-\d{2}-\d{2}&budget=mid$/);
 
-  // The homepage preview carries across: arriving with known dates rebuilds the
-  // plan instead of resetting the visitor to an empty first step. The builder
-  // holds a six second minimum animation before the result renders.
-  await expect(page.getByText("Planning your Vegas trip")).toBeVisible();
-  const adjustDetails = page.getByRole("button", { name: "Edit trip" });
-  await expect(adjustDetails).toBeVisible({ timeout: 15_000 });
+  // The homepage choices carry across, but the visitor still gets the preference
+  // step before the planner generates a new itinerary.
+  const requestCountBeforeHandoff = plannerRequestCount;
+  const primaryCta = page.getByTestId("planner-primary-cta");
+  await expect(page.getByText("Tune your itinerary")).toBeVisible();
+  await expect(primaryCta).toContainText("Plan My Trip");
+  await expect(page.getByText("Planning your Vegas trip")).not.toBeVisible();
+  await page.waitForTimeout(750);
+  expect(plannerRequestCount).toBe(requestCountBeforeHandoff);
   await expect(page).toHaveURL(/\/planner\?refine=1&arrival=\d{4}-\d{2}-\d{2}&departure=\d{4}-\d{2}-\d{2}&budget=mid$/);
 
-  // Tuning stays reachable from the built plan.
-  await adjustDetails.click();
-  await expect(page.getByText("Tune your itinerary")).toBeVisible();
+  await primaryCta.click();
+  await expect(page.getByText("Planning your Vegas trip")).toBeVisible();
+  await expect.poll(() => plannerRequestCount).toBe(requestCountBeforeHandoff + 1);
 });
 
 test("trip builder advances from dates through a completed game plan", async ({ page }) => {
