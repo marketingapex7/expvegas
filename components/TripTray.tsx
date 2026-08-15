@@ -32,7 +32,7 @@ export function TripTray() {
   }, [open]);
 
   useEffect(() => {
-    if (!hydrated || pathname === "/my-trip" || pathname === "/itinerary") return;
+    if (!hydrated || pathname === "/my-trip" || pathname === "/itinerary" || pathname === "/planner" || pathname.startsWith("/plan/")) return;
     let animationFrame = 0;
     function handleScroll() {
       if (animationFrame) return;
@@ -52,7 +52,20 @@ export function TripTray() {
     };
   }, [hydrated, pathname]);
 
-  if (!hydrated || mobileMenuOpen || pathname === "/" || pathname === "/my-trip" || pathname === "/itinerary") return null;
+  // Routes that render a plan of their own already carry a booking bar pinned to
+  // the bottom of the viewport. A second floating control there overlaps it on
+  // mobile and duplicates what the page is already showing.
+  const showsOwnPlan = pathname === "/planner" || pathname.startsWith("/plan/");
+  if (
+    !hydrated
+    || mobileMenuOpen
+    || showsOwnPlan
+    || pathname === "/"
+    || pathname === "/my-trip"
+    || pathname === "/itinerary"
+  ) {
+    return null;
+  }
 
   return (
     <>

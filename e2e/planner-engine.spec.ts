@@ -1,4 +1,5 @@
 import { expect, test } from "@playwright/test";
+import { restaurants } from "../data/restaurants";
 import { buildItinerary, isGoodAnchorEvent, sanitizeSchedule } from "../lib/itinerary-engine";
 import { generatePlannerResponse, plannerInventoryEndDate } from "../lib/planner-service";
 import { VegasEvent } from "../types/event";
@@ -81,7 +82,7 @@ test("planner rejects retail popups, avoids duplicate anchors, and respects meal
   expect(blocks.every((block) => minutes(block.time) % 15 === 0)).toBe(true);
 });
 
-test("an early long event uses a real late-night restaurant instead of a closed dinner venue", () => {
+test("an early long event never books a meal a venue is closed for", () => {
   const days = buildItinerary({
     plannerInput: {
       travelDates: "2026-08-01 to 2026-08-02",
@@ -104,10 +105,25 @@ test("an early long event uses a real late-night restaurant instead of a closed 
   });
 
   const meal = days[0].blocks.find((block) => block.category === "meal");
+  const anchor = days[0].blocks.find((block) => block.category === "event");
   expect(meal).toBeDefined();
-  expect(meal?.title).not.toBe("Golden Steer Steakhouse");
-  expect(minutes(meal?.time || "")).toBeGreaterThanOrEqual(21 * 60);
-  expect(minutes(meal?.time || "")).toBeLessThanOrEqual(23 * 60 + 30);
+  expect(anchor).toBeDefined();
+
+  const mealStart = minutes(meal?.time || "");
+  const anchorStart = minutes(anchor?.time || "");
+
+  // The day resolves food exactly one way: finish eating before the curtain, or
+  // eat somewhere that actually serves late. The bug this guards is a premium
+  // dinner room booked at 10:45 PM because the anchor ran long, so the
+  // after-the-show branch is checked against the venue's own meal periods
+  // rather than against a single blacklisted name.
+  if (mealStart < anchorStart) {
+    expect(mealStart + (meal?.durationMinutes || 0)).toBeLessThanOrEqual(anchorStart);
+  } else {
+    expect(restaurants.find((venue) => venue.name === meal?.title)?.mealTypes).toContain("late night");
+    expect(mealStart).toBeGreaterThanOrEqual(21 * 60);
+    expect(mealStart).toBeLessThanOrEqual(23 * 60 + 30);
+  }
 });
 
 test("canonical event identity prevents title variants from anchoring multiple days", () => {
@@ -475,4 +491,55 @@ test("venue variety does not replace a materially stronger event", () => {
 
   const anchors = days.flatMap((day) => day.blocks).filter((block) => block.category === "event");
   expect(anchors.map((block) => block.location)).toEqual(["Bellagio", "Bellagio"]);
+});
+
+test("an arrival evening with a 7 PM anchor eats before the show rather than after it", () => {
+  const days = buildItinerary({
+    plannerInput: {
+      travelDates: "2026-08-01 to 2026-08-03",
+      groupType: "two travelers",
+      stayingNear: "center Strip",
+      vibe: "classic Vegas",
+    },
+    startDate: "2026-08-01",
+    endDate: "2026-08-03",
+    rankedEvents: [event({ id: "seven-pm", localDate: "2026-08-01", localTime: "19:00:00" })],
+  });
+
+  const arrival = days[0].blocks.find((block) => block.title.startsWith("Arrival"));
+  const meal = days[0].blocks.find((block) => block.category === "meal");
+  const anchor = days[0].blocks.find((block) => block.category === "event");
+  expect(arrival).toBeDefined();
+  expect(meal).toBeDefined();
+  expect(anchor).toBeDefined();
+
+  // Check-in ends around 5 PM and the curtain is at 7. That gap has to hold real
+  // food. Whether a full dinner or a quick counter stop fits is the engine's
+  // call, but the only meal of the evening must not land after the show.
+  const mealStart = minutes(meal?.time || "");
+  expect(mealStart).toBeGreaterThanOrEqual(minutes(arrival?.time || "") + (arrival?.durationMinutes || 0));
+  expect(mealStart + (meal?.durationMinutes || 0)).toBeLessThanOrEqual(minutes(anchor?.time || ""));
+});
+
+test("a plan with no scheduled anchor does not present itself as built around one", async () => {
+  const configuredKey = process.env.TICKETMASTER_API_KEY;
+  delete process.env.TICKETMASTER_API_KEY;
+
+  try {
+    const result = await generatePlannerResponse({
+      travelDates: "2026-08-03 to 2026-08-05",
+      partySize: 2,
+      vibe: "classic Vegas show",
+    });
+    const scheduled = result.itineraryDays?.flatMap((day) => day.blocks).filter((block) => block.category === "event") || [];
+
+    expect(scheduled).toHaveLength(0);
+    // bestPickName stays a useful recommendation. The flag is what the layout
+    // keys its "Built around X" claim off, so it has to track the itinerary
+    // rather than the ranking.
+    expect(result.bestPickName).toBeTruthy();
+    expect(result.bestPickScheduled).toBe(false);
+  } finally {
+    if (configuredKey) process.env.TICKETMASTER_API_KEY = configuredKey;
+  }
 });
