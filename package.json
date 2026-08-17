@@ -9,7 +9,8 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "test:e2e": "playwright test",
-    "content:check-images": "node scripts/check-curated-images.mjs"
+    "content:check-images": "node scripts/check-curated-images.mjs",
+    "content:check-links": "node scripts/check-curated-links.mjs"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.110.0",

@@ -1,0 +1,24 @@
+name: Curated link health
+
+# Deliberately not a pull request gate. Link rot depends on third party uptime,
+# so a per-PR check would block deploys for reasons unrelated to the change.
+# Weekly is often enough to catch a closed venue before many visitors do.
+on:
+  schedule:
+    - cron: "0 14 * * 1"
+  workflow_dispatch:
+
+jobs:
+  link-health:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Check curated links
+        run: node scripts/check-curated-links.mjs
+      - name: Check curated images
+        if: always()
+        run: node scripts/check-curated-images.mjs
