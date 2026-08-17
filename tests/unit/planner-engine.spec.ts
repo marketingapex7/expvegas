@@ -2,6 +2,7 @@ import { expect, test } from "vitest";
 import { buildItinerary, isGoodAnchorEvent, sanitizeSchedule } from "@/lib/itinerary-engine";
 import { generatePlannerResponse, plannerInventoryEndDate } from "@/lib/planner-service";
 import { plannerResponseSchema } from "@/lib/planner-validation";
+import { RestaurantMealPeriod, restaurants } from "@/data/restaurants";
 import { VegasEvent } from "@/types/event";
 
 function event(overrides: Partial<VegasEvent>): VegasEvent {
@@ -532,4 +533,39 @@ test("the scheduled-anchor flag survives being saved and reloaded", async () => 
   } finally {
     if (configuredKey) process.env.TICKETMASTER_API_KEY = configuredKey;
   }
+});
+
+test("every meal period and price band keeps enough depth to vary a trip", () => {
+  // The engine picks by day offset within a filtered pool, so a pool of two or
+  // three repeats inside a single trip. Late night and value are the pools that
+  // get hit hardest: an early anchor pushes the meal after the show, and a
+  // budget answer filters everything else out.
+  const periods: RestaurantMealPeriod[] = ["breakfast", "brunch", "lunch", "dinner", "late night"];
+  for (const period of periods) {
+    const available = restaurants.filter((restaurant) => restaurant.mealTypes.includes(period));
+    expect(available.length, `only ${available.length} restaurants serve ${period}`).toBeGreaterThanOrEqual(5);
+  }
+
+  for (const level of ["value", "mid", "premium"] as const) {
+    const available = restaurants.filter((restaurant) => restaurant.priceLevel === level);
+    expect(available.length, `only ${available.length} restaurants are ${level}`).toBeGreaterThanOrEqual(5);
+  }
+});
+
+test("a value-budget trip does not eat at the same place every day", () => {
+  const days = buildItinerary({
+    plannerInput: {
+      travelDates: "2026-09-04 to 2026-09-08",
+      mealBudget: "Under $30 per person",
+      groupType: "friends trip",
+    },
+    startDate: "2026-09-04",
+    endDate: "2026-09-08",
+    rankedEvents: [],
+  });
+
+  const meals = days.flatMap((day) => day.blocks).filter((block) => block.category === "meal");
+  expect(meals.length).toBeGreaterThan(2);
+  // Repetition is acceptable; every single meal being identical is not.
+  expect(new Set(meals.map((meal) => meal.title)).size).toBeGreaterThan(1);
 });
