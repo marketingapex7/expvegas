@@ -1,6 +1,6 @@
-import { expect, test } from "@playwright/test";
-import { filterTonightEvents, HomepageEventShelf, reusableShelf } from "../lib/live-events";
-import { VegasEvent } from "../types/event";
+import { expect, test } from "vitest";
+import { filterTonightEvents, HomepageEventShelf, reusableShelf } from "@/lib/live-events";
+import { VegasEvent } from "@/types/event";
 
 function event(id: string, name: string, localTime: string): VegasEvent {
   return {

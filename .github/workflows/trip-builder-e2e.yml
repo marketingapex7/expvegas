@@ -23,6 +23,9 @@ jobs:
       # reads whatever the previous build left behind.
       - run: npm run lint
       - run: npm run typecheck
+      # The unit suite covers the planning, scoring, and normalization logic in
+      # about a second, so it runs before the browser install and build.
+      - run: npm test
       - run: npx playwright install --with-deps chromium
       - run: npm run build
       - run: npm run test:e2e

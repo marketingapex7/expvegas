@@ -1,6 +1,6 @@
-import { expect, test } from "@playwright/test";
-import { canonicalEventKey, collapseEventShowtimes } from "../lib/event-identity";
-import { VegasEvent } from "../types/event";
+import { expect, test } from "vitest";
+import { canonicalEventKey, collapseEventShowtimes } from "@/lib/event-identity";
+import { VegasEvent } from "@/types/event";
 
 function event(overrides: Partial<VegasEvent>): VegasEvent {
   return {

@@ -1,5 +1,5 @@
-import { expect, test } from "@playwright/test";
-import { searchTicketmasterEvents } from "../lib/ticketmaster";
+import { expect, test } from "vitest";
+import { searchTicketmasterEvents } from "@/lib/ticketmaster";
 
 function ticketmasterEvent(
   id: string,

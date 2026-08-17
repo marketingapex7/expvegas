@@ -1,10 +1,10 @@
-import { expect, test } from "@playwright/test";
+import { expect, test } from "vitest";
 import {
   diversifyEventsByTicketBudget,
   mealLevelsFromText,
   ticketBandsFromText,
-} from "../lib/budget-preferences";
-import { VegasEvent } from "../types/event";
+} from "@/lib/budget-preferences";
+import { VegasEvent } from "@/types/event";
 
 function event(id: string, priceMin: number): VegasEvent {
   return {
