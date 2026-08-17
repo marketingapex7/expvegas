@@ -3,152 +3,40 @@
 import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
 import dynamic from "next/dynamic";
 import { useRouter } from "next/navigation";
-import { ArrowRight, CalendarDays, Check, Loader2, MapPin, Sparkles, Users, WalletCards } from "lucide-react";
+import { ArrowRight, CalendarDays, Loader2 } from "lucide-react";
 import { PlannerInput, PlannerResponse } from "@/types/planner";
 import { useTripSelections } from "@/components/TripSelectionProvider";
 import { DateRangeFields } from "@/components/DateRangeFields";
+import { PlannerBuildProgress } from "@/components/planner/PlannerBuildProgress";
+import { PlannerChip } from "@/components/planner/PlannerChip";
+import { PlannerRefinementGroup } from "@/components/planner/PlannerRefinementGroup";
 import { trackProductEvent } from "@/lib/product-analytics";
+import {
+  buildSteps,
+  exclusiveGamblingOptions,
+  helperGroups,
+  refinementGroups,
+  starterPrompt,
+  tuneOptions,
+} from "@/components/planner/options";
+import {
+  addDays,
+  arrivalDateError as arrivalDateErrorFor,
+  currentVegasDate,
+  departureDateError as departureDateErrorFor,
+  formatTravelDate,
+  mixedSelectionText,
+  travelDateBlocker,
+  travelDateEditMessage,
+  travelDatesValue,
+  sentenceFor,
+  upsertPromptSentence,
+} from "@/lib/planner-prompt";
 
 const PlanResult = dynamic(
   () => import("@/components/PlanResult").then((module) => module.PlanResult),
   { ssr: false },
 );
-
-const tuneOptions = [
-  { label: "Make cheaper", updates: { mealBudget: "Mostly casual meals under $40 per person", budget: "event tickets under $100 per person" } },
-  { label: "More premium", updates: { mealBudget: "One premium dinner over $100 per person", budget: "premium event tickets are okay if worth it" } },
-  { label: "Less walking", updates: { logistics: "Keep it walkable" } },
-  { label: "More food-focused", updates: { mealBudget: "Food is a big part at $80-$150 per person" } },
-  { label: "More gambling", updates: { gamblingPreference: "Table games bankroll $300+ total" } },
-  { label: "No gambling", updates: { gamblingPreference: "No gambling" } },
-  { label: "Family-friendly", updates: { pace: "Family-friendly pace", groupType: "family with teens" } },
-];
-
-const refinementGroups = [
-  {
-    label: "Food",
-    key: "foodPreference",
-    multi: true,
-    options: ["Steakhouse", "Buffet", "Celebrity chef", "Casual and fast", "Italian", "Asian", "Mexican", "Cheap eats", "Surprise me"],
-  },
-  {
-    label: "Food spend",
-    key: "mealBudget",
-    multi: true,
-    options: ["Under $30 per person", "$30-$60 per person", "$60-$120 per person", "$120+ splurge meal"],
-  },
-  {
-    label: "Gambling bankroll",
-    key: "gamblingPreference",
-    multi: true,
-    options: ["No gambling", "Casino atmosphere only", "Bankroll under $100", "Bankroll $100-$300", "Bankroll $300-$750", "Bankroll $750+", "Slots", "Table games", "Poker", "Sportsbook"],
-  },
-  {
-    label: "Pace",
-    key: "pace",
-    multi: false,
-    options: ["Packed schedule", "Balanced", "Slow mornings", "Late nights", "Family-friendly pace"],
-  },
-  {
-    label: "Logistics",
-    key: "logistics",
-    multi: false,
-    options: ["Keep it walkable", "Rideshares are fine", "Stay near hotel", "Avoid long lines"],
-  },
-] as const;
-
-const helperGroups = [
-  {
-    label: "Ticket budget",
-    icon: WalletCards,
-    multi: true,
-    options: ["Under $100 per person", "$100-$200 per person", "$200-$350 per person", "$350+ splurge"],
-  },
-  {
-    label: "Group",
-    icon: Users,
-    multi: false,
-    options: ["couple", "friends trip", "family with teens", "bachelor party"],
-  },
-  {
-    label: "Lodging",
-    icon: MapPin,
-    multi: false,
-    options: ["haven't booked lodging yet", "center Strip", "near Bellagio", "near Caesars", "near Sphere", "near T-Mobile Arena", "Downtown"],
-  },
-  {
-    label: "Vibe",
-    icon: Sparkles,
-    multi: false,
-    options: ["big Vegas spectacle", "easy laughs", "sports energy", "not too touristy"],
-  },
-];
-
-const starterPrompt =
-  "We want a memorable Vegas night with one strong anchor, easy logistics, and something that feels worth booking.";
-
-function formatTravelDate(value: string) {
-  if (!value) return "";
-
-  return new Intl.DateTimeFormat("en-US", { month: "short", day: "numeric", year: "numeric" }).format(
-    new Date(`${value}T00:00:00`),
-  );
-}
-
-function addDays(value: string, days: number) {
-  if (!value) return undefined;
-  const date = new Date(`${value}T00:00:00Z`);
-  date.setUTCDate(date.getUTCDate() + days);
-  return date.toISOString().slice(0, 10);
-}
-
-function tripLengthInDays(arrival: string, departure: string) {
-  if (!arrival || !departure) return 0;
-  return Math.round((Date.parse(`${departure}T00:00:00Z`) - Date.parse(`${arrival}T00:00:00Z`)) / 86_400_000);
-}
-
-function currentVegasDate() {
-  const parts = new Intl.DateTimeFormat("en-US", {
-    timeZone: "America/Los_Angeles",
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-  }).formatToParts(new Date());
-  const value = (type: Intl.DateTimeFormatPartTypes) => parts.find((part) => part.type === type)?.value || "";
-  return `${value("year")}-${value("month")}-${value("day")}`;
-}
-
-function sentenceFor(group: string, option: string) {
-  if (group === "Ticket budget") return `Ticket budget: ${option}.`;
-  if (group === "Group") return `Group: ${option}.`;
-  if (group === "Lodging") {
-    return option.includes("haven't booked") ? "Lodging: not booked yet." : `Lodging: near ${option}.`;
-  }
-  return `Vibe: ${option}.`;
-}
-
-function mixedSelectionText(kind: "ticket" | "meal" | "gambling", values: string[]) {
-  if (values.length === 0) return undefined;
-  if (kind === "gambling" && values.length === 1 && values[0] === "No gambling") return "No gambling";
-  if (kind === "gambling" && values.length === 1 && values[0] === "Casino atmosphere only") {
-    return "Casino atmosphere only, with no gambling bankroll";
-  }
-
-  const label = kind === "ticket" ? "ticket options" : kind === "meal" ? "meals" : "gambling preferences";
-  return `Mix ${label} across ${values.join(" and ")}; include choices from each selection when available`;
-}
-
-function upsertPromptSentence(current: string, label: string, sentence: string) {
-  const trimmed = current.trim();
-  const pattern = new RegExp(`${label}: [^.]*\\.`);
-
-  if (pattern.test(trimmed)) {
-    return trimmed.replace(pattern, sentence).replace(/\s{2,}/g, " ").trim();
-  }
-
-  if (!sentence) return trimmed;
-  return trimmed.length > 0 ? `${trimmed} ${sentence}` : sentence;
-}
 
 export function HeroPlanner({
   compact = false,
@@ -197,18 +85,8 @@ export function HeroPlanner({
   const dateDraftEditedRef = useRef(false);
   const today = currentVegasDate();
   const maxDepartureDate = addDays(arrivalDate, 7);
-  const arrivalError = !arrivalDate
-    ? "Choose your arrival date."
-    : arrivalDate < today
-      ? "Arrival must be today or later so we can use current schedules."
-      : "";
-  const departureError = !departureDate
-    ? "Choose your departure date."
-    : arrivalDate && departureDate < arrivalDate
-      ? "Departure must be on or after arrival."
-      : tripLengthInDays(arrivalDate, departureDate) > 7
-        ? "Departure must be within 7 planning days of arrival."
-        : "";
+  const arrivalError = arrivalDateErrorFor(arrivalDate, today);
+  const departureError = departureDateErrorFor(arrivalDate, departureDate);
   const datesAreSet = !arrivalError && !departureError;
   const plannerCtaState = loading ? "loading" : !datesAreSet ? "explore" : saveStatus ? "error" : "ready";
 
@@ -248,15 +126,7 @@ export function HeroPlanner({
     setArrivalDate(nextArrivalDate);
     setDepartureDate(nextDepartureDate);
     setSavedTripDates({ arrivalDate: nextArrivalDate, departureDate: nextDepartureDate });
-    if (nextArrivalDate && nextDepartureDate && nextDepartureDate < nextArrivalDate) {
-      setDateError("Your departure date must be on or after your arrival date.");
-    } else if (tripLengthInDays(nextArrivalDate, nextDepartureDate) > 7) {
-      setDateError("Choose a trip of 7 planning days or fewer.");
-    } else if (nextArrivalDate && nextArrivalDate < today) {
-      setDateError("Choose an arrival date from today forward so we can use current schedules.");
-    } else {
-      setDateError("");
-    }
+    setDateError(travelDateEditMessage(nextArrivalDate, nextDepartureDate, today));
 
     const formattedArrival = formatTravelDate(nextArrivalDate);
     const formattedDeparture = formatTravelDate(nextDepartureDate);
@@ -328,14 +198,6 @@ export function HeroPlanner({
     loadingPayload.logistics ? `Logistics: ${loadingPayload.logistics}` : undefined,
     loadingPayload.vibe ? `Vibe: ${loadingPayload.vibe}` : undefined,
   ].filter(Boolean) as string[];
-  const buildSteps = [
-    "Reading trip basics",
-    "Checking live event inventory",
-    "Scoring restaurants and free stops",
-    "Balancing timing, buffers, and walking",
-    "Running itinerary sanity check",
-    "Saving your game plan",
-  ];
 
   useEffect(() => {
     if (!tripSelectionsHydrated || dateDraftEditedRef.current || initialDates) return;
@@ -368,7 +230,7 @@ export function HeroPlanner({
     }, 700);
 
     return () => window.clearInterval(progressTimer);
-  }, [buildSteps.length, loading]);
+  }, [loading]);
 
   useEffect(() => {
     if (!loading) return;
@@ -380,6 +242,11 @@ export function HeroPlanner({
     return () => window.clearTimeout(scrollTimer);
   }, [loading]);
 
+  function selectRefinement(key: string, value: string, multi: boolean) {
+    if (multi) toggleMultiRefinement(key, value);
+    else setRefinement(key, value);
+  }
+
   function setRefinement(key: string, value: string) {
     setRefinements((current) => ({ ...current, [key]: value }));
   }
@@ -390,7 +257,7 @@ export function HeroPlanner({
       let nextValues: string[];
 
       if (key === "gamblingPreference") {
-        const exclusiveOptions = ["No gambling", "Casino atmosphere only"];
+        const exclusiveOptions = exclusiveGamblingOptions;
         if (exclusiveOptions.includes(value)) {
           nextValues = values.includes(value) ? [] : [value];
         } else {
@@ -408,8 +275,7 @@ export function HeroPlanner({
   }
 
   function buildPlannerPayload(overrides: Partial<Record<string, string>> = {}): PlannerInput {
-    const travelDates =
-      arrivalDate && departureDate ? `${arrivalDate} to ${departureDate}` : arrivalDate || departureDate;
+    const travelDates = travelDatesValue(arrivalDate, departureDate);
 
     const selectedPlaces = tripPicks.length
       ? `Requested trip picks: ${tripPicks.map((item) => `${item.name} (${item.category}, ${item.area}, status: ${item.status || "considering"}${item.locked ? ", locked" : ""})`).join("; ")}. Locked and booked picks must remain fixed. Must-do picks take priority. Backup picks should only fill open time. Explain any choice that cannot fit.`
@@ -515,23 +381,11 @@ export function HeroPlanner({
     overrides: Partial<Record<string, string>> = {},
     options: { redirectOnSave?: boolean } = {},
   ) {
-    if (!datesAreSet) {
-      setDateError("Choose arrival and departure dates first so we can use real Vegas schedules.");
-      return;
-    }
-
-    if (arrivalDate < today) {
-      setDateError("Choose an arrival date from today forward so we can use current schedules.");
-      return;
-    }
-
-    if (departureDate < arrivalDate) {
-      setDateError("Your departure date must be on or after your arrival date.");
-      return;
-    }
-
-    if (tripLengthInDays(arrivalDate, departureDate) > 7) {
-      setDateError("Choose a trip of 7 planning days or fewer.");
+    const blocker = !datesAreSet
+      ? "Choose arrival and departure dates first so we can use real Vegas schedules."
+      : travelDateBlocker(arrivalDate, departureDate, today);
+    if (blocker) {
+      setDateError(blocker);
       return;
     }
 
@@ -760,29 +614,15 @@ export function HeroPlanner({
                       </p>
                       {group.multi ? <p className="mb-2 text-[11px] font-semibold text-white/45">Choose all that fit.</p> : null}
                       <div className="flex flex-wrap gap-2 md:block md:space-y-2">
-                        {group.options.map((option) => {
-                          const key = `${group.label}:${option}`;
-                          const isSelected = selectedHelpers.includes(key);
-
-                          return (
-                            <button
-                              key={option}
-                              type="button"
-                              onClick={() => addHelper(group.label, option)}
-                              aria-pressed={isSelected}
-                              className={`group/option inline-flex min-h-11 items-center gap-2.5 rounded-md border px-3 py-2 text-left text-sm font-bold leading-5 shadow-sm transition md:w-full ${
-                                isSelected
-                                  ? "border-amber-100 bg-amber-200 text-zinc-950 shadow-[0_7px_18px_rgba(251,191,36,0.16)]"
-                                  : "border-white/14 bg-black/25 text-white/80 hover:border-amber-100/45 hover:bg-white/10 hover:text-white"
-                              }`}
-                            >
-                              <span aria-hidden="true" className={`inline-flex h-4 w-4 shrink-0 items-center justify-center rounded-[3px] border transition ${isSelected ? "border-zinc-950/30 bg-zinc-950 text-amber-100" : "border-white/25 bg-white/[0.04] group-hover/option:border-amber-100/60"}`}>
-                                {isSelected ? <Check className="h-3 w-3 stroke-[3]" /> : null}
-                              </span>
-                              <span>{option}</span>
-                            </button>
-                          );
-                        })}
+                        {group.options.map((option) => (
+                          <PlannerChip
+                            key={option}
+                            label={option}
+                            isSelected={selectedHelpers.includes(`${group.label}:${option}`)}
+                            onSelect={() => addHelper(group.label, option)}
+                            fullWidthOnDesktop
+                          />
+                        ))}
                       </div>
                     </div>
                   );
@@ -831,73 +671,27 @@ export function HeroPlanner({
                  </div>
                 <div className="mt-5 grid gap-3 md:grid-cols-3">
                   {refinementGroups.filter((group) => ["foodPreference", "mealBudget", "pace"].includes(group.key)).map((group) => (
-                    <div key={group.key} className="rounded-lg border border-white/10 bg-white/[0.04] p-3">
-                      <p className="mb-3 text-xs font-black uppercase tracking-[0.16em] text-white/50">{group.label}</p>
-                      {group.multi ? <p className="mb-2 text-[11px] font-semibold text-white/45">Choose all that fit.</p> : null}
-                      <div className="flex flex-wrap gap-2">
-                        {group.options.map((option) => {
-                          const isSelected = group.multi
-                            ? multiRefinements[group.key]?.includes(option)
-                            : refinements[group.key] === option;
-
-                          return (
-                            <button
-                              key={option}
-                              type="button"
-                              onClick={() => (group.multi ? toggleMultiRefinement(group.key, option) : setRefinement(group.key, option))}
-                              aria-pressed={isSelected}
-                              className={`group/option inline-flex min-h-11 items-center gap-2.5 rounded-md border px-3 py-2 text-left text-sm font-bold leading-5 shadow-sm transition ${
-                                isSelected
-                                  ? "border-amber-100 bg-amber-200 text-zinc-950 shadow-[0_7px_18px_rgba(251,191,36,0.16)]"
-                                  : "border-white/14 bg-black/25 text-white/80 hover:border-amber-100/45 hover:bg-white/10 hover:text-white"
-                              }`}
-                            >
-                              <span aria-hidden="true" className={`inline-flex h-4 w-4 shrink-0 items-center justify-center rounded-[3px] border transition ${isSelected ? "border-zinc-950/30 bg-zinc-950 text-amber-100" : "border-white/25 bg-white/[0.04] group-hover/option:border-amber-100/60"}`}>
-                                {isSelected ? <Check className="h-3 w-3 stroke-[3]" /> : null}
-                              </span>
-                              <span>{option}</span>
-                            </button>
-                          );
-                        })}
-                      </div>
-                    </div>
+                    <PlannerRefinementGroup
+                      key={group.key}
+                      group={group}
+                      selectedValue={refinements[group.key]}
+                      selectedValues={multiRefinements[group.key]}
+                      onSelect={selectRefinement}
+                    />
                   ))}
                 </div>
                 <details className="mt-3 rounded-lg border border-white/10 bg-white/[0.03] p-3">
                   <summary className="cursor-pointer text-sm font-black text-white/70">Optional gambling and logistics preferences</summary>
                   <div className="mt-3 grid gap-3 md:grid-cols-2">
                     {refinementGroups.filter((group) => ["gamblingPreference", "logistics"].includes(group.key)).map((group) => (
-                      <div key={group.key} className="rounded-lg border border-white/10 bg-white/[0.04] p-3">
-                        <p className="mb-3 text-xs font-black uppercase tracking-[0.16em] text-white/50">{group.label}</p>
-                        {group.multi ? <p className="mb-2 text-[11px] font-semibold text-white/45">Choose all that fit.</p> : null}
-                        <div className="flex flex-wrap gap-2">
-                          {group.options.map((option) => {
-                            const isSelected = group.multi
-                              ? multiRefinements[group.key]?.includes(option)
-                              : refinements[group.key] === option;
-
-                            return (
-                              <button
-                                key={option}
-                                type="button"
-                                onClick={() => (group.multi ? toggleMultiRefinement(group.key, option) : setRefinement(group.key, option))}
-                                aria-pressed={isSelected}
-                                className={`group/option inline-flex min-h-11 items-center gap-2.5 rounded-md border px-3 py-2 text-left text-sm font-bold leading-5 shadow-sm transition ${
-                                  isSelected
-                                    ? "border-amber-100 bg-amber-200 text-zinc-950 shadow-[0_7px_18px_rgba(251,191,36,0.16)]"
-                                    : "border-white/14 bg-black/25 text-white/80 hover:border-amber-100/45 hover:bg-white/10 hover:text-white"
-                                }`}
-                              >
-                                <span aria-hidden="true" className={`inline-flex h-4 w-4 shrink-0 items-center justify-center rounded-[3px] border transition ${isSelected ? "border-zinc-950/30 bg-zinc-950 text-amber-100" : "border-white/25 bg-white/[0.04] group-hover/option:border-amber-100/60"}`}>
-                                  {isSelected ? <Check className="h-3 w-3 stroke-[3]" /> : null}
-                                </span>
-                                <span>{option}</span>
-                              </button>
-                            );
-                          })}
-                        </div>
-                      </div>
-                    ))}
+                    <PlannerRefinementGroup
+                      key={group.key}
+                      group={group}
+                      selectedValue={refinements[group.key]}
+                      selectedValues={multiRefinements[group.key]}
+                      onSelect={selectRefinement}
+                    />
+                  ))}
                   </div>
                 </details>
                 <label className="mt-4 grid gap-2 text-sm font-bold text-white/70">
@@ -933,71 +727,13 @@ export function HeroPlanner({
         ) : null}
 
         {loading ? (
-          <div
-            ref={buildPanelRef}
-            className="mx-auto mt-8 min-h-[32rem] scroll-mt-24 overflow-hidden rounded-lg border border-amber-100/20 bg-amber-100/[0.08] p-5 shadow-2xl shadow-black/30 sm:p-7"
-          >
-            <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-              <div>
-                <p className="inline-flex items-center gap-2 text-sm font-black text-amber-100">
-                  <Loader2 className="h-4 w-4 animate-spin" /> Planning your Vegas trip
-                </p>
-                <h3 className="mt-3 text-2xl font-black text-white">Trip dates locked: {loadingDates}</h3>
-                <p className="mt-2 max-w-2xl text-sm leading-6 text-white/60">
-                  We are turning your trip inputs into a timed plan with live events, food, free stops, timing buffers, and booking priorities.
-                </p>
-              </div>
-              <div className="rounded-lg border border-white/10 bg-black/25 px-4 py-3 text-right">
-                <p className="text-xs font-black uppercase tracking-[0.16em] text-white/40">Progress</p>
-                <p className="mt-1 text-2xl font-black text-white">{buildProgress}%</p>
-              </div>
-            </div>
-
-            <div className="mt-5 h-2 overflow-hidden rounded-full bg-black/35">
-              <div
-                className="h-full rounded-full bg-amber-200 transition-all duration-500"
-                style={{ width: `${buildProgress}%` }}
-              />
-            </div>
-
-            <div className="mt-5 grid gap-3 lg:grid-cols-[0.9fr_1.1fr]">
-              <div className="rounded-lg bg-black/25 p-4">
-                <p className="text-xs font-black uppercase tracking-[0.16em] text-amber-100">Analyzing selections</p>
-                <div data-testid="planner-analysis-selections" className="mt-3 flex flex-wrap items-start gap-2">
-                  {(loadingSelections.length > 0 ? loadingSelections : ["Flexible trip details", "Balanced Vegas pace", "Worth-booking anchor"]).map((selection, index) => (
-                    <span
-                      key={selection}
-                      className={`max-w-full whitespace-normal break-words rounded-2xl px-3 py-2 text-xs font-bold leading-5 transition ${
-                        index === buildStepIndex % Math.max(loadingSelections.length, 1)
-                          ? "bg-amber-200 text-black"
-                          : "bg-white/10 text-white/62"
-                      }`}
-                    >
-                      {selection}
-                    </span>
-                  ))}
-                </div>
-              </div>
-              <div className="rounded-lg bg-black/25 p-4">
-                <p className="text-xs font-black uppercase tracking-[0.16em] text-amber-100">Planner actions</p>
-                <div className="mt-3 grid gap-2">
-                  {buildSteps.map((step, index) => (
-                    <div
-                      key={step}
-                      className={`flex items-center gap-3 rounded-lg border px-3 py-2 text-sm font-bold transition ${
-                        index <= buildStepIndex
-                          ? "border-amber-100/25 bg-amber-100/[0.08] text-white"
-                          : "border-white/10 bg-white/[0.03] text-white/40"
-                      }`}
-                    >
-                      <span className={`h-2.5 w-2.5 rounded-full ${index <= buildStepIndex ? "bg-amber-200" : "bg-white/20"}`} />
-                      {step}
-                    </div>
-                  ))}
-                </div>
-              </div>
-            </div>
-          </div>
+          <PlannerBuildProgress
+            panelRef={buildPanelRef}
+            progress={buildProgress}
+            stepIndex={buildStepIndex}
+            travelDatesLabel={loadingDates}
+            selections={loadingSelections}
+          />
         ) : null}
 
         {result ? (
