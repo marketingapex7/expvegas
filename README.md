@@ -28,6 +28,19 @@ npm run dev
 
 Open http://localhost:3000.
 
+## Tests
+
+```bash
+npm test          # unit suite (Vitest) - planning, scoring, normalization
+npm run test:watch
+npm run test:e2e  # browser suite (Playwright), boots a dev server
+```
+
+`tests/unit` holds the pure-logic specs and finishes in about a second, so it is
+the one to run while iterating on the itinerary engine. `e2e` is reserved for
+tests that genuinely need a browser. Both run in CI along with `npm run lint`
+and `npm run typecheck`.
+
 ## Next build priorities
 
 1. Polish homepage design and copy.

@@ -1,5 +1,5 @@
-import { expect, test } from "@playwright/test";
-import { cleanDisplayText } from "../lib/ticketmaster";
+import { expect, test } from "vitest";
+import { cleanDisplayText } from "@/lib/ticketmaster";
 
 test("display text keeps accents and typographic punctuation", () => {
   // The previous cleaner stripped everything non-ASCII, which turned

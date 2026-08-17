@@ -6,6 +6,8 @@
     "lint": "eslint .",
     "typecheck": "tsc --noEmit",
     "seo:keywords": "node scripts/pull-seo-keywords.mjs",
+    "test": "vitest run",
+    "test:watch": "vitest",
     "test:e2e": "playwright test",
     "content:check-images": "node scripts/check-curated-images.mjs"
   },
@@ -27,6 +29,7 @@
     "eslint": "^9.39.4",
     "eslint-config-next": "^16.2.10",
     "tailwindcss": "^4.3.2",
-    "typescript": "^6.0.3"
+    "typescript": "^6.0.3",
+    "vitest": "^4.1.10"
   }
 }

@@ -1,7 +1,7 @@
-import { expect, test } from "@playwright/test";
-import { buildItinerary, isGoodAnchorEvent, sanitizeSchedule } from "../lib/itinerary-engine";
-import { generatePlannerResponse, plannerInventoryEndDate } from "../lib/planner-service";
-import { VegasEvent } from "../types/event";
+import { expect, test } from "vitest";
+import { buildItinerary, isGoodAnchorEvent, sanitizeSchedule } from "@/lib/itinerary-engine";
+import { generatePlannerResponse, plannerInventoryEndDate } from "@/lib/planner-service";
+import { VegasEvent } from "@/types/event";
 
 function event(overrides: Partial<VegasEvent>): VegasEvent {
   return {
