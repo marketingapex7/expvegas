@@ -4,6 +4,7 @@ import { diversifyEventsByTicketBudget } from "@/lib/budget-preferences";
 import { isHeadlineEvent, rankEvents } from "@/lib/scoring";
 import { searchTicketmasterEvents } from "@/lib/ticketmaster";
 import { canonicalEventKey, collapseEventShowtimes } from "@/lib/event-identity";
+import { readPreferences } from "@/lib/planner-preferences";
 import { EventCategory, VegasEvent } from "@/types/event";
 import { ItineraryDay, PlannerInput, PlannerResponse, TripSummary } from "@/types/planner";
 
@@ -43,10 +44,6 @@ function buildWhyItFits(best: VegasEvent, input: PlannerInput, liveEventCount: n
   return `${best.name} is the strongest match for ${group} with ${budget} and a ${vibe} vibe. ${sourceNote}`;
 }
 
-function lodgingIsFlexible(input: PlannerInput) {
-  const text = `${input.stayingNear || ""} ${input.prompt || ""} ${input.additionalDetails || ""}`.toLowerCase();
-  return !input.stayingNear || text.includes("not booked") || text.includes("haven't booked") || text.includes("havent booked");
-}
 
 function estimateSpend(itineraryDays: ItineraryDay[], partySize = 1) {
   let low = 0;
@@ -76,7 +73,8 @@ function buildTripSummary(input: PlannerInput, itineraryDays: ItineraryDay[], sc
   const bookable = blocks.filter((block) => block.bookingUrl && block.provider !== "go-city");
   const flexible = blocks.filter((block) => !block.bookingUrl && ["free", "shopping", "casino"].includes(block.category));
   const lodgingBlock = blocks.find((block) => block.title === "Lodging target before you book");
-  const lodging = lodgingIsFlexible(input) ? "Not booked yet" : input.stayingNear || "Not specified";
+  const { lodgingIsFlexible } = readPreferences(input);
+  const lodging = lodgingIsFlexible ? "Not booked yet" : input.stayingNear || "Not specified";
   const tripStyle = [
     input.groupType,
     input.budget ? `Tickets: ${input.budget}` : undefined,
@@ -99,7 +97,7 @@ function buildTripSummary(input: PlannerInput, itineraryDays: ItineraryDay[], sc
   ].slice(0, 5);
   const keepFlexible = flexible.slice(0, 5).map((block) => block.title);
   const eventVenue = scheduledAnchor?.venueName ? ` around ${scheduledAnchor.venueName}` : "";
-  const logistics = lodgingIsFlexible(input)
+  const logistics = lodgingIsFlexible
     ? "It starts with a lodging zone recommendation before locking in the timed plan."
     : `It keeps the plan oriented around ${input.stayingNear}.`;
   const anchorNote = scheduledAnchor

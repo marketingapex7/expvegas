@@ -1,12 +1,16 @@
 import { VegasEvent } from "@/types/event";
 import { PlannerInput } from "@/types/planner";
 import { eventMatchesTicketBand, ticketBandsFromText } from "@/lib/budget-preferences";
+import { GroupKind, groupKindFrom } from "@/lib/planner-preferences";
 
-const groupScoreMap: Record<string, keyof VegasEvent> = {
+// One definition of what each group answer means, shared with the itinerary
+// engine so "family" cannot mean one thing here and another there.
+// "friends" has no dedicated metric, so it is deliberately absent and scores on
+// editorial, value, and wow alone -- the same as before this map was typed.
+const groupScoreMap: Partial<Record<GroupKind, keyof VegasEvent>> = {
   couple: "couplesScore",
   family: "familyScore",
   bachelor: "bachelorScore",
-  bachelorette: "bachelorScore",
 };
 
 const NON_HEADLINE_EVENT_PATTERN =
@@ -30,12 +34,12 @@ export function scoreEvent(event: VegasEvent, input?: Partial<PlannerInput>) {
   let score = event.editorialScore * 0.35 + event.valueScore * 0.2 + event.wowScore * 0.2;
   if (!isHeadlineEvent(event)) score -= 100;
 
-  const groupKey = input?.groupType?.toLowerCase() || "";
-  const groupMetric = Object.entries(groupScoreMap).find(([key]) => groupKey.includes(key))?.[1];
+  const group = groupKindFrom(input?.groupType);
+  const groupMetric = groupScoreMap[group];
   if (groupMetric) score += Number(event[groupMetric]) * 0.2;
   // Rank age-gated events to the bottom for family groups so they stay out of
   // the comparison shelf as well as the anchor slot.
-  if (groupKey.includes("family") && isAgeRestrictedEvent(event)) score -= 100;
+  if (group === "family" && isAgeRestrictedEvent(event)) score -= 100;
 
   const vibe = input?.vibe?.toLowerCase() || "";
   for (const tag of event.tags) {
