@@ -18,7 +18,7 @@ const querySchema = z.object({
 });
 
 export async function GET(request: Request) {
-  const limited = rateLimit(request, "ticketmaster:search", 60, 10 * 60 * 1_000);
+  const limited = await rateLimit(request, "ticketmaster:search", 60, 10 * 60 * 1_000);
   if (limited) return limited;
 
   const { searchParams } = new URL(request.url);

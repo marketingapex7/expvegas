@@ -5,7 +5,7 @@ import { generatePlannerResponse } from "@/lib/planner-service";
 import { PlannerInput } from "@/types/planner";
 
 export async function POST(request: Request) {
-  const limited = rateLimit(request, "planner", 30, 10 * 60 * 1_000);
+  const limited = await rateLimit(request, "planner", 30, 10 * 60 * 1_000);
   if (limited) return limited;
 
   let input: PlannerInput;
