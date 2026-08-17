@@ -59,3 +59,19 @@ test("seed events tag their clicks by event", () => {
     expect(event.affiliateUrl, `${event.id} is not click-tagged`).toContain(`subId1=${vegasComSubId(event.slug)}`);
   }
 });
+
+test("every seed event deep links to its own vegas.com page", () => {
+  // A category listing is a working affiliate link but makes the visitor find
+  // the thing themselves, so it is not good enough once a product page exists.
+  const categoryPages = ["/shows/", "/attractions/", "/shows/comedy/", "/shows/sports/"];
+
+  for (const event of seedEvents) {
+    const destination = decodeURIComponent(new URL(event.affiliateUrl).searchParams.get("u") || "");
+    expect(destination, `${event.id} has no deep-link destination`).toMatch(/^https:\/\/www\.vegas\.com\//);
+
+    const path = new URL(destination).pathname;
+    expect(categoryPages, `${event.id} only reaches a category listing`).not.toContain(path);
+    // A product page sits below its category, never at the root of one.
+    expect(path.split("/").filter(Boolean).length).toBeGreaterThanOrEqual(2);
+  }
+});
