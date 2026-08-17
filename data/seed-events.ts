@@ -1,4 +1,5 @@
 import { VegasEvent } from "@/types/event";
+import { vegasComLink } from "@/lib/vegas-com";
 
 export const seedEvents: VegasEvent[] = [
   {
@@ -18,7 +19,7 @@ export const seedEvents: VegasEvent[] = [
     shortDescription: "A chaotic adult comedy and variety show at Caesars Palace.",
     quickVerdict: "One of the strongest picks if you want a funny, adult, very Vegas night.",
     imageUrl: "https://images.unsplash.com/photo-1501386761578-eac5c94b800a?auto=format&fit=crop&w=1200&q=82",
-    affiliateUrl: "#",
+    affiliateUrl: vegasComLink({ path: "/shows/", placement: "absinthe-las-vegas" }),
     editorialScore: 94,
     valueScore: 82,
     wowScore: 88,
@@ -42,7 +43,7 @@ export const seedEvents: VegasEvent[] = [
     shortDescription: "An iconic water-based Cirque du Soleil production at Bellagio.",
     quickVerdict: "Best for couples and first-timers who want a polished, impressive Vegas show.",
     imageUrl: "https://images.unsplash.com/photo-1492684223066-81342ee5ff30?auto=format&fit=crop&w=1200&q=82",
-    affiliateUrl: "#",
+    affiliateUrl: vegasComLink({ path: "/shows/", placement: "o-cirque-du-soleil" }),
     editorialScore: 96,
     valueScore: 76,
     wowScore: 98,
@@ -67,7 +68,7 @@ export const seedEvents: VegasEvent[] = [
     shortDescription: "A comedy-club style night with rotating stand-up comics.",
     quickVerdict: "A strong cheap-night pick if you want laughs without paying production-show prices.",
     imageUrl: "https://images.unsplash.com/photo-1527224857830-43a7acc85260?auto=format&fit=crop&w=1200&q=82",
-    affiliateUrl: "#",
+    affiliateUrl: vegasComLink({ path: "/shows/", placement: "comedy-cellar-las-vegas" }),
     editorialScore: 86,
     valueScore: 92,
     wowScore: 60,
@@ -91,7 +92,7 @@ export const seedEvents: VegasEvent[] = [
     shortDescription: "A quick Strip-view attraction that is easy to pair with dinner or a show.",
     quickVerdict: "A simple, flexible add-on when you need something easy near the middle of the Strip.",
     imageUrl: "https://images.unsplash.com/photo-1771775735175-7aca48b16dee?auto=format&fit=crop&w=1200&q=82",
-    affiliateUrl: "#",
+    affiliateUrl: vegasComLink({ placement: "high-roller-observation-wheel" }),
     editorialScore: 82,
     valueScore: 88,
     wowScore: 74,
@@ -115,7 +116,7 @@ export const seedEvents: VegasEvent[] = [
     shortDescription: "A high-production immersive visual experience inside the Sphere.",
     quickVerdict: "Best when the goal is a memorable, modern Vegas spectacle instead of a traditional show.",
     imageUrl: "https://images.unsplash.com/photo-1605833556294-ea5c7a74f57d?auto=format&fit=crop&w=1200&q=82",
-    affiliateUrl: "#",
+    affiliateUrl: vegasComLink({ placement: "sphere-experience" }),
     editorialScore: 91,
     valueScore: 70,
     wowScore: 97,
@@ -138,7 +139,7 @@ export const seedEvents: VegasEvent[] = [
     shortDescription: "A loud, high-energy Vegas sports night near Park MGM and New York-New York.",
     quickVerdict: "One of the best sports picks when there is a home game during your trip.",
     imageUrl: "https://images.unsplash.com/photo-1580748141549-71748dbe0bdc?auto=format&fit=crop&w=1200&q=82",
-    affiliateUrl: "#",
+    affiliateUrl: vegasComLink({ placement: "golden-knights-home-game" }),
     editorialScore: 88,
     valueScore: 74,
     wowScore: 84,
