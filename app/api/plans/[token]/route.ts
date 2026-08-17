@@ -19,7 +19,7 @@ type StoredPlan = {
 export async function GET(request: Request, context: RouteContext) {
   const { token } = await context.params;
   if (!validShareToken(token)) return NextResponse.json({ error: "Invalid plan link." }, { status: 400 });
-  const limited = rateLimit(request, "plans:read", 120, 10 * 60 * 1_000);
+  const limited = await rateLimit(request, "plans:read", 120, 10 * 60 * 1_000);
   if (limited) return limited;
 
   try {
@@ -54,7 +54,7 @@ export async function GET(request: Request, context: RouteContext) {
 export async function PATCH(request: Request, context: RouteContext) {
   const { token } = await context.params;
   if (!validShareToken(token)) return NextResponse.json({ error: "Invalid plan link." }, { status: 400 });
-  const limited = rateLimit(request, "plans:update", 60, 10 * 60 * 1_000);
+  const limited = await rateLimit(request, "plans:update", 60, 10 * 60 * 1_000);
   if (limited) return limited;
 
   let body;

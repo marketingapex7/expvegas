@@ -28,6 +28,19 @@ npm run dev
 
 Open http://localhost:3000.
 
+## Rate limiting
+
+API routes share their rate-limit counters through Upstash Redis when
+`UPSTASH_REDIS_REST_URL` and `UPSTASH_REDIS_REST_TOKEN` are set. Create a free
+database at [console.upstash.com](https://console.upstash.com), copy its REST URL
+and token, and add both to the deployment environment.
+
+Without those variables the limiter counts in memory instead. That is accurate
+locally and in CI, where a single process handles every request, but on
+serverless each instance keeps its own counters, so the effective limit is
+multiplied by the number of warm instances. Production logs a warning once per
+instance when it falls back, so the gap is visible rather than silent.
+
 ## Tests
 
 ```bash
