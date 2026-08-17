@@ -31,6 +31,11 @@ export const metadata: Metadata = {
   robots: { index: true, follow: true },
 };
 
+// Entity IDs have to track the deployment the page is served from. Hardcoding
+// the production host meant preview and staging builds emitted production
+// @ids, inviting search engines to consolidate them onto the live site.
+const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://experiencevegas.com";
+
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   return (
     <html lang="en">
@@ -40,16 +45,16 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
           "@graph": [
             {
               "@type": "Organization",
-              "@id": "https://experiencevegas.com/#organization",
+              "@id": `${siteUrl}/#organization`,
               name: "ExperienceVegas",
-              url: "https://experiencevegas.com",
+              url: siteUrl,
             },
             {
               "@type": "WebSite",
-              "@id": "https://experiencevegas.com/#website",
+              "@id": `${siteUrl}/#website`,
               name: "ExperienceVegas",
-              url: "https://experiencevegas.com",
-              publisher: { "@id": "https://experiencevegas.com/#organization" },
+              url: siteUrl,
+              publisher: { "@id": `${siteUrl}/#organization` },
             },
           ],
         }} />

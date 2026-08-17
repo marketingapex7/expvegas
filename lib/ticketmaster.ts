@@ -75,6 +75,11 @@ type TicketmasterSearchInput = {
 const TICKETMASTER_PAGE_SIZE = 199;
 const TICKETMASTER_MAX_PAGES = 5;
 const MAX_SEARCH_DAYS = 7;
+// Day windows are independent, so they run concurrently rather than one after
+// another: a 7-day trip was previously up to 35 sequential round trips on the
+// planner's critical path. Capped well under Discovery's ~5 requests/second
+// quota, since pages within a window still run in sequence.
+const TICKETMASTER_MAX_CONCURRENT_WINDOWS = 3;
 
 function slugify(value: string) {
   return value
@@ -253,12 +258,10 @@ export async function searchTicketmasterEvents(input: TicketmasterSearchInput = 
     return params;
   }
 
-  const collected: TicketmasterEvent[] = [];
-  const seenIds = new Set<string>();
+  type WindowResult = { events: TicketmasterEvent[]; failedStatus?: number };
 
-  // Partition multi-day searches so a dense first day cannot consume
-  // Ticketmaster's 1,000-result deep-paging ceiling for the entire trip.
-  for (const window of searchWindows()) {
+  async function collectWindow(window: { startDate?: string; endDate?: string }): Promise<WindowResult> {
+    const events: TicketmasterEvent[] = [];
     let page = 0;
     let totalPages = 1;
 
@@ -269,24 +272,60 @@ export async function searchTicketmasterEvents(input: TicketmasterSearchInput = 
 
       if (!response.ok) {
         // A failed follow-up page should not discard inventory already gathered.
-        if (page > 0 || collected.length > 0) break;
-        throw new Error(`Ticketmaster request failed with ${response.status}`);
+        // Only a first-page failure is reported, and only the caller decides
+        // whether it was fatal for the search as a whole.
+        return { events, failedStatus: page === 0 ? response.status : undefined };
       }
 
       const data = (await response.json()) as TicketmasterResponse;
-      const events = data._embedded?.events || [];
+      const pageEvents = data._embedded?.events || [];
+      events.push(...pageEvents);
 
-      for (const event of events) {
-        if (seenIds.has(event.id)) continue;
-        seenIds.add(event.id);
-        collected.push(event);
-      }
-
-      if (events.length === 0) break;
+      if (pageEvents.length === 0) break;
 
       totalPages = Math.min(data.page?.totalPages ?? 1, TICKETMASTER_MAX_PAGES);
       page += 1;
     }
+
+    return { events };
+  }
+
+  // Partition multi-day searches so a dense first day cannot consume
+  // Ticketmaster's 1,000-result deep-paging ceiling for the entire trip.
+  const windows = searchWindows();
+  const windowResults: WindowResult[] = new Array(windows.length);
+  let nextWindow = 0;
+
+  async function drainWindows() {
+    while (nextWindow < windows.length) {
+      const index = nextWindow;
+      nextWindow += 1;
+      windowResults[index] = await collectWindow(windows[index]);
+    }
+  }
+
+  await Promise.all(
+    Array.from({ length: Math.min(TICKETMASTER_MAX_CONCURRENT_WINDOWS, windows.length) }, drainWindows),
+  );
+
+  // Merge in window order so results stay deterministic regardless of which
+  // window happened to resolve first.
+  const collected: TicketmasterEvent[] = [];
+  const seenIds = new Set<string>();
+
+  for (const result of windowResults) {
+    for (const event of result.events) {
+      if (seenIds.has(event.id)) continue;
+      seenIds.add(event.id);
+      collected.push(event);
+    }
+  }
+
+  // Surface the outage only when it cost us everything; a partial result is
+  // still more useful to the planner than a thrown error.
+  const failedStatus = windowResults.find((result) => result.failedStatus)?.failedStatus;
+  if (collected.length === 0 && failedStatus) {
+    throw new Error(`Ticketmaster request failed with ${failedStatus}`);
   }
 
   const normalized = collapseEventShowtimes(collected.map(normalizeTicketmasterEvent));
