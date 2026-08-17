@@ -71,7 +71,12 @@ export type HomepageEventShelf = LiveEventResult & {
   updatedLabel: string;
 };
 
-let lastGoodHomepageShelf: HomepageEventShelf | null = null;
+// The last shelf built from confirmed live inventory, kept so a transient
+// Ticketmaster outage falls back to real events rather than generic copy. It is
+// stamped with the Vegas date it was built for: without that stamp the cache
+// had no expiry, so a stale shelf could be re-served days later still labelled
+// "Live tonight" and carrying its original "Updated ..." timestamp.
+let lastGoodHomepageShelf: { shelf: HomepageEventShelf; builtForDate: string } | null = null;
 
 function applyDisplayLimit(events: VegasEvent[], displayLimit?: number) {
   return displayLimit && displayLimit > 0 ? events.slice(0, displayLimit) : events;
@@ -176,24 +181,57 @@ function shelf(
   };
 }
 
+/**
+ * A cached shelf may only be re-served while its own window is still in the
+ * future. A "tonight" or "tomorrow" shelf is scoped to the day it was built
+ * for; a "weekend" shelf stays useful until the weekend it covers has passed.
+ * Anything older is dropped so the homepage falls back to curated copy rather
+ * than presenting yesterday's schedule as current.
+ */
+export function reusableShelf(
+  cached: { shelf: HomepageEventShelf; builtForDate: string } | null,
+  today: string,
+  earliestTonight: number,
+): HomepageEventShelf | null {
+  if (!cached) return null;
+
+  if (cached.shelf.tier === "weekend") {
+    return today <= cached.shelf.endDate ? cached.shelf : null;
+  }
+
+  if (cached.builtForDate !== today) return null;
+
+  // Same day, but start times keep passing. Re-apply the cutoff so a shelf
+  // titled "Events that still fit tonight" only ever lists events that do.
+  if (cached.shelf.tier === "tonight") {
+    const stillAhead = filterTonightEvents(cached.shelf.events, today, earliestTonight);
+    return stillAhead.length >= 3 ? { ...cached.shelf, events: stillAhead } : null;
+  }
+
+  return cached.shelf;
+}
+
 export async function getHomepageEventShelf(): Promise<HomepageEventShelf> {
   const today = getVegasToday();
   const tomorrow = addDays(today, 1);
   const earliestTonight = Math.max(16 * 60, getVegasMinutesNow() + 120);
+  const remember = (built: HomepageEventShelf) => {
+    lastGoodHomepageShelf = { shelf: built, builtForDate: today };
+    return built;
+  };
   const tonightResult = await getLiveVegasEvents(today, today);
 
   if (tonightResult.isLive) {
     const tonightEvents = filterTonightEvents(tonightResult.events, today, earliestTonight);
     if (tonightEvents.length >= 3) {
-      lastGoodHomepageShelf = shelf(
+      return remember(shelf(
         tonightResult,
         tonightEvents,
         "tonight",
         "Live tonight",
         "Events that still fit tonight.",
         "Future start times only, with enough room to get there without rushing.",
-      );
-      return lastGoodHomepageShelf;
+      ));
     }
   }
 
@@ -202,38 +240,38 @@ export async function getHomepageEventShelf(): Promise<HomepageEventShelf> {
     // Prefer evening inventory, which is what visitors are usually choosing
     // between, but keep the full day rather than show an empty shelf.
     const tomorrowEvening = filterTonightEvents(tomorrowResult.events, tomorrow, 16 * 60);
-    lastGoodHomepageShelf = shelf(
+    return remember(shelf(
       tomorrowResult,
       tomorrowEvening.length >= 3 ? tomorrowEvening : tomorrowResult.events,
       "tomorrow",
       "Coming up",
       "Worth considering tomorrow.",
       "A useful next-day shortlist when tonight's remaining schedule is too thin.",
-    );
-    return lastGoodHomepageShelf;
+    ));
   }
 
   const weekend = getVegasWeekend(today);
   const weekendResult = await getLiveVegasEvents(weekend.startDate, weekend.endDate);
   if (weekendResult.isLive && weekendResult.events.length >= 3) {
-    lastGoodHomepageShelf = shelf(
+    return remember(shelf(
       weekendResult,
       weekendResult.events,
       "weekend",
       "This weekend",
       "Strong events across the weekend.",
       "Date-specific options from the live schedule, capped to the most useful six.",
-    );
-    return lastGoodHomepageShelf;
+    ));
   }
 
-  if (lastGoodHomepageShelf) {
+  const reusable = reusableShelf(lastGoodHomepageShelf, today, earliestTonight);
+  if (reusable) {
     return {
-      ...lastGoodHomepageShelf,
+      ...reusable,
       description: "The last confirmed schedule is shown while the live feed reconnects.",
     };
   }
 
+  lastGoodHomepageShelf = null;
   const residentEvents = seedEvents.filter((event) => event.category !== "sports");
 
   return shelf(

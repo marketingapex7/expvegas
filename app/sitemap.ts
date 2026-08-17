@@ -6,17 +6,15 @@ import { directoryListings } from "@/lib/directory-data";
 
 export default function sitemap(): MetadataRoute.Sitemap {
   const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://experiencevegas.com";
+  // Only canonical destinations belong here. The category paths these replaced
+  // (/shows, /comedy, /concerts, /sports, /attractions) are permanent redirects
+  // in next.config.ts, so listing them served crawlers a sitemap of 308s.
   const staticPaths = [
     "",
     "/planner",
     "/tonight",
     "/this-weekend",
     "/cheap-things-to-do",
-    "/shows",
-    "/comedy",
-    "/concerts",
-    "/sports",
-    "/attractions",
     "/go-city-las-vegas",
     "/privacy",
     "/terms",

@@ -66,22 +66,37 @@ export async function PATCH(request: Request, context: RouteContext) {
 
   try {
     const supabase = getSupabaseAdmin();
-    const updates: { email?: string; result_json?: PlannerResponse; updated_at: string } = {
-      updated_at: new Date().toISOString(),
-    };
-    if (body.email) updates.email = body.email.trim();
-    if (body.result) updates.result_json = body.result;
+    const now = new Date().toISOString();
+    const scopedUpdate = (values: { email?: string; result_json?: PlannerResponse }) =>
+      supabase
+        .from("plans")
+        .update({ ...values, updated_at: now })
+        .eq("share_token", token)
+        .eq("status", "active")
+        .gt("expires_at", now);
 
-    const { error } = await supabase
-      .from("plans")
-      .update(updates)
-      .eq("share_token", token)
-      .eq("status", "active")
-      .gt("expires_at", new Date().toISOString());
+    // A share token is handed to whoever the trip is shared with, so it cannot
+    // be treated as proof of ownership. Itinerary edits are the point of
+    // sharing and stay open, but the stored email is claim-once: the
+    // `is("email", null)` filter means a recipient can never overwrite the
+    // address a plan was saved under and redirect the owner's trip to
+    // themselves.
+    if (body.email) {
+      const { error } = await scopedUpdate({ email: body.email.trim() }).is("email", null);
 
-    if (error) {
-      console.error("Plan update failed", error);
-      return NextResponse.json({ error: "The plan could not be updated right now." }, { status: 500, headers: { "Cache-Control": "no-store" } });
+      if (error) {
+        console.error("Plan email update failed", error);
+        return NextResponse.json({ error: "The plan could not be updated right now." }, { status: 500, headers: { "Cache-Control": "no-store" } });
+      }
+    }
+
+    if (body.result) {
+      const { error } = await scopedUpdate({ result_json: body.result });
+
+      if (error) {
+        console.error("Plan update failed", error);
+        return NextResponse.json({ error: "The plan could not be updated right now." }, { status: 500, headers: { "Cache-Control": "no-store" } });
+      }
     }
 
     return NextResponse.json({ ok: true });

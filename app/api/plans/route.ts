@@ -4,13 +4,23 @@ import { getSupabaseAdmin } from "@/lib/supabase-server";
 import { apiErrorResponse, rateLimit, readValidatedJson } from "@/lib/api-security";
 import { savePlanRequestSchema } from "@/lib/planner-validation";
 
-function publicPlanSaveError(error: { code?: string; message?: string }) {
+/**
+ * Classifies a Supabase failure into an operator-facing diagnostic and a
+ * visitor-facing message.
+ *
+ * The diagnostic names our table, schema state, and project status, so it goes
+ * to the server log only. Returning it to the browser told anyone who could
+ * POST here which backend we run, whether its schema was current, and whether
+ * the project was paused. Clients get a stable code they can branch on and
+ * quote in a support request; nothing about the infrastructure.
+ */
+function classifyPlanSaveError(error: { code?: string; message?: string }) {
   const message = error.message?.toLowerCase() || "";
 
   if (message.includes("invalid api key") || message.includes("jwt")) {
     return {
-      error: "Supabase rejected the server key. Verify that the Supabase URL and secret key belong to the same project.",
       code: "SUPABASE_KEY_REJECTED",
+      diagnostic: "Supabase rejected the server key. Verify that the Supabase URL and secret key belong to the same project.",
     };
   }
 
@@ -20,8 +30,8 @@ function publicPlanSaveError(error: { code?: string; message?: string }) {
     ((message.includes("table") || message.includes("relation")) && message.includes("plans"))
   ) {
     return {
-      error: "The Supabase plans table is missing. Run supabase/plans.sql in this project's SQL Editor.",
       code: "PLANS_TABLE_MISSING",
+      diagnostic: "The Supabase plans table is missing. Run supabase/plans.sql in this project's SQL Editor.",
     };
   }
 
@@ -32,28 +42,28 @@ function publicPlanSaveError(error: { code?: string; message?: string }) {
     message.includes("project not found")
   ) {
     return {
-      error: "The configured Supabase project could not be reached. Confirm the project is active and the Supabase URL is current.",
       code: "SUPABASE_UNREACHABLE",
+      diagnostic: "The configured Supabase project could not be reached. Confirm the project is active and the Supabase URL is current.",
     };
   }
 
   if (error.code === "42501" || message.includes("permission denied") || message.includes("row-level security")) {
     return {
-      error: "Supabase denied the plan insert. Verify the server secret key and plans table permissions.",
       code: "PLAN_INSERT_DENIED",
+      diagnostic: "Supabase denied the plan insert. Verify the server secret key and plans table permissions.",
     };
   }
 
   if (error.code === "42703" || message.includes("column")) {
     return {
-      error: "The Supabase plans table schema is out of date. Re-run supabase/plans.sql in the SQL Editor.",
       code: "PLANS_SCHEMA_OUTDATED",
+      diagnostic: "The Supabase plans table schema is out of date. Re-run supabase/plans.sql in the SQL Editor.",
     };
   }
 
   return {
-    error: "The plan could not be saved right now.",
     code: error.code || "PLAN_SAVE_FAILED",
+    diagnostic: "The plan insert failed for an unrecognized reason.",
   };
 }
 
@@ -84,8 +94,12 @@ export async function POST(request: Request) {
       });
 
     if (error) {
-      console.error("Plan save failed", error);
-      return NextResponse.json(publicPlanSaveError(error), { status: 500, headers: { "Cache-Control": "no-store" } });
+      const { code, diagnostic } = classifyPlanSaveError(error);
+      console.error(`Plan save failed [${code}] ${diagnostic}`, error);
+      return NextResponse.json(
+        { error: "The plan could not be saved right now.", code },
+        { status: 500, headers: { "Cache-Control": "no-store" } },
+      );
     }
 
     return NextResponse.json({

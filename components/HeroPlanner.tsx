@@ -451,13 +451,11 @@ export function HeroPlanner({
       });
 
       if (!response.ok) {
+        // The API deliberately no longer describes the backend failure, so the
+        // visitor gets a plain message plus a code to quote in a support note.
+        // Operators read the real cause in the server log.
         const data = (await response.json().catch(() => null)) as { error?: string; code?: string } | null;
-        const invalidKey = data?.error?.toLowerCase().includes("invalid api key");
-        const errorText = invalidKey
-          ? "Supabase rejected the API key. Verify that NEXT_PUBLIC_SUPABASE_URL and the full SUPABASE_SECRET_KEY belong to the same Supabase project, then redeploy."
-          : data?.error
-            ? `${data.error}${data.code ? ` (${data.code})` : ""}`
-            : "Could not save this plan yet.";
+        const errorText = `${data?.error || "Could not save this plan yet."}${data?.code ? ` (${data.code})` : ""}`;
         setSaveStatus(`Could not save plan: ${errorText}`);
         setSavingPlan(false);
         return "";

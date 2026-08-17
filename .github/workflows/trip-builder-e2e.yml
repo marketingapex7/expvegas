@@ -17,6 +17,12 @@ jobs:
           node-version: 22
           cache: npm
       - run: npm ci
+      # Lint and typecheck run before the build so a type or lint regression
+      # fails in seconds instead of after a full build and browser install.
+      # typecheck must precede the build: tsconfig includes .next/types, so it
+      # reads whatever the previous build left behind.
+      - run: npm run lint
+      - run: npm run typecheck
       - run: npx playwright install --with-deps chromium
       - run: npm run build
       - run: npm run test:e2e
