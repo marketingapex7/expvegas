@@ -3,7 +3,7 @@ import { goCityFlexibleAttractions } from "@/data/go-city-attractions";
 import { RestaurantMealPeriod, restaurants, VegasRestaurant } from "@/data/restaurants";
 import { VegasEvent } from "@/types/event";
 import { ItineraryBlock, ItineraryDay, PlannerInput } from "@/types/planner";
-import { mealLevelsFromText, ticketBandsFromText } from "@/lib/budget-preferences";
+import { PlannerPreferences, readPreferences } from "@/lib/planner-preferences";
 import { estimateVegasTravel } from "@/lib/vegas-logistics";
 import { isAgeRestrictedEvent, isHeadlineEvent, scoreEvent } from "@/lib/scoring";
 import { canonicalEventKey } from "@/lib/event-identity";
@@ -66,93 +66,39 @@ function formatDayLabel(date: string) {
   }).format(new Date(`${date}T00:00:00`));
 }
 
-function textFor(input: PlannerInput) {
-  return `${input.prompt || ""} ${input.groupType || ""} ${input.budget || ""} ${input.vibe || ""} ${
-    input.stayingNear || ""
-  } ${input.foodPreference || ""} ${input.mealBudget || ""} ${input.gamblingPreference || ""} ${
-    input.pace || ""
-  } ${input.logistics || ""} ${input.additionalDetails || ""
-  }`.toLowerCase();
-}
+function lodgingRecommendation(preferences: PlannerPreferences, event?: VegasEvent) {
+  // Lodging intent lives in the stay-area answer and in what the visitor typed,
+  // never in the gambling or pace answers. Reading the whole blob here meant
+  // "Casino atmosphere only" matched "atmo(sphere)" and "Sportsbook" matched
+  // "sports", so an answer about gambling rewrote the lodging advice.
+  const text = `${preferences.lodgingText} ${preferences.intentText}`;
+  const venue = event?.venueName.toLowerCase() || "";
 
-// Qualitative intent lives in what the visitor typed or picked as a vibe.
-// Quantitative fields (ticket budget, meal budget) are parsed as bands by
-// budget-preferences and must not leak keywords into intent flags: the ticket
-// chip "Under $100 per person" once set the free-focus flag through the word
-// "under" and silently deleted the paid attraction from every day.
-function intentTextFor(input: PlannerInput) {
-  return `${input.prompt || ""} ${input.vibe || ""} ${input.additionalDetails || ""}`.toLowerCase();
-}
-
-const FREE_FOCUS_PATTERN = /\b(free|cheap|no[- ]tickets?|budget[- ]friendly|on a budget|low[- ]cost)\b/;
-
-// "Flexible daytime stops" describes free daytime filler, not a daytime
-// headliner. Only an explicit daytime-event intent lowers the anchor floor
-// below the evening hours.
-const DAYTIME_ANCHOR_PATTERN = /\b(day ?club|day ?party|pool party|brunch|matinee|(daytime|afternoon) (show|event|party|headliner))\b/;
-
-function isFamilyGroup(input: PlannerInput) {
-  return (input.groupType || "").toLowerCase().includes("family");
-}
-
-function lodgingIsFlexible(input: PlannerInput) {
-  const lodging = `${input.stayingNear || ""} ${input.prompt || ""} ${input.additionalDetails || ""}`.toLowerCase();
-  return lodging.includes("not booked") || lodging.includes("haven't booked") || lodging.includes("havent booked");
-}
-
-function normalizedStayArea(input: PlannerInput) {
-  if (!input.stayingNear || lodgingIsFlexible(input)) return "";
-  return input.stayingNear.toLowerCase().replace("near ", "").replace(" / ", " ");
-}
-
-function lodgingRecommendation(input: PlannerInput, event?: VegasEvent) {
-  const text = textFor(input);
-
-  if (event?.venueName.toLowerCase().includes("t-mobile") || text.includes("sports") || text.includes("arena")) {
+  if (venue.includes("t-mobile") || /\b(sports|arena)\b/.test(text)) {
     return "Target lodging around Park MGM, NYNY, Aria, or Cosmopolitan so arena nights stay easy.";
   }
 
-  if (text.includes("sphere") || event?.venueName.toLowerCase().includes("sphere")) {
+  if (venue.includes("sphere") || /\bsphere\b/.test(text)) {
     return "Target lodging around Venetian, Palazzo, Wynn, or the north-center Strip for Sphere-friendly logistics.";
   }
 
-  if (text.includes("downtown") || text.includes("fremont")) {
+  if (/\b(downtown|fremont)\b/.test(text)) {
     return "Target Downtown/Fremont if you want cheaper rooms and late-night casino-hopping over Strip polish.";
   }
 
-  if (text.includes("family")) {
+  if (preferences.isFamily) {
     return "Target center Strip or south Strip so meals, attractions, and rideshares stay simple for the group.";
   }
 
   return "Target center Strip around Bellagio, Caesars, Cosmopolitan, or Paris for the easiest first-trip logistics.";
 }
 
-function budgetPreference(input: PlannerInput): PlanningStop["budget"] | undefined {
-  // The ticket-budget chip is a quantitative band. Parse it as one instead of
-  // keyword-matching the label, which read "Under $100 per person" as a
-  // request for value-tier everything. A mixed selection maps to its highest
-  // band, since the visitor has said they will pay that much for the right pick.
-  const bands = ticketBandsFromText(input.budget);
-  if (bands.length > 0) {
-    if (bands.includes("350-plus") || bands.includes("200-350")) return "premium";
-    if (bands.includes("100-200")) return "mid";
-    return "value";
-  }
-
-  const text = intentTextFor(input);
-  if (FREE_FOCUS_PATTERN.test(text) || text.includes("value") || text.includes("$50")) return "value";
-  if (text.includes("premium") || text.includes("splurge") || text.includes("worth it")) return "premium";
-  return "mid";
-}
-
-function scoreStop(stop: PlanningStop, input: PlannerInput) {
-  const text = textFor(input);
-  const preferredBudget = budgetPreference(input);
-  const stayArea = normalizedStayArea(input);
-  let score = stop.budget === preferredBudget ? 8 : 0;
+function scoreStop(stop: PlanningStop, preferences: PlannerPreferences) {
+  const { affinityText, stayArea } = preferences;
+  let score = stop.budget === preferences.budgetTier ? 8 : 0;
 
   for (const tag of stop.tags) {
-    if (text.includes(tag)) score += 5;
+    if (affinityText.includes(tag)) score += 5;
   }
 
   if (stayArea && stop.area.toLowerCase().includes(stayArea)) {
@@ -162,23 +108,21 @@ function scoreStop(stop: PlanningStop, input: PlannerInput) {
   return score;
 }
 
-function pickStop(stops: PlanningStop[], input: PlannerInput, offset: number) {
-  const ranked = [...stops].sort((a, b) => scoreStop(b, input) - scoreStop(a, input));
-  const requestText = textFor(input);
-  const explicitlyRequested = ranked.filter((stop) => requestText.includes(stop.name.toLowerCase()));
+function pickStop(stops: PlanningStop[], preferences: PlannerPreferences, offset: number) {
+  const ranked = [...stops].sort((a, b) => scoreStop(b, preferences) - scoreStop(a, preferences));
+  const explicitlyRequested = ranked.filter((stop) => preferences.affinityText.includes(stop.name.toLowerCase()));
   if (explicitlyRequested.length > 0) return explicitlyRequested[offset % explicitlyRequested.length];
   return ranked[offset % ranked.length];
 }
 
-function restaurantBudgetPreferences(input: PlannerInput): VegasRestaurant["priceLevel"][] {
-  const selectedLevels = mealLevelsFromText(input.mealBudget);
-  return selectedLevels.length > 0 ? selectedLevels : [budgetPreference(input) || "mid"];
+function restaurantBudgetPreferences(preferences: PlannerPreferences): VegasRestaurant["priceLevel"][] {
+  return preferences.mealLevels.length > 0 ? preferences.mealLevels : [preferences.budgetTier];
 }
 
-function scoreRestaurant(restaurant: VegasRestaurant, input: PlannerInput) {
-  const text = textFor(input);
-  const preferredBudgets = restaurantBudgetPreferences(input);
-  const stayArea = normalizedStayArea(input);
+function scoreRestaurant(restaurant: VegasRestaurant, preferences: PlannerPreferences) {
+  const text = preferences.affinityText;
+  const preferredBudgets = restaurantBudgetPreferences(preferences);
+  const stayArea = preferences.stayArea;
   const terms = [
     ...restaurant.cuisine,
     ...restaurant.categories,
@@ -203,9 +147,9 @@ function scoreRestaurant(restaurant: VegasRestaurant, input: PlannerInput) {
   return score;
 }
 
-function pickRestaurant(input: PlannerInput, offset: number, mealPeriod: RestaurantMealPeriod) {
+function pickRestaurant(preferences: PlannerPreferences, offset: number, mealPeriod: RestaurantMealPeriod) {
   const eligible = restaurants.filter((restaurant) => restaurant.mealTypes.includes(mealPeriod));
-  const ranked = [...eligible].sort((a, b) => scoreRestaurant(b, input) - scoreRestaurant(a, input));
+  const ranked = [...eligible].sort((a, b) => scoreRestaurant(b, preferences) - scoreRestaurant(a, preferences));
   return ranked[offset % ranked.length];
 }
 
@@ -235,27 +179,28 @@ function hourForEvent(event: VegasEvent) {
   return Number(event.localTime.split(":")[0]);
 }
 
-function eventMatchesIntent(event: VegasEvent, input: PlannerInput) {
-  const text = textFor(input);
+// A drag or brunch billing is a specific ask, so it anchors a day only when the
+// visitor asked for it. The signal is what they typed, not any chip label.
+function eventMatchesIntent(event: VegasEvent, preferences: PlannerPreferences) {
   const eventText = `${event.name} ${event.category} ${event.subcategory || ""} ${event.tags.join(" ")} ${event.quickVerdict}`.toLowerCase();
 
   if (eventText.includes("drag") || eventText.includes("brunch")) {
-    return text.includes("drag") || text.includes("brunch") || text.includes("lgbtq") || text.includes("lgbt");
+    return preferences.wantsAdultBrunch;
   }
 
   return true;
 }
 
 export function isGoodAnchorEvent(event: VegasEvent, input: PlannerInput, isArrivalDay = false) {
+  const preferences = readPreferences(input);
   const hour = hourForEvent(event);
-  const wantsDaytimeAnchor = DAYTIME_ANCHOR_PATTERN.test(intentTextFor(input));
 
   if (!isHeadlineEvent(event)) return false;
-  if (isFamilyGroup(input) && isAgeRestrictedEvent(event)) return false;
-  if (!eventMatchesIntent(event, input)) return false;
+  if (preferences.isFamily && isAgeRestrictedEvent(event)) return false;
+  if (!eventMatchesIntent(event, preferences)) return false;
   if (hour === undefined) return false;
   if (isArrivalDay) return hour >= 19;
-  if (wantsDaytimeAnchor) return hour >= 11;
+  if (preferences.daytimeAnchor) return hour >= 11;
 
   return hour >= 17;
 }
@@ -434,22 +379,27 @@ function formatList(values: string[]) {
   return `${values.slice(0, -1).join(", ")}, or ${values.at(-1)}`;
 }
 
-function buildBlocks(dayIndex: number, input: PlannerInput, mainEvent?: VegasEvent, eveningSuggestions?: VegasEvent[]): ItineraryBlock[] {
-  const attraction = pickStop(paidAttractionStops, input, dayIndex);
-  const freeExperience = pickStop(freeExperienceStops, input, dayIndex);
-  const secondFreeExperience = pickStop(freeExperienceStops, input, dayIndex + 3);
-  const standardDinner = pickRestaurant(input, dayIndex + 2, "dinner");
-  const lateNightDinner = pickRestaurant(input, dayIndex + 2, "late night");
-  const lunchRestaurant = pickRestaurant(input, dayIndex + 6, "lunch");
-  const casino = pickStop(casinoStops, input, dayIndex);
-  const text = textFor(input);
+function buildBlocks(
+  dayIndex: number,
+  input: PlannerInput,
+  preferences: PlannerPreferences,
+  mainEvent?: VegasEvent,
+  eveningSuggestions?: VegasEvent[],
+): ItineraryBlock[] {
+  const attraction = pickStop(paidAttractionStops, preferences, dayIndex);
+  const freeExperience = pickStop(freeExperienceStops, preferences, dayIndex);
+  const secondFreeExperience = pickStop(freeExperienceStops, preferences, dayIndex + 3);
+  const standardDinner = pickRestaurant(preferences, dayIndex + 2, "dinner");
+  const lateNightDinner = pickRestaurant(preferences, dayIndex + 2, "late night");
+  const lunchRestaurant = pickRestaurant(preferences, dayIndex + 6, "lunch");
+  const casino = pickStop(casinoStops, preferences, dayIndex);
   const isArrivalDay = dayIndex === 0;
-  const slowMorning = text.includes("slow morning");
-  const packed = text.includes("packed");
-  const noGambling = text.includes("no gambling");
-  const shoppingFocused = text.includes("shopping") || text.includes("shop");
-  const freeFocused = FREE_FOCUS_PATTERN.test(intentTextFor(input));
-  const flexibleLodging = lodgingIsFlexible(input);
+  const slowMorning = preferences.slowMornings;
+  const packed = preferences.packedSchedule;
+  const noGambling = preferences.avoidsGambling;
+  const shoppingFocused = preferences.shoppingFocus;
+  const freeFocused = preferences.freeFocus;
+  const flexibleLodging = preferences.lodgingIsFlexible;
   const mainEventStart = eventStartMinutes(mainEvent);
   const mainEventDuration = mainEvent?.runtimeMinutes || (mainEvent?.category === "sports" || mainEvent?.category === "concerts" ? 180 : 120);
   const standardDinnerLocation = standardDinner.venue || standardDinner.area;
@@ -590,7 +540,7 @@ function buildBlocks(dayIndex: number, input: PlannerInput, mainEvent?: VegasEve
       title: "Lodging target before you book",
       category: "free",
       location: mainEvent?.venueName || freeExperience.area,
-      description: lodgingRecommendation(input, mainEvent),
+      description: lodgingRecommendation(preferences, mainEvent),
       durationMinutes: 45,
     });
   }
@@ -675,6 +625,8 @@ function dayTheme(dayIndex: number, event?: VegasEvent) {
 export function buildItinerary({ plannerInput, startDate, endDate, rankedEvents, eveningSuggestions }: BuildItineraryInput): ItineraryDay[] {
   const dates = dateRange(startDate, endDate);
   const itineraryDates = dates.length > 0 ? dates : [new Date().toISOString().slice(0, 10)];
+  // Parsed once for the whole trip: the answers do not change between days.
+  const preferences = readPreferences(plannerInput);
 
   const usedEventKeys = new Set<string>();
   const usedVenueNames = new Set<string>();
@@ -690,7 +642,7 @@ export function buildItinerary({ plannerInput, startDate, endDate, rankedEvents,
       date,
       label: formatDayLabel(date),
       theme: dayTheme(index, mainEvent),
-      blocks: buildBlocks(index, plannerInput, mainEvent, eveningSuggestions),
+      blocks: buildBlocks(index, plannerInput, preferences, mainEvent, eveningSuggestions),
     };
   });
 }
