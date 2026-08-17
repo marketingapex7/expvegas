@@ -87,6 +87,12 @@ export type PlannerEventOption = {
 
 export type PlannerResponse = PlannerOutput & {
   bestPickName: string;
+  /**
+   * True only when the best pick is actually placed in the timed itinerary.
+   * With no confirmed showtime the pick stays a recommendation, and the plan
+   * must not describe itself as built around something it never scheduled.
+   */
+  bestPickScheduled?: boolean;
   backupPickNames: string[];
   partySize?: number;
   sourceSummary?: string;

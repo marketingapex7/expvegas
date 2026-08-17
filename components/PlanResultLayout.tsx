@@ -66,7 +66,14 @@ export function PlanResultLayout(props: PlanResultLayoutProps) {
               {dayCount > 1 ? `Your ${dayCount}-day Vegas game plan` : "Your Vegas game plan"}
             </h2>
             <p className="mt-3 max-w-3xl text-sm leading-6 text-zinc-600 sm:text-base">
-              Built around <strong className="text-zinc-900">{result.bestPickName}</strong>. {result.whyItFits}
+              {/* Only claim an anchor the itinerary actually contains. Without a
+                  confirmed showtime the pick is a suggestion, not the spine. */}
+              {result.bestPickScheduled ? (
+                <>Built around <strong className="text-zinc-900">{result.bestPickName}</strong>. </>
+              ) : (
+                <>The evenings are left open on purpose. </>
+              )}
+              {result.whyItFits}
             </p>
           </div>
           <div className="flex flex-wrap gap-2">
