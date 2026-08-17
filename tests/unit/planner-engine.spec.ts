@@ -1,6 +1,7 @@
 import { expect, test } from "vitest";
 import { buildItinerary, isGoodAnchorEvent, sanitizeSchedule } from "@/lib/itinerary-engine";
 import { generatePlannerResponse, plannerInventoryEndDate } from "@/lib/planner-service";
+import { plannerResponseSchema } from "@/lib/planner-validation";
 import { VegasEvent } from "@/types/event";
 
 function event(overrides: Partial<VegasEvent>): VegasEvent {
@@ -475,4 +476,60 @@ test("venue variety does not replace a materially stronger event", () => {
 
   const anchors = days.flatMap((day) => day.blocks).filter((block) => block.category === "event");
   expect(anchors.map((block) => block.location)).toEqual(["Bellagio", "Bellagio"]);
+});
+
+test("a plan with no scheduled anchor does not present itself as built around one", async () => {
+  const configuredKey = process.env.TICKETMASTER_API_KEY;
+  delete process.env.TICKETMASTER_API_KEY;
+
+  try {
+    const result = await generatePlannerResponse({
+      travelDates: "2026-08-03 to 2026-08-05",
+      partySize: 2,
+      vibe: "classic Vegas show",
+    });
+    const scheduled = result.itineraryDays?.flatMap((day) => day.blocks).filter((block) => block.category === "event") || [];
+
+    // Curated picks carry no verified showtime, so none of them may be placed
+    // as a timed anchor.
+    expect(scheduled).toHaveLength(0);
+    // bestPickName stays a useful recommendation. The flag is what the layout
+    // keys its "Built around X" claim off, so it has to track the itinerary
+    // rather than the ranking.
+    expect(result.bestPickName).toBeTruthy();
+    expect(result.bestPickScheduled).toBe(false);
+  } finally {
+    if (configuredKey) process.env.TICKETMASTER_API_KEY = configuredKey;
+  }
+});
+
+test("a scheduled anchor is reported as scheduled", async () => {
+  const configuredKey = process.env.TICKETMASTER_API_KEY;
+  delete process.env.TICKETMASTER_API_KEY;
+
+  try {
+    const result = await generatePlannerResponse({ travelDates: "2026-08-03 to 2026-08-05", partySize: 2 });
+    const scheduled = result.itineraryDays?.flatMap((day) => day.blocks).filter((block) => block.category === "event") || [];
+    // The flag and the itinerary must never disagree in either direction.
+    expect(result.bestPickScheduled).toBe(scheduled.length > 0);
+  } finally {
+    if (configuredKey) process.env.TICKETMASTER_API_KEY = configuredKey;
+  }
+});
+
+test("the scheduled-anchor flag survives being saved and reloaded", async () => {
+  const configuredKey = process.env.TICKETMASTER_API_KEY;
+  delete process.env.TICKETMASTER_API_KEY;
+
+  try {
+    const result = await generatePlannerResponse({ travelDates: "2026-08-03 to 2026-08-05", partySize: 2 });
+    // Saving validates through this schema, and zod drops keys it does not
+    // declare. An undeclared flag would round-trip to undefined, and a plan
+    // opened from a share link would quietly go back to overclaiming.
+    const parsed = plannerResponseSchema.parse(result);
+    expect(parsed.bestPickScheduled).toBe(result.bestPickScheduled);
+    expect(parsed.bestPickScheduled).toBeTypeOf("boolean");
+  } finally {
+    if (configuredKey) process.env.TICKETMASTER_API_KEY = configuredKey;
+  }
 });

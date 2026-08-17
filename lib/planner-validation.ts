@@ -81,6 +81,7 @@ export const plannerResponseSchema = z.object({
   headline: z.string().max(500),
   bestPickId: z.string().max(300),
   bestPickName: z.string().max(300),
+  bestPickScheduled: z.boolean().optional(),
   whyItFits: z.string().max(3_000),
   timeline: z.array(z.object({ time: z.string().max(40), title: z.string().max(300), description: z.string().max(2_000).optional() })).max(30),
   backupPickIds: z.array(z.string().max(300)).max(20),

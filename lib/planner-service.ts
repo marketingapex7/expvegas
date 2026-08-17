@@ -169,6 +169,7 @@ export async function generatePlannerResponse(input: PlannerInput): Promise<Plan
     headline: hasLiveScheduledAnchor ? "Your Vegas Plan From Live Events" : "Your Vegas Plan",
     bestPickId: best.id,
     bestPickName: best.name,
+    bestPickScheduled: Boolean(scheduledAnchor),
     whyItFits: buildWhyItFits(best, input, liveHeadlineCount),
     timeline: anchorDay.blocks.map((block) => ({ time: block.time, title: block.title, description: block.description })),
     backupPickIds: backups.map((event) => event.id),
