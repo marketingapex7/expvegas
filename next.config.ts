@@ -8,11 +8,14 @@ const contentSecurityPolicy = [
   "form-action 'self'",
   "frame-ancestors 'none'",
   "object-src 'none'",
-  `script-src 'self' 'unsafe-inline'${developmentScriptPolicy}`,
+  // googletagmanager.com is allowed so the GTM container can load when
+  // NEXT_PUBLIC_GTM_ID is set. Vercel Analytics needs no allowance: it is
+  // served and beaconed from this origin under /_vercel/insights.
+  `script-src 'self' 'unsafe-inline' https://www.googletagmanager.com${developmentScriptPolicy}`,
   "style-src 'self' 'unsafe-inline'",
   "img-src 'self' data: blob: https:",
   "font-src 'self' data:",
-  "connect-src 'self' ws: wss:",
+  "connect-src 'self' ws: wss: https://www.googletagmanager.com https://*.google-analytics.com https://*.analytics.google.com",
   "media-src 'self' https:",
   "worker-src 'self' blob:",
   "manifest-src 'self'",

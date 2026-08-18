@@ -5,6 +5,8 @@ import { Footer } from "@/components/Footer";
 import { TripSelectionProvider } from "@/components/TripSelectionProvider";
 import { TripTray } from "@/components/TripTray";
 import { JsonLd } from "@/components/JsonLd";
+import { GoogleTagManager } from "@/components/GoogleTagManager";
+import { Analytics } from "@vercel/analytics/next";
 
 export const metadata: Metadata = {
   metadataBase: new URL(process.env.NEXT_PUBLIC_SITE_URL || "https://experiencevegas.com"),
@@ -40,6 +42,7 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
   return (
     <html lang="en">
       <body className="min-h-screen pb-24 antialiased md:pb-28">
+        <GoogleTagManager />
         <JsonLd data={{
           "@context": "https://schema.org",
           "@graph": [
@@ -64,6 +67,7 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
           <Footer />
           <TripTray />
         </TripSelectionProvider>
+        <Analytics />
       </body>
     </html>
   );
